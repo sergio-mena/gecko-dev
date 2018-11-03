@@ -21,6 +21,7 @@ namespace webrtc {
 namespace rtcp {
 class CommonHeader;
 
+//TODO FB message must be sibling of this class
 class TransportFeedback : public Rtpfb {
  public:
   // TODO(sprang): IANA reg?
