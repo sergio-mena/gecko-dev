@@ -162,6 +162,8 @@ void RemoteEstimatorProxy::OnPacketArrival(uint16_t sequence_number,
 
 bool RemoteEstimatorProxy::BuildFeedbackPacket(
     rtcp::TransportFeedback* feedback_packet) {
+  //TODO(drno): this is wher CCFeedbackHeader::Serialize() needs to happen
+
   // window_start_seq_ is the first sequence number to include in the current
   // feedback packet. Some older may still be in the map, in case a reordering
   // happens and we need to retransmit them.
@@ -201,6 +203,38 @@ bool RemoteEstimatorProxy::BuildFeedbackPacket(
   }
 
   return true;
+}
+
+RemoteEstimatorProxy2::RemoteEstimatorProxy2(Clock* clock,
+                                             PacketRouter* packet_router)
+    : RemoteEstimatorProxy(clock, packet_router) {}
+
+RemoteEstimatorProxy2::~RemoteEstimatorProxy2() {}
+
+void RemoteEstimatorProxy2::IncomingPacket(int64_t arrival_time_ms,
+                                           size_t payload_size,
+                                           const RTPHeader& header) {
+    /* TODO(drno): where would we get ECN from? 
+    if (ecn > 0x03) {
+        return CCFB_BAD_ECN;
+    }
+    */
+    auto& rb = m_reportBlocks[ssrc];
+    if (rb.find (seq) != rb.end ()) {
+        return;
+    }
+    auto& mb = rb[seq];
+    mb.m_timestampUs = arrival_time_ms;
+    //mb.m_ecn = ecn;
+    if (!UpdateLength ()) {
+        rb.erase (seq);
+        if (rb.empty ()) {
+            m_reportBlocks.erase (ssrc);
+        }
+        return;
+    }
+    m_latestTsUs = std::max (m_latestTsUs, timestampUs);
+    return;
 }
 
 }  // namespace webrtc

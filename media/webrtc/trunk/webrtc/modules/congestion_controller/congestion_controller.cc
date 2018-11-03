@@ -28,6 +28,8 @@
 namespace webrtc {
 namespace {
 
+constexpr bool ietf_hackathon = true;  //TODO: Make this configurable
+
 static const uint32_t kTimeOffsetSwitchThreshold = 30;
 static const int64_t kRetransmitWindowSizeMs = 500;
 
@@ -184,6 +186,7 @@ CongestionController::CongestionController(
       retransmission_rate_limiter_(
           new RateLimiter(clock, kRetransmitWindowSizeMs)),
       remote_estimator_proxy_(clock_, packet_router_),
+	  remote_estimator_proxy2_(clock_, packet_router_),
       transport_feedback_adapter_(clock_, bitrate_controller_.get()),
       min_bitrate_bps_(congestion_controller::GetMinBitrateBps()),
       max_bitrate_bps_(0),
@@ -201,6 +204,11 @@ void CongestionController::OnReceivedPacket(int64_t arrival_time_ms,
                                             size_t payload_size,
                                             const RTPHeader& header) {
   // Send-side BWE.
+  if (ietf_hackathon) {
+    remote_estimator_proxy2_.IncomingPacket(arrival_time_ms, payload_size,
+              header);
+    return;
+  }
   if (header.extension.hasTransportSequenceNumber) {
     remote_estimator_proxy_.IncomingPacket(arrival_time_ms, payload_size,
                                            header);
@@ -261,6 +269,9 @@ BitrateController* CongestionController::GetBitrateController() const {
 RemoteBitrateEstimator* CongestionController::GetRemoteBitrateEstimator(
     bool send_side_bwe) {
   if (send_side_bwe) {
+    if (ietf_hackathon) {
+      return &remote_estimator_proxy2_;
+    }
     return &remote_estimator_proxy_;
   } else {
     return remote_bitrate_estimator_.get();
@@ -362,6 +373,7 @@ void CongestionController::MaybeTriggerOnNetworkChanged() {
         bitrate_bps, fraction_loss, rtt,
         transport_feedback_adapter_.GetProbingIntervalMs());
     remote_estimator_proxy_.OnBitrateChanged(bitrate_bps);
+    remote_estimator_proxy2_.OnBitrateChanged(bitrate_bps);
   }
 }
 

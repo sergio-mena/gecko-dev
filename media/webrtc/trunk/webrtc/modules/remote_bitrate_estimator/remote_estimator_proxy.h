@@ -74,6 +74,65 @@ class RemoteEstimatorProxy : public RemoteBitrateEstimator {
   int64_t send_interval_ms_ GUARDED_BY(&lock_);
 };
 
+class RemoteEstimatorProxy2 : public RemoteEstimatorProxy {
+ public:
+  RemoteEstimatorProxy2(Clock* clock, PacketRouter* packet_router);
+  virtual ~RemoteEstimatorProxy2();
+
+  /*
+  void IncomingPacketFeedbackVector(
+      const std::vector<PacketInfo>& packet_feedback_vector) override;
+  void IncomingPacket(int64_t arrival_time_ms,
+                      size_t payload_size,
+                      const RTPHeader& header) override;
+  void RemoveStream(uint32_t ssrc) override {}
+  bool LatestEstimate(std::vector<unsigned int>* ssrcs,
+                      unsigned int* bitrate_bps) const override;
+  void OnRttUpdate(int64_t avg_rtt_ms, int64_t max_rtt_ms) override {}
+  void SetMinBitrate(int min_bitrate_bps) override {}
+  int64_t TimeUntilNextProcess() override;
+  void Process() override;
+  void OnBitrateChanged(int bitrate);
+
+  static const int kMinSendIntervalMs;
+  static const int kMaxSendIntervalMs;
+  static const int kDefaultSendIntervalMs;
+  static const int kBackWindowMs;
+
+ private:
+  void OnPacketArrival(uint16_t sequence_number, int64_t arrival_time)
+      EXCLUSIVE_LOCKS_REQUIRED(&lock_);
+  bool BuildFeedbackPacket(rtcp::TransportFeedback* feedback_packet);
+
+  Clock* const clock_;
+  PacketRouter* const packet_router_;
+  int64_t last_process_time_ms_;
+
+  rtc::CriticalSection lock_;
+
+  uint32_t media_ssrc_ GUARDED_BY(&lock_);
+  uint8_t feedback_sequence_ GUARDED_BY(&lock_);
+  SequenceNumberUnwrapper unwrapper_ GUARDED_BY(&lock_);
+  int64_t window_start_seq_ GUARDED_BY(&lock_);
+  // Map unwrapped seq -> time.
+  std::map<int64_t, int64_t> packet_arrival_times_ GUARDED_BY(&lock_);
+  int64_t send_interval_ms_ GUARDED_BY(&lock_);
+*/
+  class MetricBlock
+    {
+    public:
+        static constexpr uint16_t m_overrange = 0x1FFE;
+        static constexpr uint16_t m_unavailable = 0x1FFF;
+        uint8_t m_ecn;
+        uint64_t m_timestampUs;
+        uint16_t m_ato;
+    };
+
+  typedef std::map<uint16_t /* sequence */, MetricBlock> ReportBlock_t;
+
+ private:
+  std::map<uint32_t /* SSRC */, ReportBlock_t> m_reportBlocks;
+};
 }  // namespace webrtc
 
 #endif  //  WEBRTC_MODULES_REMOTE_BITRATE_ESTIMATOR_REMOTE_ESTIMATOR_PROXY_H_
