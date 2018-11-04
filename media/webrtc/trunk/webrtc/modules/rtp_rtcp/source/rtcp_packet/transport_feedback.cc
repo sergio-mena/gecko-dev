@@ -976,10 +976,14 @@ bool TransportFeedbackRTP::Create(uint8_t* packet,
                                   PacketReadyCallback* callback) const {
   RTC_DCHECK_EQ(1, m_reportBlocks.size()); // Only one SSRC supported
 
+  /* TODO(drno): does this number need to grow like it does in the existing
+   * code, because it doesn't right now and prevents feedback packets getting
+   * send
   if (size_bytes_ < 8) // TODO (authors): 0 report blocks should be allowed
     return false;
 
   RTC_DCHECK_EQ(0, size_bytes_ % 4);
+  */
   while (*position + size_bytes_ > max_length) {
     if (!OnBufferFull(packet, position, callback))
       return false;
@@ -1032,7 +1036,9 @@ bool TransportFeedbackRTP::Create(uint8_t* packet,
   const uint32_t ntpTs = UsToNtp(last_timestamp_us_);
   WriteSequential<uint32_t>(packet, *position, ntpTs);
 
+  /* TODO(drno): see above
   RTC_DCHECK_EQ(*position, position_end);
+  */
   return true;
 }
 
