@@ -1122,6 +1122,7 @@ const char* SdpRtcpFbAttributeList::pli = "pli";
 const char* SdpRtcpFbAttributeList::sli = "sli";
 const char* SdpRtcpFbAttributeList::rpsi = "rpsi";
 const char* SdpRtcpFbAttributeList::app = "app";
+const char* SdpRtcpFbAttributeList::ccfb = "ccfb";
 
 const char* SdpRtcpFbAttributeList::fir = "fir";
 const char* SdpRtcpFbAttributeList::tmmbr = "tmmbr";

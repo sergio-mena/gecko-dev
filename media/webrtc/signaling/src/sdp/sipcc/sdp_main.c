@@ -515,7 +515,8 @@ const sdp_namearray_t sdp_rtcp_fb_nack_type_val[SDP_MAX_RTCP_FB_NACK] =
 const sdp_namearray_t sdp_rtcp_fb_ack_type_val[SDP_MAX_RTCP_FB_ACK] =
 {
     SDP_NAME("rpsi"),
-    SDP_NAME("app")
+    SDP_NAME("app"),
+    SDP_NAME("ccfb")
 };
 
 /* Maintain the same order as defined in typdef sdp_rtcp_fb_ccm_type_e */

@@ -236,6 +236,7 @@ class JsepVideoCodecDescription : public JsepCodecDescription {
         mTmmbrEnabled(false),
         mRembEnabled(false),
         mFECEnabled(false),
+        mCcfbEnabled(false),
         mREDPayloadType(0),
         mULPFECPayloadType(0),
         mProfileLevelId(0),
@@ -245,6 +246,14 @@ class JsepVideoCodecDescription : public JsepCodecDescription {
     mNackFbTypes.push_back("");
     mNackFbTypes.push_back(SdpRtcpFbAttributeList::pli);
     mCcmFbTypes.push_back(SdpRtcpFbAttributeList::fir);
+  }
+
+  virtual void
+  EnableCcfb() {
+    if (!mCcfbEnabled) {
+      mCcfbEnabled = true;
+      mAckFbTypes.push_back(SdpRtcpFbAttributeList::ccfb);
+    }
   }
 
   virtual void
@@ -743,6 +752,7 @@ class JsepVideoCodecDescription : public JsepCodecDescription {
   bool mTmmbrEnabled;
   bool mRembEnabled;
   bool mFECEnabled;
+  bool mCcfbEnabled;
   uint8_t mREDPayloadType;
   uint8_t mULPFECPayloadType;
   std::vector<uint8_t> mRedundantEncodings;
