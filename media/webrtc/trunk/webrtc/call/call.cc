@@ -1150,6 +1150,7 @@ PacketReceiver::DeliveryStatus Call::DeliverRtp(MediaType media_type,
       rtc::Optional<RtpPacketReceived> parsed_packet =
           ParseRtpPacket(packet, length, packet_time);
       if (parsed_packet) {
+        NotifyBweOfReceivedPacket(*parsed_packet);
         auto it_bounds = flexfec_receive_ssrcs_media_.equal_range(ssrc);
         for (auto it = it_bounds.first; it != it_bounds.second; ++it)
           it->second->AddAndProcessReceivedPacket(*parsed_packet);
