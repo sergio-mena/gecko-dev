@@ -186,7 +186,7 @@ CongestionController::CongestionController(
       retransmission_rate_limiter_(
           new RateLimiter(clock, kRetransmitWindowSizeMs)),
       remote_estimator_proxy_(clock_, packet_router_),
-	  remote_estimator_proxy2_(clock_, packet_router_),
+      remote_estimator_proxy2_(clock_, packet_router_),
       transport_feedback_adapter_(clock_, bitrate_controller_.get()),
       min_bitrate_bps_(congestion_controller::GetMinBitrateBps()),
       max_bitrate_bps_(0),
@@ -206,7 +206,7 @@ void CongestionController::OnReceivedPacket(int64_t arrival_time_ms,
   // Send-side BWE.
   if (ietf_hackathon) {
     remote_estimator_proxy2_.IncomingPacket(arrival_time_ms, payload_size,
-              header);
+                                            header);
     return;
   }
   if (header.extension.hasTransportSequenceNumber) {
@@ -372,8 +372,12 @@ void CongestionController::MaybeTriggerOnNetworkChanged() {
     observer_->OnNetworkChanged(
         bitrate_bps, fraction_loss, rtt,
         transport_feedback_adapter_.GetProbingIntervalMs());
-    remote_estimator_proxy_.OnBitrateChanged(bitrate_bps);
-    remote_estimator_proxy2_.OnBitrateChanged(bitrate_bps);
+
+    if (ietf_hackathon) {
+      remote_estimator_proxy2_.OnBitrateChanged(bitrate_bps);
+    } else {
+      remote_estimator_proxy_.OnBitrateChanged(bitrate_bps);
+    }
   }
 }
 

@@ -351,6 +351,9 @@ bool RTCPReceiver::ParseCompoundPacket(const uint8_t* packet_begin,
           case rtcp::TransportFeedback::kFeedbackMessageType:
             HandleTransportFeedback(rtcp_block, packet_information);
             break;
+          case rtcp::TransportFeedbackRTP::kFeedbackMessageType:
+            HandleTransportFeedbackRTP(rtcp_block, packet_information);
+            break;
           default:
             ++num_skipped_packets_;
             break;
@@ -942,6 +945,20 @@ void RTCPReceiver::HandleTransportFeedback(
   packet_information->transport_feedback = std::move(transport_feedback);
 }
 
+void RTCPReceiver::HandleTransportFeedbackRTP(
+    const CommonHeader& rtcp_block,
+    PacketInformation* packet_information) {
+  std::unique_ptr<rtcp::TransportFeedbackRTP> transport_feedback(
+      new rtcp::TransportFeedbackRTP());
+  if (!transport_feedback->Parse(rtcp_block)) {
+    ++num_skipped_packets_;
+    return;
+  }
+
+  packet_information->packet_type_flags |= kRtcpTransportFeedbackRTP;
+  packet_information->transport_feedback = std::move(transport_feedback);
+}
+
 void RTCPReceiver::UpdateTmmbr() {
   // Find bounding set.
   std::vector<rtcp::TmmbItem> bounding =
@@ -1044,7 +1061,7 @@ void RTCPReceiver::TriggerCallbacksFromRtcpPacket(
   }
 
   if (transport_feedback_observer_ &&
-      (packet_information.packet_type_flags & kRtcpTransportFeedback)) {
+      (packet_information.packet_type_flags & (kRtcpTransportFeedback | kRtcpTransportFeedbackRTP))) {
     uint32_t media_source_ssrc =
         packet_information.transport_feedback->media_ssrc();
     if (media_source_ssrc == local_ssrc ||

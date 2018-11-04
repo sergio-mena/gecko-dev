@@ -1237,6 +1237,18 @@ bool RTCPUtility::RTCPParserV2::ParseFBCommon(const RtcpCommonHeader& header) {
             // Note: No state transition, SR REQ is empty!
             return true;
         }
+        case 14: {
+          rtcp_packet_ =
+              rtcp::TransportFeedbackRTP::ParseFrom(_ptrRTCPData - 12, length);
+          // Since we parse the whole packet here, keep the TopLevel state and
+          // just end the current block.
+          EndCurrentBlock();
+          if (rtcp_packet_.get()) {
+            _packetType = RTCPPacketTypes::kTransportFeedbackRTP;
+            return true;
+          }
+          break;
+        }
         case 15: {
           rtcp_packet_ =
               rtcp::TransportFeedback::ParseFrom(_ptrRTCPData - 12, length);
