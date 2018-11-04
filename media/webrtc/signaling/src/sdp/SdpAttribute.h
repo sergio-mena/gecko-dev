@@ -1085,6 +1085,7 @@ public:
   static const char* sli;
   static const char* rpsi;
   static const char* app;
+  static const char* ccfb;
 
   static const char* fir;
   static const char* tmmbr;

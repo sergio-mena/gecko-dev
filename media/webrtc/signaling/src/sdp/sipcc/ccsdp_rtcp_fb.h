@@ -38,6 +38,7 @@ typedef enum {
     SDP_RTCP_FB_ACK_NOT_FOUND = -1,
     SDP_RTCP_FB_ACK_RPSI = 0,
     SDP_RTCP_FB_ACK_APP,
+    SDP_RTCP_FB_ACK_CCFB,
     SDP_MAX_RTCP_FB_ACK,
     SDP_RTCP_FB_ACK_UNKNOWN
 } sdp_rtcp_fb_ack_type_e;
