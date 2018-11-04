@@ -57,11 +57,11 @@ class RtcpPacketParser {
   class PacketCounter : public TypedRtcpPacket {
    public:
     int num_packets() const { return num_packets_; }
-    void Parse(const rtcp::CommonHeader& header) {
+    void ParseH(const rtcp::CommonHeader& header) {
       if (TypedRtcpPacket::Parse(header))
         ++num_packets_;
     }
-    void Parse(const rtcp::CommonHeader& header, uint32_t* sender_ssrc) {
+    void ParseH(const rtcp::CommonHeader& header, uint32_t* sender_ssrc) {
       if (TypedRtcpPacket::Parse(header)) {
         ++num_packets_;
         if (*sender_ssrc == 0)  // Use first sender ssrc in compound packet.

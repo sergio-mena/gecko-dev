@@ -392,16 +392,28 @@ EventLogAnalyzer::EventLogAnalyzer(const ParsedRtcEventLog& log)
           for (const uint8_t* block = packet; block < packet_end;
                block = header.NextPacket()) {
             RTC_CHECK(header.Parse(block, packet_end - block));
-            if (header.type() == rtcp::TransportFeedback::kPacketType &&
-                header.fmt() == rtcp::TransportFeedback::kFeedbackMessageType) {
-              std::unique_ptr<rtcp::TransportFeedback> rtcp_packet(
-                  new rtcp::TransportFeedback());
-              if (rtcp_packet->Parse(header)) {
-                uint32_t ssrc = rtcp_packet->sender_ssrc();
-                StreamId stream(ssrc, direction);
-                uint64_t timestamp = parsed_log_.GetTimestamp(i);
-                rtcp_packets_[stream].push_back(LoggedRtcpPacket(
-                    timestamp, kRtcpTransportFeedback, std::move(rtcp_packet)));
+            if (header.type() == rtcp::TransportFeedback::kPacketType) {
+              if(header.fmt() == rtcp::TransportFeedback::kFeedbackMessageType) {
+                std::unique_ptr<rtcp::TransportFeedback> rtcp_packet(
+                    new rtcp::TransportFeedback());
+                if (rtcp_packet->Parse(header)) {
+                  uint32_t ssrc = rtcp_packet->sender_ssrc();
+                  StreamId stream(ssrc, direction);
+                  uint64_t timestamp = parsed_log_.GetTimestamp(i);
+                  rtcp_packets_[stream].push_back(LoggedRtcpPacket(
+                      timestamp, kRtcpTransportFeedback, std::move(rtcp_packet)));
+                }
+              }
+              if (header.fmt() == rtcp::TransportFeedbackRTP::kFeedbackMessageType) {
+                std::unique_ptr<rtcp::TransportFeedbackRTP> rtcp_packet(
+                    new rtcp::TransportFeedbackRTP());
+                if (rtcp_packet->Parse(header)) {
+                  uint32_t ssrc = rtcp_packet->sender_ssrc();
+                  StreamId stream(ssrc, direction);
+                  uint64_t timestamp = parsed_log_.GetTimestamp(i);
+                  rtcp_packets_[stream].push_back(LoggedRtcpPacket(
+                      timestamp, kRtcpTransportFeedbackRTP, std::move(rtcp_packet)));
+                }
               }
             }
           }
@@ -990,10 +1002,15 @@ void EventLogAnalyzer::CreateBweSimulationGraph(Plot* plot) {
     if (clock.TimeInMicroseconds() >= NextRtcpTime()) {
       RTC_DCHECK_EQ(clock.TimeInMicroseconds(), NextRtcpTime());
       const LoggedRtcpPacket& rtcp = *rtcp_iterator->second;
-      if (rtcp.type == kRtcpTransportFeedback) {
+      if (rtcp.type == kRtcpTransportFeedback || rtcp.type == kRtcpTransportFeedbackRTP) {
         TransportFeedbackObserver* observer = cc.GetTransportFeedbackObserver();
-        observer->OnTransportFeedback(*static_cast<rtcp::TransportFeedback*>(
-            rtcp.packet.get()));
+        if (rtcp.type == kRtcpTransportFeedback) {
+          observer->OnTransportFeedback(*static_cast<rtcp::TransportFeedback*>(
+              rtcp.packet.get()));
+        } else {
+          observer->OnTransportFeedback(*static_cast<rtcp::TransportFeedbackRTP*>(
+              rtcp.packet.get()));
+        }
         std::vector<PacketInfo> feedback =
             observer->GetTransportFeedbackVector();
         rtc::Optional<uint32_t> bitrate_bps;
@@ -1126,9 +1143,14 @@ void EventLogAnalyzer::CreateNetworkDelayFeedbackGraph(Plot* plot) {
     if (clock.TimeInMicroseconds() >= NextRtcpTime()) {
       RTC_DCHECK_EQ(clock.TimeInMicroseconds(), NextRtcpTime());
       const LoggedRtcpPacket& rtcp = *rtcp_iterator->second;
-      if (rtcp.type == kRtcpTransportFeedback) {
-        feedback_adapter.OnTransportFeedback(
-            *static_cast<rtcp::TransportFeedback*>(rtcp.packet.get()));
+      if (rtcp.type == kRtcpTransportFeedback || rtcp.type == kRtcpTransportFeedbackRTP) {
+        if (rtcp.type == kRtcpTransportFeedback) {
+          feedback_adapter.OnTransportFeedback(
+              *static_cast<rtcp::TransportFeedback*>(rtcp.packet.get()));
+        } else {
+          feedback_adapter.OnTransportFeedback(
+              *static_cast<rtcp::TransportFeedbackRTP*>(rtcp.packet.get()));
+        }
         std::vector<PacketInfo> feedback =
           feedback_adapter.GetTransportFeedbackVector();
         for (const PacketInfo& packet : feedback) {

@@ -13,6 +13,7 @@
 
 #include <memory>
 #include <vector>
+#include <map>
 
 #include "webrtc/base/constructormagic.h"
 #include "webrtc/modules/rtp_rtcp/source/rtcp_packet/rtpfb.h"
@@ -21,7 +22,6 @@ namespace webrtc {
 namespace rtcp {
 class CommonHeader;
 
-//TODO FB message must be sibling of this class
 class TransportFeedback : public Rtpfb {
  public:
   // TODO(sprang): IANA reg?
@@ -38,7 +38,7 @@ class TransportFeedback : public Rtpfb {
                int64_t ref_timestamp_us);  // Reference timestamp for this msg.
   void SetFeedbackSequenceNumber(uint8_t feedback_sequence);
   // NOTE: This method requires increasing sequence numbers (excepting wraps).
-  bool AddReceivedPacket(uint16_t sequence_number, int64_t timestamp_us);
+  virtual bool AddReceivedPacket(uint16_t sequence_number, int64_t timestamp_us);
 
   enum class StatusSymbol {
     kNotReceived,
@@ -47,21 +47,21 @@ class TransportFeedback : public Rtpfb {
   };
 
   uint16_t GetBaseSequence() const;
-  std::vector<TransportFeedback::StatusSymbol> GetStatusVector() const;
-  std::vector<int16_t> GetReceiveDeltas() const;
+  virtual std::vector<TransportFeedback::StatusSymbol> GetStatusVector() const;
+  virtual std::vector<int16_t> GetReceiveDeltas() const;
 
   // Get the reference time in microseconds, including any precision loss.
   int64_t GetBaseTimeUs() const;
   // Convenience method for getting all deltas as microseconds. The first delta
   // is relative the base time.
-  std::vector<int64_t> GetReceiveDeltasUs() const;
+  virtual std::vector<int64_t> GetReceiveDeltasUs() const;
 
-  bool Parse(const CommonHeader& packet);
+  virtual bool Parse(const CommonHeader& packet);
   static std::unique_ptr<TransportFeedback> ParseFrom(const uint8_t* buffer,
                                                       size_t length);
   // Pre and postcondition for all public methods. Should always return true.
   // This function is for tests.
-  bool IsConsistent() const;
+  virtual bool IsConsistent() const;
 
  protected:
   bool Create(uint8_t* packet,
@@ -70,6 +70,13 @@ class TransportFeedback : public Rtpfb {
               PacketReadyCallback* callback) const override;
 
   size_t BlockLength() const override;
+
+  // Reset packet to consistent empty state.
+  virtual void Clear();
+
+  size_t size_bytes_;
+  int32_t base_time_ticks_;
+  int64_t last_timestamp_us_;
 
  private:
   // Size in bytes of a delta time in rtcp packet.
@@ -84,25 +91,69 @@ class TransportFeedback : public Rtpfb {
     int16_t delta_ticks;
   };
 
-  // Reset packet to consistent empty state.
-  void Clear();
-
   bool AddDeltaSize(DeltaSize delta_size);
 
   uint16_t base_seq_no_;
   uint16_t num_seq_no_;
-  int32_t base_time_ticks_;
   uint8_t feedback_seq_;
 
-  int64_t last_timestamp_us_;
   std::vector<ReceivedPacket> packets_;
   // All but last encoded packet chunks.
   std::vector<uint16_t> encoded_chunks_;
   const std::unique_ptr<LastChunk> last_chunk_;
-  size_t size_bytes_;
 
   RTC_DISALLOW_COPY_AND_ASSIGN(TransportFeedback);
 };
+
+//TODO There should be an abstract class with both classes as subclasses
+class TransportFeedbackRTP : public TransportFeedback {
+public:
+  // TODO(semena): IANA reg?
+  static constexpr uint8_t kFeedbackMessageType = 14;
+
+  class MetricBlock {
+    public:
+      static constexpr uint16_t m_overrange = 0x1FFE;
+      static constexpr uint16_t m_unavailable = 0x1FFF;
+      uint8_t m_ecn;
+      uint64_t m_timestampUs;
+      uint16_t m_ato;
+    };
+
+  typedef std::map<uint16_t /* sequence */, MetricBlock> ReportBlock_t;
+
+  TransportFeedbackRTP();
+  ~TransportFeedbackRTP() override;
+
+  bool AddReceivedPacket(uint16_t sequence_number, int64_t timestamp_us) override;
+  std::vector<TransportFeedback::StatusSymbol> GetStatusVector() const override;
+  std::vector<int16_t> GetReceiveDeltas() const override;
+  std::vector<int64_t> GetReceiveDeltasUs() const override;
+
+  bool Parse(const CommonHeader& packet) override;
+  static std::unique_ptr<TransportFeedbackRTP> ParseFrom(const uint8_t* buffer,
+                                                         size_t length);
+  bool IsConsistent() const override;
+
+protected:
+  bool Create(uint8_t* packet,
+              size_t* position,
+              size_t max_length,
+              PacketReadyCallback* callback) const override;
+
+  void Clear() override;
+  static std::pair<uint16_t, uint16_t> CalculateBeginStopSeq(const ReportBlock_t& rb);
+  static uint64_t NtpToUs(uint32_t ntp);
+  static uint32_t UsToNtp(uint64_t tsUs);
+  static uint16_t NtpToAto(uint32_t ntp, uint32_t ntpRef);
+  static uint32_t AtoToNtp(uint16_t ato, uint32_t ntpRef);
+  bool UpdateLength();
+ private:
+  std::map<uint32_t /* SSRC */, ReportBlock_t> m_reportBlocks;
+
+  RTC_DISALLOW_COPY_AND_ASSIGN(TransportFeedbackRTP);
+};
+
 
 }  // namespace rtcp
 }  // namespace webrtc

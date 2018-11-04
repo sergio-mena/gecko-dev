@@ -218,6 +218,10 @@ class RTCPReceiver {
                                PacketInformation* packet_information)
       EXCLUSIVE_LOCKS_REQUIRED(rtcp_receiver_lock_);
 
+  void HandleTransportFeedbackRTP(const rtcp::CommonHeader& rtcp_block,
+                                  PacketInformation* packet_information)
+      EXCLUSIVE_LOCKS_REQUIRED(rtcp_receiver_lock_);
+
   Clock* const clock_;
   const bool receiver_only_;
   ModuleRtpRtcp* const rtp_rtcp_;

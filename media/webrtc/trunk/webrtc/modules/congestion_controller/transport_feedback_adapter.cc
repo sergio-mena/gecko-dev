@@ -123,6 +123,7 @@ std::vector<PacketInfo> TransportFeedbackAdapter::GetPacketFeedbackVector(
     size_t failed_lookups = 0;
     int64_t offset_us = 0;
     for (auto symbol : feedback.GetStatusVector()) {
+      // TODO: But then, if initial packet was lost, info is discarded
       if (symbol != rtcp::TransportFeedback::StatusSymbol::kNotReceived) {
         RTC_DCHECK(delta_it != delta_vec.end());
         offset_us += *(delta_it++);

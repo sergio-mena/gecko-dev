@@ -82,15 +82,19 @@ int64_t RemoteEstimatorProxy::TimeUntilNextProcess() {
   return time_until_next;
 }
 
+rtcp::TransportFeedback* RemoteEstimatorProxy::CreateTFPacket() {
+  return new rtcp::TransportFeedback;
+}
+
 void RemoteEstimatorProxy::Process() {
   last_process_time_ms_ = clock_->TimeInMilliseconds();
 
   bool more_to_build = true;
   while (more_to_build) {
-    rtcp::TransportFeedback feedback_packet;
-    if (BuildFeedbackPacket(&feedback_packet)) {
+    std::unique_ptr<rtcp::TransportFeedback> feedback_packet (CreateTFPacket());
+    if (BuildFeedbackPacket(feedback_packet.get())) {
       RTC_DCHECK(packet_router_ != nullptr);
-      packet_router_->SendFeedback(&feedback_packet);
+      packet_router_->SendFeedback(feedback_packet.get());
     } else {
       more_to_build = false;
     }
@@ -162,7 +166,6 @@ void RemoteEstimatorProxy::OnPacketArrival(uint16_t sequence_number,
 
 bool RemoteEstimatorProxy::BuildFeedbackPacket(
     rtcp::TransportFeedback* feedback_packet) {
-  //TODO(drno): this is wher CCFeedbackHeader::Serialize() needs to happen
 
   // window_start_seq_ is the first sequence number to include in the current
   // feedback packet. Some older may still be in the map, in case a reordering
@@ -183,6 +186,7 @@ bool RemoteEstimatorProxy::BuildFeedbackPacket(
   // of the first received packet in the feedback.
   feedback_packet->SetBase(static_cast<uint16_t>(window_start_seq_ & 0xFFFF),
                            it->second * 1000);
+  //TODO: Interesting: CCFB doesn't have a seq no
   feedback_packet->SetFeedbackSequenceNumber(feedback_sequence_++);
   for (; it != packet_arrival_times_.end(); ++it) {
     if (!feedback_packet->AddReceivedPacket(
@@ -211,30 +215,27 @@ RemoteEstimatorProxy2::RemoteEstimatorProxy2(Clock* clock,
 
 RemoteEstimatorProxy2::~RemoteEstimatorProxy2() {}
 
+void RemoteEstimatorProxy2::IncomingPacketFeedbackVector(
+    const std::vector<PacketInfo>& packet_feedback_vector) {
+  rtc::CritScope cs(&lock_);
+  assert(false); //Where are the sequence numbers coming from when this API is called?
+}
+
 void RemoteEstimatorProxy2::IncomingPacket(int64_t arrival_time_ms,
-                                           size_t payload_size,
-                                           const RTPHeader& header) {
-    /* TODO(drno): where would we get ECN from? 
-    if (ecn > 0x03) {
-        return CCFB_BAD_ECN;
-    }
-    */
-    auto& rb = m_reportBlocks[ssrc];
-    if (rb.find (seq) != rb.end ()) {
-        return;
-    }
-    auto& mb = rb[seq];
-    mb.m_timestampUs = arrival_time_ms;
-    //mb.m_ecn = ecn;
-    if (!UpdateLength ()) {
-        rb.erase (seq);
-        if (rb.empty ()) {
-            m_reportBlocks.erase (ssrc);
-        }
-        return;
-    }
-    m_latestTsUs = std::max (m_latestTsUs, timestampUs);
-    return;
+                                          size_t payload_size,
+                                          const RTPHeader& header) {
+  if (header.extension.hasTransportSequenceNumber) {
+    LOG(LS_WARNING) << "RemoteEstimatorProxy: Incoming packet with transport "
+                       "sequence number extension. NOT USED, using RTP sequence instead!";
+  }
+  rtc::CritScope cs(&lock_);
+  media_ssrc_ = header.ssrc; //TODO do we need this member? Probably not
+
+  OnPacketArrival(header.ssrc, arrival_time_ms);
+}
+
+rtcp::TransportFeedback* RemoteEstimatorProxy2::CreateTFPacket() {
+  return new rtcp::TransportFeedbackRTP;
 }
 
 }  // namespace webrtc
