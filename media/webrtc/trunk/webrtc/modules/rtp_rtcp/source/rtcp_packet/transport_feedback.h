@@ -77,6 +77,7 @@ class TransportFeedback : public Rtpfb {
   size_t size_bytes_;
   int32_t base_time_ticks_;
   int64_t last_timestamp_us_;
+  uint16_t base_seq_no_;
 
  private:
   // Size in bytes of a delta time in rtcp packet.
@@ -93,7 +94,6 @@ class TransportFeedback : public Rtpfb {
 
   bool AddDeltaSize(DeltaSize delta_size);
 
-  uint16_t base_seq_no_;
   uint16_t num_seq_no_;
   uint8_t feedback_seq_;
 
@@ -142,7 +142,7 @@ protected:
               PacketReadyCallback* callback) const override;
 
   void Clear() override;
-  static std::pair<uint16_t, uint16_t> CalculateBeginStopSeq(const ReportBlock_t& rb);
+  static std::pair<uint16_t, uint16_t> CalculateBeginStopSeq(uint16_t baseSeq, const ReportBlock_t& rb);
   static uint64_t NtpToUs(uint32_t ntp);
   static uint32_t UsToNtp(uint64_t tsUs);
   static uint16_t NtpToAto(uint32_t ntp, uint32_t ntpRef);
