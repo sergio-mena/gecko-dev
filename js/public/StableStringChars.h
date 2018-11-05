@@ -56,7 +56,7 @@ class MOZ_STACK_CLASS JS_FRIEND_API(AutoStableStringChars) final
 
     /* Ensure the string is kept alive while we're using its chars. */
     Rooted<JSString*> s_;
-    MOZ_INIT_OUTSIDE_CTOR union {
+    union MOZ_INIT_OUTSIDE_CTOR {
         const char16_t* twoByteChars_;
         const Latin1Char* latin1Chars_;
     };
@@ -100,8 +100,9 @@ class MOZ_STACK_CLASS JS_FRIEND_API(AutoStableStringChars) final
     /* If we own the chars, transfer ownership to the caller. */
     bool maybeGiveOwnershipToCaller() {
         MOZ_ASSERT(state_ != Uninitialized);
-        if (!ownChars_.isSome() || !ownChars_->extractRawBuffer())
+        if (!ownChars_.isSome() || !ownChars_->extractRawBuffer()) {
             return false;
+        }
         state_ = Uninitialized;
         ownChars_.reset();
         return true;

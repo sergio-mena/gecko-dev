@@ -52,6 +52,7 @@
 #include "nsDOMString.h"
 #include "nsIScriptSecurityManager.h"
 #include "mozilla/dom/AnimatableBinding.h"
+#include "mozilla/dom/FeaturePolicyUtils.h"
 #include "mozilla/dom/HTMLDivElement.h"
 #include "mozilla/dom/HTMLSpanElement.h"
 #include "mozilla/dom/KeyframeAnimationOptionsBinding.h"
@@ -65,6 +66,7 @@
 #include "mozilla/EventListenerManager.h"
 #include "mozilla/EventStateManager.h"
 #include "mozilla/EventStates.h"
+#include "mozilla/FullscreenChange.h"
 #include "mozilla/InternalMutationEvent.h"
 #include "mozilla/MouseEvents.h"
 #include "mozilla/RestyleManager.h"
@@ -526,6 +528,23 @@ Element::ClearStyleStateLocks()
 }
 
 static bool
+IsLikelyCustomElement(const nsXULElement& aElement)
+{
+  const CustomElementData* data = aElement.GetCustomElementData();
+  if (!data) {
+    return false;
+  }
+
+  const CustomElementRegistry* registry =
+    nsContentUtils::GetCustomElementRegistry(aElement.OwnerDoc());
+  if (!registry) {
+    return false;
+  }
+
+  return registry->IsLikelyToBeCustomElement(data->GetCustomElementType());
+}
+
+static bool
 MayNeedToLoadXBLBinding(const nsIDocument& aDocument, const Element& aElement)
 {
   // If we have a frame, the frame has already loaded the binding.
@@ -536,11 +555,8 @@ MayNeedToLoadXBLBinding(const nsIDocument& aDocument, const Element& aElement)
     return false;
   }
 
-  if (aElement.IsXULElement()) {
-    // We know dropmarkers don't have XBL bindings, and they get
-    // accessed while hidden when opening new windows. So skip
-    // looking up -moz-binding for performance reasons (bug 1478999).
-    return !aElement.IsXULElement(nsGkAtoms::dropMarker);
+  if (auto* xulElem = nsXULElement::FromNode(aElement)) {
+    return !IsLikelyCustomElement(*xulElem);
   }
 
   return aElement.IsAnyOfHTMLElements(nsGkAtoms::object, nsGkAtoms::embed);
@@ -606,7 +622,7 @@ Element::WrapObject(JSContext *aCx, JS::Handle<JSObject*> aGivenProto)
 
     if (bindingURL) {
       nsCOMPtr<nsIURI> uri = bindingURL->GetURI();
-      nsCOMPtr<nsIPrincipal> principal = bindingURL->mExtraData->GetPrincipal();
+      nsCOMPtr<nsIPrincipal> principal = bindingURL->ExtraData()->Principal();
 
       // We have a binding that must be installed.
       bool dummy;
@@ -872,10 +888,10 @@ Element::ScrollBy(double aXScrollDif, double aYScrollDif)
 {
   nsIScrollableFrame *sf = GetScrollFrame();
   if (sf) {
-    CSSIntPoint scrollPos = sf->GetScrollPositionCSSPixels();
-    scrollPos += CSSIntPoint::Truncate(mozilla::ToZeroIfNonfinite(aXScrollDif),
-                                       mozilla::ToZeroIfNonfinite(aYScrollDif));
-    Scroll(scrollPos, ScrollOptions());
+    ScrollToOptions options;
+    options.mLeft.Construct(aXScrollDif);
+    options.mTop.Construct(aYScrollDif);
+    ScrollBy(options);
   }
 }
 
@@ -884,14 +900,25 @@ Element::ScrollBy(const ScrollToOptions& aOptions)
 {
   nsIScrollableFrame *sf = GetScrollFrame();
   if (sf) {
-    CSSIntPoint scrollPos = sf->GetScrollPositionCSSPixels();
+    CSSIntPoint scrollDelta;
     if (aOptions.mLeft.WasPassed()) {
-      scrollPos.x += mozilla::ToZeroIfNonfinite(aOptions.mLeft.Value());
+      scrollDelta.x = mozilla::ToZeroIfNonfinite(aOptions.mLeft.Value());
     }
     if (aOptions.mTop.WasPassed()) {
-      scrollPos.y += mozilla::ToZeroIfNonfinite(aOptions.mTop.Value());
+      scrollDelta.y = mozilla::ToZeroIfNonfinite(aOptions.mTop.Value());
     }
-    Scroll(scrollPos, aOptions);
+
+    nsIScrollableFrame::ScrollMode scrollMode = nsIScrollableFrame::INSTANT;
+    if (aOptions.mBehavior == ScrollBehavior::Smooth) {
+      scrollMode = nsIScrollableFrame::SMOOTH_MSD;
+    } else if (aOptions.mBehavior == ScrollBehavior::Auto) {
+      ScrollStyles styles = sf->GetScrollStyles();
+      if (styles.mScrollBehavior == NS_STYLE_SCROLL_BEHAVIOR_SMOOTH) {
+        scrollMode = nsIScrollableFrame::SMOOTH_MSD;
+      }
+    }
+
+    sf->ScrollByCSSPixels(scrollDelta, scrollMode, nsGkAtoms::relative);
   }
 }
 
@@ -1113,7 +1140,7 @@ Element::AddToIdTable(nsAtom* aId)
     containingShadow->AddToIdTable(this, aId);
   } else {
     nsIDocument* doc = GetUncomposedDoc();
-    if (doc && (!IsInAnonymousSubtree() || doc->IsXULDocument())) {
+    if (doc && !IsInAnonymousSubtree()) {
       doc->AddToIdTable(this, aId);
     }
   }
@@ -1136,7 +1163,7 @@ Element::RemoveFromIdTable()
     }
   } else {
     nsIDocument* doc = GetUncomposedDoc();
-    if (doc && (!IsInAnonymousSubtree() || doc->IsXULDocument())) {
+    if (doc && !IsInAnonymousSubtree()) {
       doc->RemoveFromIdTable(this, id);
     }
   }
@@ -1173,25 +1200,15 @@ Element::GetShadowRootByMode() const
   return shadowRoot;
 }
 
-// https://dom.spec.whatwg.org/#dom-element-attachshadow
-already_AddRefed<ShadowRoot>
-Element::AttachShadow(const ShadowRootInit& aInit, ErrorResult& aError)
+bool
+Element::CanAttachShadowDOM() const
 {
   /**
-   * 1. If context object’s namespace is not the HTML namespace,
-   *    then throw a "NotSupportedError" DOMException.
-   */
-  if (!IsHTMLElement()) {
-    aError.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
-    return nullptr;
-  }
-
-  /**
-   * 2. If context object’s local name is not
-   *      a valid custom element name, "article", "aside", "blockquote",
-   *      "body", "div", "footer", "h1", "h2", "h3", "h4", "h5", "h6",
-   *      "header", "main" "nav", "p", "section", or "span",
-   *    then throw a "NotSupportedError" DOMException.
+   * If context object’s local name is not
+   *    a valid custom element name, "article", "aside", "blockquote",
+   *    "body", "div", "footer", "h1", "h2", "h3", "h4", "h5", "h6",
+   *    "header", "main" "nav", "p", "section", or "span",
+   *  return false.
    */
   nsAtom* nameAtom = NodeInfo()->NameAtom();
   if (!(nsContentUtils::IsCustomElementName(nameAtom, NodeInfo()->NamespaceID()) ||
@@ -1213,12 +1230,37 @@ Element::AttachShadow(const ShadowRootInit& aInit, ErrorResult& aError)
         nameAtom == nsGkAtoms::p ||
         nameAtom == nsGkAtoms::section ||
         nameAtom == nsGkAtoms::span)) {
+    return false;
+  }
+
+  return true;
+}
+
+// https://dom.spec.whatwg.org/#dom-element-attachshadow
+already_AddRefed<ShadowRoot>
+Element::AttachShadow(const ShadowRootInit& aInit, ErrorResult& aError)
+{
+  /**
+   * 1. If context object’s namespace is not the HTML namespace,
+   *    then throw a "NotSupportedError" DOMException.
+   */
+  if (!IsHTMLElement() &&
+      !(XRE_IsParentProcess() && IsXULElement() && nsContentUtils::AllowXULXBLForPrincipal(NodePrincipal()))) {
     aError.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
     return nullptr;
   }
 
   /**
-   * 3. If context object is a shadow host, then throw
+   * 2. If context object’s local name is not valid to attach shadow DOM to,
+   *    then throw a "NotSupportedError" DOMException.
+   */
+  if (!CanAttachShadowDOM()) {
+    aError.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
+    return nullptr;
+  }
+
+  /**
+   * 2. If context object is a shadow host, then throw
    *    an "InvalidStateError" DOMException.
    */
   if (GetShadowRoot() || GetXBLBinding()) {
@@ -1655,6 +1697,10 @@ Element::BindToTree(nsIDocument* aDocument, nsIContent* aParent,
       slots->mBindingParent = aBindingParent; // Weak, so no addref happens.
     }
   }
+
+  const bool hadParent = !!GetParentNode();
+  const bool wasInShadowTree = IsInShadowTree();
+
   NS_ASSERTION(!aBindingParent || IsRootOfNativeAnonymousSubtree() ||
                !HasFlag(NODE_IS_IN_NATIVE_ANONYMOUS_SUBTREE) ||
                (aParent && aParent->IsInNativeAnonymousSubtree()),
@@ -1678,7 +1724,7 @@ Element::BindToTree(nsIDocument* aDocument, nsIContent* aParent,
     }
   }
 
-  bool hadParent = !!GetParentNode();
+  MOZ_ASSERT_IF(wasInShadowTree, IsInShadowTree());
 
   // Now set the parent.
   if (aParent) {
@@ -1809,7 +1855,9 @@ Element::BindToTree(nsIDocument* aDocument, nsIContent* aParent,
     nsNodeUtils::NativeAnonymousChildListChange(this, false);
   }
 
-  if (HasID()) {
+  // Ensure we only add to the table once, in the case we move the ShadowRoot
+  // around.
+  if (HasID() && !wasInShadowTree) {
     AddToIdTable(DoGetID());
   }
 
@@ -1920,14 +1968,14 @@ Element::UnbindFromTree(bool aDeep, bool aNullParent)
   if (HasPointerLock()) {
     nsIDocument::UnlockPointer();
   }
-  if (mState.HasState(NS_EVENT_STATE_FULL_SCREEN)) {
-    // The element being removed is an ancestor of the full-screen element,
-    // exit full-screen state.
+  if (mState.HasState(NS_EVENT_STATE_FULLSCREEN)) {
+    // The element being removed is an ancestor of the fullscreen element,
+    // exit fullscreen state.
     nsContentUtils::ReportToConsole(nsIScriptError::warningFlag,
                                     NS_LITERAL_CSTRING("DOM"), OwnerDoc(),
                                     nsContentUtils::eDOM_PROPERTIES,
                                     "RemovedFullscreenElement");
-    // Fully exit full-screen.
+    // Fully exit fullscreen.
     nsIDocument::ExitFullscreenInDocTree(OwnerDoc());
   }
 
@@ -2212,7 +2260,7 @@ Element::FindAttributeDependence(const nsAtom* aAttribute,
   for (uint32_t mapindex = 0; mapindex < aMapCount; ++mapindex) {
     for (const MappedAttributeEntry* map = aMaps[mapindex];
          map->attribute; ++map) {
-      if (aAttribute == *map->attribute) {
+      if (aAttribute == map->attribute) {
         return true;
       }
     }
@@ -2941,7 +2989,7 @@ Element::FindAttrValueIn(int32_t aNameSpaceID,
   const nsAttrValue* val = mAttrs.GetAttr(aName, aNameSpaceID);
   if (val) {
     for (int32_t i = 0; aValues[i]; ++i) {
-      if (val->Equals(*aValues[i], aCaseSensitive)) {
+      if (val->Equals(aValues[i], aCaseSensitive)) {
         return i;
       }
     }
@@ -3453,16 +3501,16 @@ nsDOMTokenListPropertyDestructor(void *aObject, nsAtom *aProperty,
   NS_RELEASE(list);
 }
 
-static nsStaticAtom** sPropertiesToTraverseAndUnlink[] =
+static nsStaticAtom* const sPropertiesToTraverseAndUnlink[] =
   {
-    &nsGkAtoms::sandbox,
-    &nsGkAtoms::sizes,
-    &nsGkAtoms::dirAutoSetBy,
+    nsGkAtoms::sandbox,
+    nsGkAtoms::sizes,
+    nsGkAtoms::dirAutoSetBy,
     nullptr
   };
 
 // static
-nsStaticAtom***
+nsStaticAtom* const*
 Element::HTMLSVGPropertiesToTraverseAndUnlink()
 {
   return sPropertiesToTraverseAndUnlink;
@@ -3473,10 +3521,10 @@ Element::GetTokenList(nsAtom* aAtom,
                       const DOMTokenListSupportedTokenArray aSupportedTokens)
 {
 #ifdef DEBUG
-  nsStaticAtom*** props = HTMLSVGPropertiesToTraverseAndUnlink();
+  const nsStaticAtom* const* props = HTMLSVGPropertiesToTraverseAndUnlink();
   bool found = false;
   for (uint32_t i = 0; props[i]; ++i) {
-    if (*props[i] == aAtom) {
+    if (props[i] == aAtom) {
       found = true;
       break;
     }
@@ -3560,34 +3608,40 @@ Element::AttrValueToCORSMode(const nsAttrValue* aValue)
 }
 
 static const char*
-GetFullScreenError(CallerType aCallerType)
+GetFullscreenError(CallerType aCallerType)
 {
-  if (!nsContentUtils::IsRequestFullScreenAllowed(aCallerType)) {
+  if (!nsContentUtils::IsRequestFullscreenAllowed(aCallerType)) {
     return "FullscreenDeniedNotInputDriven";
   }
 
   return nullptr;
 }
 
-void
-Element::RequestFullscreen(CallerType aCallerType, ErrorResult& aError)
+already_AddRefed<Promise>
+Element::RequestFullscreen(CallerType aCallerType, ErrorResult& aRv)
 {
-  // Only grant full-screen requests if this is called from inside a trusted
+  auto request = FullscreenRequest::Create(this, aCallerType, aRv);
+  RefPtr<Promise> promise = request->GetPromise();
+
+  if (!FeaturePolicyUtils::IsFeatureAllowed(OwnerDoc(),
+                                            NS_LITERAL_STRING("fullscreen"))) {
+    request->Reject("FullscreenDeniedFeaturePolicy");
+    return promise.forget();
+  }
+
+  // Only grant fullscreen requests if this is called from inside a trusted
   // event handler (i.e. inside an event handler for a user initiated event).
-  // This stops the full-screen from being abused similar to the popups of old,
-  // and it also makes it harder for bad guys' script to go full-screen and
+  // This stops the fullscreen from being abused similar to the popups of old,
+  // and it also makes it harder for bad guys' script to go fullscreen and
   // spoof the browser chrome/window and phish logins etc.
   // Note that requests for fullscreen inside a web app's origin are exempt
   // from this restriction.
-  if (const char* error = GetFullScreenError(aCallerType)) {
-    OwnerDoc()->DispatchFullscreenError(error);
-    return;
+  if (const char* error = GetFullscreenError(aCallerType)) {
+    request->Reject(error);
+  } else {
+    OwnerDoc()->AsyncRequestFullscreen(std::move(request));
   }
-
-  auto request = MakeUnique<FullscreenRequest>(this);
-  request->mIsCallerChrome = (aCallerType == CallerType::System);
-
-  OwnerDoc()->AsyncRequestFullScreen(std::move(request));
+  return promise.forget();
 }
 
 void

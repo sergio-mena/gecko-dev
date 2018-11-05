@@ -87,6 +87,7 @@ class FxAccountsCommands {
       });
       if (missedMessages.length) {
         log.info(`Handling ${missedMessages.length} missed messages`);
+        Services.telemetry.scalarAdd("identity.fxaccounts.missed_commands_fetched", missedMessages.length);
         await this._handleCommands(missedMessages);
       }
     });
@@ -124,6 +125,7 @@ class FxAccountsCommands {
           } catch (e) {
             log.error(`Error while handling incoming Send Tab payload.`, e);
           }
+          break;
         default:
           log.info(`Unknown command: ${command}.`);
       }
@@ -202,7 +204,7 @@ class SendTab {
       name: sender ? sender.name : "",
     };
     const {title, url: uri} = data.entries[current];
-    console.log(`Tab received with FxA commands: ${title} from ${tabSender.name}.`);
+    log.info(`Tab received with FxA commands: ${title} from ${tabSender.name}.`);
     Observers.notify("fxaccounts:commands:open-uri", [{uri, title, sender: tabSender}]);
   }
 

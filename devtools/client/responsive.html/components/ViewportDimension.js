@@ -4,7 +4,7 @@
 
 "use strict";
 
-const { Component } = require("devtools/client/shared/vendor/react");
+const { PureComponent } = require("devtools/client/shared/vendor/react");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 
@@ -12,7 +12,7 @@ const { isKeyIn } = require("../utils/key");
 const { MIN_VIEWPORT_DIMENSION } = require("../constants");
 const Types = require("../types");
 
-class ViewportDimension extends Component {
+class ViewportDimension extends PureComponent {
   static get propTypes() {
     return {
       onResizeViewport: PropTypes.func.isRequired,
@@ -159,7 +159,7 @@ class ViewportDimension extends Component {
         ref: input => {
           this.widthInput = input;
         },
-        className: "viewport-dimension-input" +
+        className: "text-input viewport-dimension-input" +
                    (this.state.isWidthValid ? "" : " invalid"),
         size: 4,
         value: this.state.width,
@@ -176,7 +176,7 @@ class ViewportDimension extends Component {
         ref: input => {
           this.heightInput = input;
         },
-        className: "viewport-dimension-input" +
+        className: "text-input viewport-dimension-input" +
                    (this.state.isHeightValid ? "" : " invalid"),
         size: 4,
         value: this.state.height,

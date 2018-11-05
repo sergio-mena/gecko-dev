@@ -226,7 +226,7 @@ CompositorBridgeChild::ShutDown()
 }
 
 bool
-CompositorBridgeChild::LookupCompositorFrameMetrics(const FrameMetrics::ViewID aId,
+CompositorBridgeChild::LookupCompositorFrameMetrics(const ScrollableLayerGuid::ViewID aId,
                                                     FrameMetrics& aFrame)
 {
   SharedFrameMetricsData* data = mFrameMetricsTable.Get(aId);
@@ -275,7 +275,9 @@ CompositorBridgeChild::InitForWidget(uint64_t aProcessToken,
 /*static*/ CompositorBridgeChild*
 CompositorBridgeChild::Get()
 {
-  // This is only expected to be used in child processes.
+  // This is only expected to be used in child processes. While the parent
+  // process does have CompositorBridgeChild instances, it has _multiple_ (one
+  // per window), and therefore there is no global singleton available.
   MOZ_ASSERT(!XRE_IsParentProcess());
   return sCompositorBridge;
 }
@@ -646,7 +648,7 @@ CompositorBridgeChild::SharedFrameMetricsData::CopyFrameMetrics(FrameMetrics* aF
   mMutex->Unlock();
 }
 
-FrameMetrics::ViewID
+ScrollableLayerGuid::ViewID
 CompositorBridgeChild::SharedFrameMetricsData::GetViewID()
 {
   const FrameMetrics* frame =
@@ -1095,9 +1097,7 @@ CompositorBridgeChild::WillEndTransaction()
 
 PWebRenderBridgeChild*
 CompositorBridgeChild::AllocPWebRenderBridgeChild(const wr::PipelineId& aPipelineId,
-                                                  const LayoutDeviceIntSize&,
-                                                  TextureFactoryIdentifier*,
-                                                  wr::IdNamespace *aIdNamespace)
+                                                  const LayoutDeviceIntSize&)
 {
   WebRenderBridgeChild* child = new WebRenderBridgeChild(aPipelineId);
   child->AddIPDLReference();

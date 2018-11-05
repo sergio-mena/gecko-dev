@@ -4,15 +4,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "PaymentRequestManager.h"
-#include "PaymentRequestUtils.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/dom/ContentChild.h"
-#include "mozilla/dom/TabChild.h"
 #include "mozilla/dom/PaymentRequestChild.h"
+#include "mozilla/dom/TabChild.h"
 #include "nsContentUtils.h"
 #include "nsString.h"
 #include "nsIPrincipal.h"
+#include "PaymentRequestManager.h"
+#include "PaymentRequestUtils.h"
+#include "PaymentResponse.h"
 
 namespace mozilla {
 namespace dom {
@@ -51,18 +52,9 @@ ConvertCurrencyAmount(const PaymentCurrencyAmount& aAmount,
 void
 ConvertItem(const PaymentItem& aItem, IPCPaymentItem& aIPCItem)
 {
-  uint8_t typeIndex = UINT8_MAX;
-  if (aItem.mType.WasPassed()) {
-    typeIndex = static_cast<uint8_t>(aItem.mType.Value());
-  }
-  nsString type;
-  if (typeIndex < ArrayLength(PaymentItemTypeValues::strings)) {
-    type.AssignASCII(
-      PaymentItemTypeValues::strings[typeIndex].value);
-  }
   IPCPaymentCurrencyAmount amount;
   ConvertCurrencyAmount(aItem.mAmount, amount);
-  aIPCItem = IPCPaymentItem(aItem.mLabel, amount, aItem.mPending, type);
+  aIPCItem = IPCPaymentItem(aItem.mLabel, amount, aItem.mPending);
 }
 
 nsresult
@@ -163,7 +155,7 @@ ConvertDetailsInit(JSContext* aCx,
   }
 
   // Convert |id|
-  nsString id(EmptyString());
+  nsAutoString id;
   if (aDetails.mId.WasPassed()) {
     id = aDetails.mId.Value();
   }
@@ -178,7 +170,9 @@ ConvertDetailsInit(JSContext* aCx,
                                   shippingOptions,
                                   modifiers,
                                   EmptyString(), // error message
-                                  EmptyString()); // shippingAddressErrors
+                                  EmptyString(), // shippingAddressErrors
+                                  EmptyString(), // payerErrors
+                                  EmptyString()); // paymentMethodErrors
   return NS_OK;
 }
 
@@ -204,14 +198,28 @@ ConvertDetailsUpdate(JSContext* aCx,
   ConvertItem(aDetails.mTotal, total);
 
   // Convert |error|
-  nsString error(EmptyString());
+  nsAutoString error;
   if (aDetails.mError.WasPassed()) {
     error = aDetails.mError.Value();
   }
 
-  nsString shippingAddressErrors(EmptyString());
+  nsAutoString shippingAddressErrors;
   if (!aDetails.mShippingAddressErrors.ToJSON(shippingAddressErrors)) {
     return NS_ERROR_FAILURE;
+  }
+
+  nsAutoString payerErrors;
+  if (!aDetails.mPayerErrors.ToJSON(payerErrors)) {
+    return NS_ERROR_FAILURE;
+  }
+
+  nsAutoString paymentMethodErrors;
+  if (aDetails.mPaymentMethodErrors.WasPassed()) {
+    JS::RootedObject object(aCx, aDetails.mPaymentMethodErrors.Value());
+    nsresult rv = SerializeFromJSObject(aCx, object, paymentMethodErrors);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return rv;
+    }
   }
 
   aIPCDetails = IPCPaymentDetails(EmptyString(), // id
@@ -220,7 +228,9 @@ ConvertDetailsUpdate(JSContext* aCx,
                                   shippingOptions,
                                   modifiers,
                                   error,
-                                  shippingAddressErrors);
+                                  shippingAddressErrors,
+                                  payerErrors,
+                                  paymentMethodErrors);
   return NS_OK;
 }
 
@@ -239,6 +249,47 @@ ConvertOptions(const PaymentOptions& aOptions,
                                  aOptions.mRequestPayerPhone,
                                  aOptions.mRequestShipping,
                                  shippingType);
+}
+
+void
+ConvertResponseData(const IPCPaymentResponseData& aIPCData,
+                    ResponseData& aData)
+{
+  switch (aIPCData.type()) {
+    case IPCPaymentResponseData::TIPCGeneralResponse : {
+      const IPCGeneralResponse& data = aIPCData;
+      GeneralData gData;
+      gData.data = data.data();
+      aData = gData;
+      break;
+    }
+    case IPCPaymentResponseData::TIPCBasicCardResponse: {
+      const IPCBasicCardResponse& data = aIPCData;
+      BasicCardData bData;
+      bData.cardholderName = data.cardholderName();
+      bData.cardNumber = data.cardNumber();
+      bData.expiryMonth = data.expiryMonth();
+      bData.expiryYear = data.expiryYear();
+      bData.cardSecurityCode = data.cardSecurityCode();
+      bData.billingAddress.country = data.billingAddress().country();
+      bData.billingAddress.addressLine = data.billingAddress().addressLine();
+      bData.billingAddress.region = data.billingAddress().region();
+      bData.billingAddress.regionCode = data.billingAddress().regionCode();
+      bData.billingAddress.city = data.billingAddress().city();
+      bData.billingAddress.dependentLocality =
+        data.billingAddress().dependentLocality();
+      bData.billingAddress.postalCode = data.billingAddress().postalCode();
+      bData.billingAddress.sortingCode = data.billingAddress().sortingCode();
+      bData.billingAddress.organization = data.billingAddress().organization();
+      bData.billingAddress.recipient = data.billingAddress().recipient();
+      bData.billingAddress.phone = data.billingAddress().phone();
+      aData = bData;
+      break;
+    }
+    default: {
+      break;
+    }
+  }
 }
 } // end of namespace
 
@@ -309,9 +360,6 @@ PaymentRequestManager::RequestIPCOver(PaymentRequest* aRequest)
   // This must only be called from ActorDestroy or if we're sure we won't
   // receive any more IPC for aRequest.
   mActivePayments.Remove(aRequest);
-  if (aRequest == mShowingRequest) {
-    mShowingRequest = nullptr;
-  }
 }
 
 already_AddRefed<PaymentRequestManager>
@@ -364,7 +412,7 @@ PaymentRequestManager::CreatePayment(JSContext* aCx,
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
-
+  request->SetOptions(aOptions);
   /*
    *  Set request's |mId| to details.id if details.id exists.
    *  Otherwise, set |mId| to internal id.
@@ -443,9 +491,6 @@ PaymentRequestManager::CanMakePayment(PaymentRequest* aRequest)
 nsresult
 PaymentRequestManager::ShowPayment(PaymentRequest* aRequest)
 {
-  if (mShowingRequest) {
-    return NS_ERROR_ABORT;
-  }
   nsresult rv = NS_OK;
   if (!aRequest->IsUpdating()) {
     nsAutoString requestId;
@@ -453,14 +498,12 @@ PaymentRequestManager::ShowPayment(PaymentRequest* aRequest)
     IPCPaymentShowActionRequest action(requestId);
     rv = SendRequestPayment(aRequest, action);
   }
-  mShowingRequest = aRequest;
   return rv;
 }
 
 nsresult
 PaymentRequestManager::AbortPayment(PaymentRequest* aRequest, bool aDeferredShow)
 {
-  MOZ_ASSERT(aRequest == mShowingRequest);
   nsAutoString requestId;
   aRequest->GetInternalId(requestId);
   IPCPaymentAbortActionRequest action(requestId);
@@ -530,13 +573,48 @@ PaymentRequestManager::ClosePayment(PaymentRequest* aRequest)
   if (auto entry = mActivePayments.Lookup(aRequest)) {
     NotifyRequestDone(aRequest);
   }
-  if (mShowingRequest == aRequest) {
-    mShowingRequest = nullptr;
-  }
   nsAutoString requestId;
   aRequest->GetInternalId(requestId);
   IPCPaymentCloseActionRequest action(requestId);
   return SendRequestPayment(aRequest, action, false);
+}
+
+nsresult
+PaymentRequestManager::RetryPayment(JSContext* aCx,
+                                    PaymentRequest* aRequest,
+                                    const PaymentValidationErrors& aErrors)
+{
+  NS_ENSURE_ARG_POINTER(aCx);
+  NS_ENSURE_ARG_POINTER(aRequest);
+
+  nsAutoString requestId;
+  aRequest->GetInternalId(requestId);
+
+  nsAutoString error;
+  if (aErrors.mError.WasPassed()) {
+    error = aErrors.mError.Value();
+  }
+
+  nsAutoString shippingAddressErrors;
+  aErrors.mShippingAddress.ToJSON(shippingAddressErrors);
+
+  nsAutoString payerErrors;
+  aErrors.mPayer.ToJSON(payerErrors);
+
+  nsAutoString paymentMethodErrors;
+  if (aErrors.mPaymentMethod.WasPassed()) {
+    JS::RootedObject object(aCx, aErrors.mPaymentMethod.Value());
+    nsresult rv = SerializeFromJSObject(aCx, object, paymentMethodErrors);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return rv;
+    }
+  }
+  IPCPaymentRetryActionRequest action(requestId,
+                                      error,
+                                      payerErrors,
+                                      paymentMethodErrors,
+                                      shippingAddressErrors);
+  return SendRequestPayment(aRequest, action);
 }
 
 nsresult
@@ -553,6 +631,8 @@ PaymentRequestManager::RespondPayment(PaymentRequest* aRequest,
     case IPCPaymentActionResponse::TIPCPaymentShowActionResponse: {
       const IPCPaymentShowActionResponse& response = aResponse;
       nsresult rejectedReason = NS_ERROR_DOM_ABORT_ERR;
+      ResponseData responseData;
+      ConvertResponseData(response.data(), responseData);
       switch (response.status()) {
         case nsIPaymentActionResponse::PAYMENT_ACCEPTED: {
           rejectedReason = NS_OK;
@@ -572,14 +652,12 @@ PaymentRequestManager::RespondPayment(PaymentRequest* aRequest,
         }
       }
       aRequest->RespondShowPayment(response.methodName(),
-                                   response.data(),
+                                   responseData,
                                    response.payerName(),
                                    response.payerEmail(),
                                    response.payerPhone(),
                                    rejectedReason);
       if (NS_FAILED(rejectedReason)) {
-        MOZ_ASSERT(mShowingRequest == aRequest);
-        mShowingRequest = nullptr;
         NotifyRequestDone(aRequest);
       }
       break;
@@ -587,17 +665,11 @@ PaymentRequestManager::RespondPayment(PaymentRequest* aRequest,
     case IPCPaymentActionResponse::TIPCPaymentAbortActionResponse: {
       const IPCPaymentAbortActionResponse& response = aResponse;
       aRequest->RespondAbortPayment(response.isSucceeded());
-      if (response.isSucceeded()) {
-        MOZ_ASSERT(mShowingRequest == aRequest);
-      }
-      mShowingRequest = nullptr;
       NotifyRequestDone(aRequest);
       break;
     }
     case IPCPaymentActionResponse::TIPCPaymentCompleteActionResponse: {
       aRequest->RespondComplete();
-      MOZ_ASSERT(mShowingRequest == aRequest);
-      mShowingRequest = nullptr;
       NotifyRequestDone(aRequest);
       break;
     }
@@ -615,6 +687,7 @@ PaymentRequestManager::ChangeShippingAddress(PaymentRequest* aRequest,
   return aRequest->UpdateShippingAddress(aAddress.country(),
                                          aAddress.addressLine(),
                                          aAddress.region(),
+                                         aAddress.regionCode(),
                                          aAddress.city(),
                                          aAddress.dependentLocality(),
                                          aAddress.postalCode(),
@@ -629,6 +702,21 @@ PaymentRequestManager::ChangeShippingOption(PaymentRequest* aRequest,
                                             const nsAString& aOption)
 {
   return aRequest->UpdateShippingOption(aOption);
+}
+
+nsresult
+PaymentRequestManager::ChangePayerDetail(PaymentRequest* aRequest,
+                                         const nsAString& aPayerName,
+                                         const nsAString& aPayerEmail,
+                                         const nsAString& aPayerPhone)
+{
+  MOZ_ASSERT(aRequest);
+  RefPtr<PaymentResponse> response = aRequest->GetResponse();
+  // ignoring the case call changePayerDetail during show().
+  if (!response) {
+    return NS_OK;
+  }
+  return response->UpdatePayerDetail(aPayerName, aPayerEmail, aPayerPhone);
 }
 
 } // end of namespace dom

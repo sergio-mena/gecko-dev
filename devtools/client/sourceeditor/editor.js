@@ -10,7 +10,7 @@ const {
   EXPAND_TAB,
   TAB_SIZE,
   DETECT_INDENT,
-  getIndentationFromIteration
+  getIndentationFromIteration,
 } = require("devtools/shared/indentation");
 
 const ENABLE_CODE_FOLDING = "devtools.editor.enableCodeFolding";
@@ -41,7 +41,6 @@ const L10N = new LocalizationHelper("devtools/client/locales/sourceeditor.proper
 
 const {
   getWasmText,
-  getWasmLineNumberFormatter,
   isWasm,
   lineToWasmOffset,
   wasmOffsetToLine,
@@ -136,7 +135,7 @@ function Editor(config) {
     theme: "mozilla",
     themeSwitching: true,
     autocomplete: false,
-    autocompleteOpts: {}
+    autocompleteOpts: {},
   };
 
   // Additional shortcuts.
@@ -338,7 +337,7 @@ Editor.prototype = {
     const {
       propertyKeywords,
       colorKeywords,
-      valueKeywords
+      valueKeywords,
     } = getCSSKeywords(this.config.cssProperties);
 
     const cssSpec = win.CodeMirror.resolveMode("text/css");
@@ -402,8 +401,17 @@ Editor.prototype = {
       popup.openPopupAtScreen(ev.screenX, ev.screenY, true);
     });
 
-    cm.on("focus", () => this.emit("focus"));
-    cm.on("scroll", () => this.emit("scroll"));
+    const pipedEvents = [
+      "beforeChange",
+      "changes",
+      "cursorActivity",
+      "focus",
+      "scroll",
+    ];
+    for (const eventName of pipedEvents) {
+      cm.on(eventName, () => this.emit(eventName));
+    }
+
     cm.on("change", () => {
       this.emit("change");
       if (!this._lastDirty) {
@@ -411,8 +419,6 @@ Editor.prototype = {
         this.emit("dirty-change");
       }
     });
-    cm.on("changes", () => this.emit("changes"));
-    cm.on("cursorActivity", () => this.emit("cursorActivity"));
 
     cm.on("gutterClick", (cmArg, line, gutter, ev) => {
       const lineOrOffset = !this.isWasm ? line : this.lineToWasmOffset(line);
@@ -494,9 +500,6 @@ Editor.prototype = {
   replaceDocument: function(doc) {
     const cm = editors.get(this);
     cm.swapDoc(doc);
-    if (!Services.prefs.getBoolPref("devtools.debugger.new-debugger-frontend")) {
-      this._updateLineNumberFormat();
-    }
   },
 
   /**
@@ -576,16 +579,6 @@ Editor.prototype = {
     return this.isWasm ? this.lineToWasmOffset(line) : line;
   },
 
-  _updateLineNumberFormat: function() {
-    const cm = editors.get(this);
-    if (this.isWasm) {
-      const formatter = getWasmLineNumberFormatter(this.getDoc());
-      cm.setOption("lineNumberFormatter", formatter);
-    } else {
-      cm.setOption("lineNumberFormatter", (number) => number);
-    }
-  },
-
   /**
    * Replaces whatever is in the text area with the contents of
    * the 'value' argument.
@@ -611,10 +604,6 @@ Editor.prototype = {
       }
       // cm will try to split into lines anyway, saving memory
       value = { split: () => lines };
-    }
-
-    if (!Services.prefs.getBoolPref("devtools.debugger.new-debugger-frontend")) {
-      this._updateLineNumberFormat();
     }
 
     cm.setValue(value);
@@ -771,7 +760,7 @@ Editor.prototype = {
     let topLine = {
       "center": Math.max(line - halfVisible, 0),
       "bottom": Math.max(line - linesVisible + offset, 0),
-      "top": Math.max(line - offset, 0)
+      "top": Math.max(line - offset, 0),
     }[align || "top"] || offset;
 
     // Bringing down the topLine to total lines in the editor if exceeding.
@@ -953,7 +942,7 @@ Editor.prototype = {
     const mark = cm.markText(from, to, { replacedWith: span });
     return {
       anchor: span,
-      clear: () => mark.clear()
+      clear: () => mark.clear(),
     };
   },
 
@@ -1185,7 +1174,7 @@ Editor.prototype = {
         posFrom: null,
         posTo: null,
         overlay: null,
-        query
+        query,
       };
     }
 
@@ -1298,15 +1287,17 @@ Editor.prototype = {
     const cm = editors.get(this);
     const className = AUTOCOMPLETE_MARK_CLASSNAME;
 
-    cm.getAllMarks().forEach(mark => {
-      if (mark.className === className) {
-        mark.clear();
+    cm.operation(() => {
+      cm.getAllMarks().forEach(mark => {
+        if (mark.className === className) {
+          mark.clear();
+        }
+      });
+
+      if (text) {
+        cm.markText({...cursor, ch: cursor.ch - 1}, cursor, { className, title: text });
       }
     });
-
-    if (text) {
-      cm.markText({...cursor, ch: cursor.ch - 1}, cursor, { className, title: text });
-    }
   },
 
   /**
@@ -1338,6 +1329,10 @@ Editor.prototype = {
 
       this[name] = funcs[name].bind(null, ctx);
     });
+  },
+
+  isDestroyed: function() {
+    return !editors.get(this);
   },
 
   destroy: function() {
@@ -1405,13 +1400,13 @@ Editor.prototype = {
    */
   _initShortcuts: function(win) {
     const shortcuts = new KeyShortcuts({
-      window: win
+      window: win,
     });
     this._onShortcut = this._onShortcut.bind(this);
     const keys = [
       "find.key",
       "findNext.key",
-      "findPrev.key"
+      "findPrev.key",
     ];
 
     if (OS === "Darwin") {
@@ -1468,7 +1463,7 @@ Editor.prototype = {
   _isInputOrTextarea: function(element) {
     const name = element.tagName.toLowerCase();
     return name === "input" || name === "textarea";
-  }
+  },
 };
 
 // Since Editor is a thin layer over CodeMirror some methods
@@ -1543,7 +1538,7 @@ function getCSSKeywords(cssProperties) {
   return {
     propertyKeywords: keySet(propertyKeywords),
     colorKeywords: colorKeywords,
-    valueKeywords: valueKeywords
+    valueKeywords: valueKeywords,
   };
 }
 

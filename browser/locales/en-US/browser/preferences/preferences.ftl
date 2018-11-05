@@ -4,8 +4,6 @@
 
 do-not-track-description = Send websites a “Do Not Track” signal that you don’t want to be tracked
 do-not-track-learn-more = Learn more
-do-not-track-option-default =
-    .label = Only when using Tracking Protection
 do-not-track-option-default-content-blocking =
     .label = Only when { -brand-short-name } is set to block Detected Trackers
 do-not-track-option-always =
@@ -62,6 +60,7 @@ category-sync =
     .tooltiptext = { pane-sync-title }
 
 help-button-label = { -brand-short-name } Support
+addons-button-label = Extensions & Themes
 
 focus-search =
     .key = f
@@ -96,6 +95,10 @@ extension-controlled-homepage-override = An extension, <img data-l10n-name="icon
 # is being controlled by an extension.
 extension-controlled-new-tab-url = An extension, <img data-l10n-name="icon"/> { $name }, is controlling your New Tab page.
 
+# This string is shown to notify the user that their notifications permission
+# is being controlled by an extension.
+extension-controlled-web-notifications= An extension, <img data-l10n-name="icon"/> { $name }, is controlling this setting.
+
 # This string is shown to notify the user that the default search engine
 # is being controlled by an extension.
 extension-controlled-default-search = An extension, <img data-l10n-name="icon"/> { $name }, has set your default search engine.
@@ -103,10 +106,6 @@ extension-controlled-default-search = An extension, <img data-l10n-name="icon"/>
 # This string is shown to notify the user that Container Tabs
 # are being enabled by an extension.
 extension-controlled-privacy-containers = An extension, <img data-l10n-name="icon"/> { $name }, requires Container Tabs.
-
-# This string is shown to notify the user that their tracking protection preferences
-# are being controlled by an extension.
-extension-controlled-websites-tracking-protection-mode = An extension, <img data-l10n-name="icon"/> { $name }, is controlling tracking protection.
 
 # This string is shown to notify the user that their content blocking "All Detected Trackers"
 # preferences are being controlled by an extension.
@@ -412,6 +411,12 @@ browsing-search-on-start-typing =
     .label = Search for text when you start typing
     .accesskey = x
 
+browsing-cfr-recommendations =
+    .label = Recommend extensions as you browse
+    .accesskey = R
+
+browsing-cfr-recommendations-learn-more = Learn More
+
 ## General Section - Proxy
 
 network-settings-title = Network Settings
@@ -662,7 +667,7 @@ privacy-header = Browser Privacy
 
 ## Privacy Section - Forms
 
-forms-header = Forms & Passwords
+logins-header = Logins & Passwords
 forms-ask-to-save-logins =
     .label = Ask to save logins and passwords for websites
     .accesskey = r
@@ -676,7 +681,7 @@ forms-master-pw-use =
     .label = Use a master password
     .accesskey = U
 forms-master-pw-change =
-    .label = Change Master Password
+    .label = Change Master Password…
     .accesskey = M
 
 ## Privacy Section - History
@@ -742,13 +747,9 @@ sitedata-total-size = Your stored cookies, site data and cache are currently usi
 
 sitedata-learn-more = Learn more
 
-sitedata-keep-until = Keep until
-    .accesskey = u
-
-sitedata-keep-until-expire =
-    .label = They expire
-sitedata-keep-until-closed =
-    .label = { -brand-short-name } is closed
+sitedata-delete-on-close =
+    .label = Delete cookies and site data when { -brand-short-name } is closed
+    .accesskey = c
 
 sitedata-allow-cookies-option =
     .label = Accept cookies and site data
@@ -765,8 +766,6 @@ sitedata-block-desc = Type blocked
 
 sitedata-block-trackers-option-recommended =
     .label = Third-party trackers (recommended)
-sitedata-block-trackers-option =
-    .label = Third-party trackers
 sitedata-block-unvisited-option =
     .label = Cookies from unvisited websites
 sitedata-block-all-third-party-option =
@@ -785,11 +784,6 @@ sitedata-settings =
 sitedata-cookies-exceptions =
     .label = Exceptions…
     .accesskey = E
-
-# This is a warning message shown next to a yellow warning icon when the Cookies and Site Data subsection
-# in Preferences has been disabled due to Content Blocking being disabled. It is displayed next to the
-# Cookies and Site Data section.
-sitedata-warning-your-settings-prevent-changes = Your settings in Content Blocking are preventing changes to Cookies and Site Data settings.
 
 ## Privacy Section - Address Bar
 
@@ -820,25 +814,13 @@ content-blocking-restore-defaults =
   .label = Restore Defaults
   .accesskey = R
 
-content-blocking-toggle-on =
-  .tooltiptext = Turn Off Content Blocking
-content-blocking-toggle-off =
-  .tooltiptext = Turn On Content Blocking
-
-content-blocking-toggle-label-on = ON
-  .accesskey = O
-content-blocking-toggle-label-off = OFF
-  .accesskey = O
-
 content-blocking-category-label = Choose what to block
 
-# "Slow" in this instance means "slow to load on the network".
-# FastBlock is a feature that blocks requests to tracking sites if they
-# have not finished loading after a certain threshold of seconds.
-content-blocking-fastblock-slow-loading-label = Slow-Loading Trackers
-  .accesskey = S
-content-blocking-fastblock-new-description = Block just the trackers that keep pages from loading quickly.
-content-blocking-tracking-protection-all-label = All Detected Trackers
+content-blocking-tracking-protection-trackers-label =
+  .label = Trackers
+  .accesskey = T
+content-blocking-tracking-protection-all-detected-trackers-label =
+  .label = All Detected Trackers
   .accesskey = T
 content-blocking-tracking-protection-new-description = Block all known trackers. (May prevent some pages from loading.)
 content-blocking-tracking-protection-option-always =
@@ -849,7 +831,8 @@ content-blocking-tracking-protection-option-private =
   .accesskey = p
 content-blocking-tracking-protection-change-block-list = Change block list
 
-content-blocking-reject-trackers-label = Third-Party Cookies
+content-blocking-third-party-cookies-label =
+  .label = Third-Party Cookies
   .accesskey = C
 content-blocking-reject-trackers-description = Block all third-party cookies or just those set by trackers.
 # This is a warning message shown next to a yellow warning icon when the Third-Party Cookies subsection
@@ -863,38 +846,15 @@ content-blocking-change-cookie-settings =
 content-blocking-reject-trackers-block-trackers-option-recommended =
   .label = Trackers (recommended)
   .accesskey = k
-content-blocking-reject-trackers-block-trackers-option =
-  .label = Trackers
-  .accesskey = k
 content-blocking-reject-trackers-all-third-parties-option =
   .label = All third-party cookies (may cause websites to break)
   .accesskey = A
 
 ## Privacy Section - Tracking
 
-tracking-header = Tracking Protection
-
-tracking-desc = Tracking Protection blocks online trackers that collect your browsing data across multiple websites. <a data-l10n-name="learn-more">Learn more about Tracking Protection and your privacy</a>
-
-tracking-mode-label = Use Tracking Protection to block known trackers
-
-tracking-mode-always =
-    .label = Always
-    .accesskey = y
-tracking-mode-private =
-    .label = Only in private windows
-    .accesskey = l
-tracking-mode-never =
-    .label = Never
-    .accesskey = N
-
 tracking-exceptions =
     .label = Exceptions…
     .accesskey = x
-
-tracking-change-block-list =
-    .label = Change Block List…
-    .accesskey = C
 
 ## Privacy Section - Permissions
 
@@ -1043,3 +1003,8 @@ certs-view =
 certs-devices =
     .label = Security Devices…
     .accesskey = D
+
+# Variables:
+#   $service-name (String) - Name of a cloud storage provider like Dropbox, Google Drive, etc...
+save-files-to-cloud-storage =
+    .label = Save files to { $service-name }

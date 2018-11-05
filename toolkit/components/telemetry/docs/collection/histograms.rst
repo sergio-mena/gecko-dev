@@ -168,9 +168,17 @@ Required for linear and exponential histograms. The maximum value to be stored i
 -------------
 Required for linear and exponential histograms. The number of buckets in a linear or exponential histogram.
 
+.. note::
+
+    The maximum value for ``n_buckets`` is 100. The more buckets, the larger the storage and transfer costs borne by our users and our pipeline.
+
 ``n_values``
 ------------
 Required for enumerated histograms. Similar to n_buckets, it represent the number of elements in the enum.
+
+.. note::
+
+    The maximum value for ``n_values`` is 100. The more values, the larger the storage and transfer costs borne by our users and our pipeline.
 
 ``labels``
 ----------
@@ -264,7 +272,7 @@ Note that ``nsITelemetry.getHistogramById()`` will throw an ``NS_ERROR_FAILURE``
 
   Adding a new Telemetry probe is not possible with Artifact builds. A full build is needed.
 
-For histograms measuring time, `TelemetryStopwatch <https://dxr.mozilla.org/mozilla-central/source/toolkit/components/telemetry/TelemetryStopwatch.jsm>`_ can be used to avoid working with Dates manually:
+For histograms measuring time, TelemetryStopwatch can be used to avoid working with Dates manually:
 
 .. code-block:: js
 

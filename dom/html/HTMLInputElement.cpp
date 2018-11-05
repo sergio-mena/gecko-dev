@@ -12,11 +12,11 @@
 #include "mozilla/dom/Date.h"
 #include "mozilla/dom/Directory.h"
 #include "mozilla/dom/DocumentOrShadowRoot.h"
-#include "mozilla/dom/DOMPrefs.h"
 #include "mozilla/dom/HTMLFormSubmission.h"
 #include "mozilla/dom/FileSystemUtils.h"
 #include "mozilla/dom/GetFilesHelper.h"
 #include "mozilla/dom/WheelEventBinding.h"
+#include "mozilla/StaticPrefs.h"
 #include "nsAttrValueInlines.h"
 #include "nsCRTGlue.h"
 #include "nsQueryObject.h"
@@ -114,6 +114,8 @@
 #include "nsIController.h"
 #include "nsIMIMEInfo.h"
 #include "nsFrameSelection.h"
+#include "nsBaseCommandController.h"
+#include "nsXULControllers.h"
 
 // input type=date
 #include "js/Date.h"
@@ -121,8 +123,6 @@
 NS_IMPL_NS_NEW_HTML_ELEMENT_CHECK_PARSER(Input)
 
 // XXX align=left, hspace, vspace, border? other nav4 attrs
-
-static NS_DEFINE_CID(kXULControllersCID,  NS_XULCONTROLLERS_CID);
 
 namespace mozilla {
 namespace dom {
@@ -562,7 +562,7 @@ HTMLInputElement::nsFilePickerShownCallback::Done(int16_t aResult)
   RefPtr<DispatchChangeEventCallback> dispatchChangeEventCallback =
     new DispatchChangeEventCallback(mInput);
 
-  if (DOMPrefs::WebkitBlinkDirectoryPickerEnabled() &&
+  if (StaticPrefs::dom_webkitBlink_dirPicker_enabled() &&
       mInput->HasAttr(kNameSpaceID_None, nsGkAtoms::webkitdirectory)) {
     ErrorResult error;
     GetFilesHelper* helper = mInput->GetOrCreateGetFilesHelper(true, error);
@@ -989,9 +989,9 @@ HTMLInputElement::Shutdown()
 // construction, destruction
 //
 
-HTMLInputElement::HTMLInputElement(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo,
+HTMLInputElement::HTMLInputElement(already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
                                    FromParser aFromParser, FromClone aFromClone)
-  : nsGenericHTMLFormElementWithState(aNodeInfo, kInputDefaultType->value)
+  : nsGenericHTMLFormElementWithState(std::move(aNodeInfo), kInputDefaultType->value)
   , mAutocompleteAttrState(nsContentUtils::eAutocompleteAttrState_Unknown)
   , mAutocompleteInfoState(nsContentUtils::eAutocompleteAttrState_Unknown)
   , mDisabledChanged(false)
@@ -1131,8 +1131,8 @@ HTMLInputElement::Clone(dom::NodeInfo* aNodeInfo, nsINode** aResult) const
 {
   *aResult = nullptr;
 
-  already_AddRefed<mozilla::dom::NodeInfo> ni = RefPtr<mozilla::dom::NodeInfo>(aNodeInfo).forget();
-  RefPtr<HTMLInputElement> it = new HTMLInputElement(ni, NOT_FROM_PARSER,
+  RefPtr<HTMLInputElement> it = new HTMLInputElement(do_AddRef(aNodeInfo),
+                                                     NOT_FROM_PARSER,
                                                      FromClone::yes);
 
   nsresult rv = const_cast<HTMLInputElement*>(this)->CopyInnerTo(it);
@@ -2220,30 +2220,13 @@ void HTMLInputElement::GetDateTimeInputBoxValue(DateTimeValue& aValue)
   aValue = *mDateTimeInputBoxValue;
 }
 
-void
-HTMLInputElement::UpdateDateTimeInputBox(const DateTimeValue& aValue)
+Element* HTMLInputElement::GetDateTimeBoxElement()
 {
-  if (NS_WARN_IF(!IsDateTimeInputType(mType))) {
-    return;
-  }
-
   nsDateTimeControlFrame* frame = do_QueryFrame(GetPrimaryFrame());
-  if (frame) {
-    frame->SetValueFromPicker(aValue);
+  if (frame && frame->GetInputAreaContent()) {
+    return frame->GetInputAreaContent()->AsElement();
   }
-}
-
-void
-HTMLInputElement::SetDateTimePickerState(bool aOpen)
-{
-  if (NS_WARN_IF(!IsDateTimeInputType(mType))) {
-    return;
-  }
-
-  nsDateTimeControlFrame* frame = do_QueryFrame(GetPrimaryFrame());
-  if (frame) {
-    frame->SetPickerState(aOpen);
-  }
+  return nullptr;
 }
 
 void
@@ -2542,7 +2525,7 @@ HTMLInputElement::GetDisplayFileName(nsAString& aValue) const
 
   if (mFileData->mFilesOrDirectories.IsEmpty()) {
     if ((IsDirPickerEnabled() && Allowdirs()) ||
-        (DOMPrefs::WebkitBlinkDirectoryPickerEnabled() &&
+        (StaticPrefs::dom_webkitBlink_dirPicker_enabled() &&
          HasAttr(kNameSpaceID_None, nsGkAtoms::webkitdirectory))) {
       nsContentUtils::GetLocalizedString(nsContentUtils::eFORMS_PROPERTIES,
                                          "NoDirSelected", value);
@@ -2633,7 +2616,7 @@ HTMLInputElement::MozSetDndFilesAndDirectories(const nsTArray<OwningFileOrDirect
   RefPtr<DispatchChangeEventCallback> dispatchChangeEventCallback =
     new DispatchChangeEventCallback(this);
 
-  if (DOMPrefs::WebkitBlinkDirectoryPickerEnabled() &&
+  if (StaticPrefs::dom_webkitBlink_dirPicker_enabled() &&
       HasAttr(kNameSpaceID_None, nsGkAtoms::webkitdirectory)) {
     ErrorResult rv;
     GetFilesHelper* helper = GetOrCreateGetFilesHelper(true /* recursionFlag */,
@@ -2716,7 +2699,7 @@ HTMLInputElement::GetFiles()
   }
 
   if (IsDirPickerEnabled() && Allowdirs() &&
-      (!DOMPrefs::WebkitBlinkDirectoryPickerEnabled() ||
+      (!StaticPrefs::dom_webkitBlink_dirPicker_enabled() ||
        !HasAttr(kNameSpaceID_None, nsGkAtoms::webkitdirectory))) {
     return nullptr;
   }
@@ -3052,8 +3035,14 @@ HTMLInputElement::GetRadioGroupContainer() const
     return nullptr;
   }
 
-  //XXXsmaug It isn't clear how this should work in Shadow DOM.
-  return static_cast<nsDocument*>(GetUncomposedDoc());
+  DocumentOrShadowRoot* docOrShadow = GetUncomposedDocOrConnectedShadowRoot();
+  if (!docOrShadow) {
+    return nullptr;
+  }
+
+  nsCOMPtr<nsIRadioGroupContainer> container =
+    do_QueryInterface(&(docOrShadow->AsNode()));
+  return container;
 }
 
 HTMLInputElement*
@@ -3366,9 +3355,9 @@ HTMLInputElement::NeedToInitializeEditorForEvent(
 }
 
 bool
-HTMLInputElement::IsDisabledForEvents(EventMessage aMessage)
+HTMLInputElement::IsDisabledForEvents(WidgetEvent* aEvent)
 {
-  return IsElementDisabledForEvents(aMessage, GetPrimaryFrame());
+  return IsElementDisabledForEvents(aEvent, GetPrimaryFrame());
 }
 
 void
@@ -3376,7 +3365,7 @@ HTMLInputElement::GetEventTargetParent(EventChainPreVisitor& aVisitor)
 {
   // Do not process any DOM events if the element is disabled
   aVisitor.mCanHandle = false;
-  if (IsDisabledForEvents(aVisitor.mEvent->mMessage)) {
+  if (IsDisabledForEvents(aVisitor.mEvent)) {
     return;
   }
 
@@ -3965,7 +3954,7 @@ HTMLInputElement::MaybeInitPickers(EventChainPostVisitor& aVisitor)
     if (target &&
         target->FindFirstNonChromeOnlyAccessContent() == this &&
         ((IsDirPickerEnabled() && Allowdirs()) ||
-         (DOMPrefs::WebkitBlinkDirectoryPickerEnabled() &&
+         (StaticPrefs::dom_webkitBlink_dirPicker_enabled() &&
           HasAttr(kNameSpaceID_None, nsGkAtoms::webkitdirectory)))) {
       type = FILE_PICKER_DIRECTORY;
     }
@@ -4632,7 +4621,8 @@ HTMLInputElement::BindToTree(nsIDocument* aDocument, nsIContent* aParent,
 
   // Add radio to document if we don't have a form already (if we do it's
   // already been added into that group)
-  if (aDocument && !mForm && mType == NS_FORM_INPUT_RADIO) {
+  if (!mForm && mType == NS_FORM_INPUT_RADIO &&
+      GetUncomposedDocOrConnectedShadowRoot()) {
     AddedToRadioGroup();
   }
 
@@ -4652,6 +4642,19 @@ HTMLInputElement::BindToTree(nsIDocument* aDocument, nsIContent* aParent,
 
   // And now make sure our state is up to date
   UpdateState(false);
+
+  if ((mType == NS_FORM_INPUT_TIME || mType == NS_FORM_INPUT_DATE) &&
+      nsContentUtils::IsUAWidgetEnabled() &&
+      IsInComposedDoc()) {
+    // Construct Shadow Root so web content can be hidden in the DOM.
+    AttachAndSetUAShadowRoot();
+    AsyncEventDispatcher* dispatcher =
+      new AsyncEventDispatcher(this,
+                               NS_LITERAL_STRING("UAWidgetBindToTree"),
+                               CanBubble::eYes,
+                               ChromeOnlyDispatch::eYes);
+    dispatcher->RunDOMEventWhenSafe();
+  }
 
   if (mType == NS_FORM_INPUT_PASSWORD) {
     if (IsInComposedDoc()) {
@@ -4694,6 +4697,20 @@ HTMLInputElement::UnbindFromTree(bool aDeep, bool aNullParent)
 
   // And now make sure our state is up to date
   UpdateState(false);
+
+  if (GetShadowRoot() && IsInComposedDoc()) {
+    RefPtr<Element> self = this;
+    nsContentUtils::AddScriptRunner(NS_NewRunnableFunction(
+      "HTMLInputElement::UnbindFromTree::UAWidgetUnbindFromTree",
+      [self]() {
+        nsContentUtils::DispatchChromeEvent(
+          self->OwnerDoc(), self,
+          NS_LITERAL_STRING("UAWidgetUnbindFromTree"),
+          CanBubble::eYes, Cancelable::eNo);
+        self->UnattachShadow();
+      })
+    );
+  }
 }
 
 void
@@ -4858,6 +4875,42 @@ HTMLInputElement::HandleTypeChange(uint8_t aNewType, bool aNotify)
                                CanBubble::eYes,
                                ChromeOnlyDispatch::eYes);
     dispatcher->PostDOMEvent();
+  }
+
+  if (nsContentUtils::IsUAWidgetEnabled() && IsInComposedDoc()) {
+    if (oldType == NS_FORM_INPUT_TIME || oldType == NS_FORM_INPUT_DATE) {
+      if (mType != NS_FORM_INPUT_TIME && mType != NS_FORM_INPUT_DATE) {
+        // Switch away from date/time type.
+        RefPtr<Element> self = this;
+        nsContentUtils::AddScriptRunner(NS_NewRunnableFunction(
+          "HTMLInputElement::UnbindFromTree::UAWidgetUnbindFromTree",
+          [self]() {
+            nsContentUtils::DispatchChromeEvent(
+              self->OwnerDoc(), self,
+              NS_LITERAL_STRING("UAWidgetUnbindFromTree"),
+              CanBubble::eYes, Cancelable::eNo);
+            self->UnattachShadow();
+          })
+        );
+      } else {
+        // Switch between date and time.
+        AsyncEventDispatcher* dispatcher =
+          new AsyncEventDispatcher(this,
+                                   NS_LITERAL_STRING("UAWidgetAttributeChanged"),
+                                   CanBubble::eYes,
+                                   ChromeOnlyDispatch::eYes);
+        dispatcher->RunDOMEventWhenSafe();
+      }
+    } else if (mType == NS_FORM_INPUT_TIME || mType == NS_FORM_INPUT_DATE) {
+      // Switch to date/time type.
+      AttachAndSetUAShadowRoot();
+      AsyncEventDispatcher* dispatcher =
+        new AsyncEventDispatcher(this,
+                                 NS_LITERAL_STRING("UAWidgetBindToTree"),
+                                 CanBubble::eYes,
+                                 ChromeOnlyDispatch::eYes);
+      dispatcher->RunDOMEventWhenSafe();
+    }
   }
 }
 
@@ -5645,7 +5698,7 @@ NS_IMETHODIMP_(bool)
 HTMLInputElement::IsAttributeMapped(const nsAtom* aAttribute) const
 {
   static const MappedAttributeEntry attributes[] = {
-    { &nsGkAtoms::align },
+    { nsGkAtoms::align },
     { nullptr },
   };
 
@@ -5797,27 +5850,24 @@ HTMLInputElement::GetControllers(ErrorResult& aRv)
   {
     if (!mControllers)
     {
-      nsresult rv;
-      mControllers = do_CreateInstance(kXULControllersCID, &rv);
-      if (NS_FAILED(rv)) {
-        aRv.Throw(rv);
+      mControllers = new nsXULControllers();
+      if (!mControllers) {
+        aRv.Throw(NS_ERROR_FAILURE);
         return nullptr;
       }
 
-      nsCOMPtr<nsIController>
-        controller(do_CreateInstance("@mozilla.org/editor/editorcontroller;1",
-                                     &rv));
-      if (NS_FAILED(rv)) {
-        aRv.Throw(rv);
+      nsCOMPtr<nsIController> controller =
+        nsBaseCommandController::CreateEditorController();
+      if (!controller) {
+        aRv.Throw(NS_ERROR_FAILURE);
         return nullptr;
       }
 
       mControllers->AppendController(controller);
 
-      controller = do_CreateInstance("@mozilla.org/editor/editingcontroller;1",
-                                     &rv);
-      if (NS_FAILED(rv)) {
-        aRv.Throw(rv);
+      controller = nsBaseCommandController::CreateEditingController();
+      if (!controller) {
+        aRv.Throw(NS_ERROR_FAILURE);
         return nullptr;
       }
 
@@ -6570,7 +6620,7 @@ HTMLInputElement::AddedToRadioGroup()
 {
   // If the element is neither in a form nor a document, there is no group so we
   // should just stop here.
-  if (!mForm && (!IsInUncomposedDoc() || IsInAnonymousSubtree())) {
+  if (!mForm && (!GetUncomposedDocOrConnectedShadowRoot() || IsInAnonymousSubtree())) {
     return;
   }
 

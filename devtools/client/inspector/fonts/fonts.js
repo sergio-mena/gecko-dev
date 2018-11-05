@@ -10,7 +10,6 @@ const Services = require("Services");
 const { gDevTools } = require("devtools/client/framework/devtools");
 const { getColor } = require("devtools/client/shared/theme");
 const { createFactory, createElement } = require("devtools/client/shared/vendor/react");
-const { getCssProperties } = require("devtools/shared/fronts/css-properties");
 const { Provider } = require("devtools/client/shared/vendor/react-redux");
 const { debounce } = require("devtools/shared/debounce");
 const { ELEMENT_STYLE } = require("devtools/shared/specs/styles");
@@ -62,7 +61,7 @@ const HISTOGRAM_FONT_TYPE_DISPLAYED = "DEVTOOLS_FONTEDITOR_FONT_TYPE_DISPLAYED";
 
 class FontInspector {
   constructor(inspector, window) {
-    this.cssProperties = getCssProperties(inspector.toolbox);
+    this.cssProperties = inspector.cssProperties;
     this.document = window.document;
     this.inspector = inspector;
     // Set of unique keyword values supported by designated font properties.
@@ -85,7 +84,7 @@ class FontInspector {
     this.onNewNode = this.onNewNode.bind(this);
     this.onPreviewTextChange = debounce(this.onPreviewTextChange, 100, this);
     this.onPropertyChange = this.onPropertyChange.bind(this);
-    this.onRulePropertyUpdated = debounce(this.onRulePropertyUpdated, 100, this);
+    this.onRulePropertyUpdated = debounce(this.onRulePropertyUpdated, 300, this);
     this.onToggleFontHighlight = this.onToggleFontHighlight.bind(this);
     this.onThemeChanged = this.onThemeChanged.bind(this);
     this.update = this.update.bind(this);
@@ -374,7 +373,7 @@ class FontInspector {
       "font-size",
       "font-weight",
       "font-stretch",
-      "line-height"
+      "line-height",
     ].reduce((acc, property) => {
       return acc.concat(this.cssProperties.getValues(property));
     }, []);
@@ -598,22 +597,23 @@ class FontInspector {
    * @param  {String} value
    *         CSS property value
    */
-  syncChanges(name, value) {
+  async syncChanges(name, value) {
     const textProperty = this.getTextProperty(name, value);
     if (textProperty) {
-      // This method may be called after the connection to the page style actor is closed.
-      // For example, during teardown of automated tests. Here, we catch any failure that
-      // may occur because of that. We're not interested in handling the error.
-      textProperty.setValue(value).catch(error => {
+      try {
+        await textProperty.setValue(value, "", true);
+        this.ruleView.on("property-value-updated", this.onRulePropertyUpdated);
+      } catch (error) {
+        // Because setValue() does an asynchronous call to the server, there is a chance
+        // the font editor was destroyed while we were waiting. If that happened, just
+        // bail out silently.
         if (!this.document) {
           return;
         }
 
         throw error;
-      });
+      }
     }
-
-    this.ruleView.on("property-value-updated", this.onRulePropertyUpdated);
   }
 
   /**
@@ -842,7 +842,7 @@ class FontInspector {
     try {
       // Get computed styles for the selected node, but filter by CSS font properties.
       this.nodeComputedStyle = await this.pageStyle.getComputed(node, {
-        filterProperties: FONT_PROPERTIES
+        filterProperties: FONT_PROPERTIES,
       });
     } catch (e) {
       // Because getComputed is async, there is a chance the font editor was
@@ -919,7 +919,7 @@ class FontInspector {
     const options = {
       includePreviews: true,
       previewText,
-      previewFillStyle: getColor("body-color")
+      previewFillStyle: getColor("body-color"),
     };
 
     // Add the includeVariations argument into the option to get font variation data.

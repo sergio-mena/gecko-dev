@@ -362,7 +362,10 @@ CSSTransition::HasLowerCompositeOrderThan(const CSSTransition& aOther) const
 
   // 1. Sort by document order
   if (!mOwningElement.Equals(aOther.mOwningElement)) {
-    return mOwningElement.LessThan(aOther.mOwningElement);
+    return mOwningElement.LessThan(
+      const_cast<CSSTransition*>(this)->CachedChildIndexRef(),
+      aOther.mOwningElement,
+      const_cast<CSSTransition*>(&aOther)->CachedChildIndexRef());
   }
 
   // 2. (Same element and pseudo): Sort by transition generation
@@ -628,7 +631,7 @@ GetTransitionKeyframes(nsCSSPropertyID aProperty,
 
   Keyframe& fromFrame = AppendKeyframe(0.0, aProperty, std::move(aStartValue),
                                        keyframes);
-  if (aTimingFunction.mType != nsTimingFunction::Type::Linear) {
+  if (!aTimingFunction.IsLinear()) {
     fromFrame.mTimingFunction.emplace();
     fromFrame.mTimingFunction->Init(aTimingFunction);
   }
@@ -828,7 +831,7 @@ nsTransitionManager::ConsiderInitiatingTransition(
   target.emplace(aElement, aPseudoType);
   KeyframeEffectParams effectOptions;
   RefPtr<ElementPropertyTransition> pt =
-    new ElementPropertyTransition(aElement->OwnerDoc(), target, timing,
+    new ElementPropertyTransition(aElement->OwnerDoc(), target, std::move(timing),
                                   startForReversingTest, reversePortion,
                                   effectOptions);
 

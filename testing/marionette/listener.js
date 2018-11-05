@@ -1304,11 +1304,12 @@ function isElementSelected(el) {
 }
 
 async function sendKeysToElement(el, val) {
-  await interaction.sendKeysToElement(
-      el, val,
-      capabilities.get("moz:accessibilityChecks"),
-      capabilities.get("moz:webdriverClick"),
-  );
+  let opts = {
+    strictFileInteractability: capabilities.get("strictFileInteractability"),
+    accessibilityChecks: capabilities.get("moz:accessibilityChecks"),
+    webdriverClick: capabilities.get("moz:webdriverClick"),
+  };
+  await interaction.sendKeysToElement(el, val, opts);
 }
 
 /** Clear the text of an element. */
@@ -1647,22 +1648,20 @@ async function reftestWait(url, remote) {
         observer.observe(root, {attributes: true});
       });
     }
-
-    logger.debug("Waiting for rendering");
-
-    await new Promise(resolve => {
-      let maybeResolve = () => {
-        if (flushRendering()) {
-          win.addEventListener("MozAfterPaint", maybeResolve, {once: true});
-        } else {
-          win.setTimeout(resolve, 0);
-        }
-      };
-      maybeResolve();
-    });
-  } else {
-    flushRendering();
   }
+
+  logger.debug("Waiting for rendering");
+
+  await new Promise(resolve => {
+    let maybeResolve = () => {
+      if (flushRendering()) {
+        win.addEventListener("MozAfterPaint", maybeResolve, {once: true});
+      } else {
+        win.setTimeout(resolve, 0);
+      }
+    };
+    maybeResolve();
+  });
 
   if (remote) {
     windowUtils.updateLayerTree();

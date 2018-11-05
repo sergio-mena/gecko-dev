@@ -29,6 +29,7 @@ pub use self::align::{AlignContent, AlignItems, AlignSelf, ContentDistribution};
 #[cfg(feature = "gecko")]
 pub use self::align::{JustifyContent, JustifyItems, JustifySelf, SelfAlignment};
 pub use self::background::{BackgroundRepeat, BackgroundSize};
+pub use self::basic_shape::FillRule;
 pub use self::border::{BorderCornerRadius, BorderImageSlice, BorderImageWidth};
 pub use self::border::{BorderImageRepeat, BorderImageSideWidth};
 pub use self::border::{BorderRadius, BorderSideWidth, BorderSpacing};
@@ -43,6 +44,7 @@ pub use self::box_::{OverflowClipBox, OverscrollBehavior, Perspective, Resize};
 pub use self::box_::{ScrollSnapType, TouchAction, TransitionProperty, VerticalAlign, WillChange};
 pub use self::color::{Color, ColorPropertyValue, RGBAColor};
 pub use self::counters::{Content, ContentItem, CounterIncrement, CounterReset};
+pub use self::easing::TimingFunction;
 pub use self::effects::{BoxShadow, Filter, SimpleShadow};
 pub use self::flex::FlexBasis;
 #[cfg(feature = "gecko")]
@@ -74,7 +76,7 @@ pub use self::text::{InitialLetter, LetterSpacing, LineHeight, MozTabSize, TextA
 pub use self::text::{TextEmphasisPosition, TextEmphasisStyle};
 pub use self::text::{TextAlignKeyword, TextDecorationLine, TextOverflow, WordSpacing};
 pub use self::time::Time;
-pub use self::transform::{Rotate, Scale, TimingFunction, Transform};
+pub use self::transform::{Rotate, Scale, Transform};
 pub use self::transform::{TransformOrigin, TransformStyle, Translate};
 pub use self::ui::{ColorOrAuto, Cursor, MozForceBrokenImageIcon};
 #[cfg(feature = "gecko")]
@@ -93,6 +95,7 @@ pub mod calc;
 pub mod color;
 pub mod column;
 pub mod counters;
+pub mod easing;
 pub mod effects;
 pub mod flex;
 pub mod font;
@@ -102,8 +105,8 @@ pub mod grid;
 pub mod image;
 pub mod length;
 pub mod list;
-pub mod outline;
 pub mod motion;
+pub mod outline;
 pub mod percentage;
 pub mod position;
 pub mod rect;
@@ -151,8 +154,20 @@ fn parse_number_with_clamping_mode<'i, 't>(
 // FIXME(emilio): Should move to border.rs
 #[allow(missing_docs)]
 #[cfg_attr(feature = "servo", derive(Deserialize, Serialize))]
-#[derive(Clone, Copy, Debug, Eq, MallocSizeOf, Ord, Parse, PartialEq,
-         PartialOrd, SpecifiedValueInfo, ToComputedValue, ToCss)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    MallocSizeOf,
+    Ord,
+    Parse,
+    PartialEq,
+    PartialOrd,
+    SpecifiedValueInfo,
+    ToComputedValue,
+    ToCss,
+)]
 pub enum BorderStyle {
     None = -1,
     Solid = 6,
@@ -330,8 +345,7 @@ impl Parse for GreaterThanOrEqualToOneNumber {
 ///
 /// FIXME(emilio): Should probably use Either.
 #[allow(missing_docs)]
-#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo,
-         ToCss)]
+#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToCss)]
 pub enum NumberOrPercentage {
     Percentage(Percentage),
     Number(Number),
@@ -369,8 +383,7 @@ impl Parse for NumberOrPercentage {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, PartialOrd,
-         SpecifiedValueInfo, ToCss)]
+#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, PartialOrd, SpecifiedValueInfo, ToCss)]
 pub struct Opacity(Number);
 
 impl Parse for Opacity {
@@ -630,13 +643,16 @@ impl ToComputedValue for ClipRect {
     fn to_computed_value(&self, context: &Context) -> super::computed::ClipRect {
         super::computed::ClipRect {
             top: self.top.as_ref().map(|top| top.to_computed_value(context)),
-            right: self.right
+            right: self
+                .right
                 .as_ref()
                 .map(|right| right.to_computed_value(context)),
-            bottom: self.bottom
+            bottom: self
+                .bottom
                 .as_ref()
                 .map(|bottom| bottom.to_computed_value(context)),
-            left: self.left
+            left: self
+                .left
                 .as_ref()
                 .map(|left| left.to_computed_value(context)),
         }
@@ -760,8 +776,7 @@ impl AllowQuirks {
 /// An attr(...) rule
 ///
 /// `[namespace? `|`]? ident`
-#[derive(Clone, Debug, Eq, MallocSizeOf, PartialEq, SpecifiedValueInfo,
-         ToComputedValue)]
+#[derive(Clone, Debug, Eq, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToComputedValue)]
 #[css(function)]
 pub struct Attr {
     /// Optional namespace prefix and URL.
@@ -814,7 +829,10 @@ impl Attr {
                         let prefix = Prefix::from(ns.as_ref());
                         let ns = match get_namespace_for_prefix(&prefix, context) {
                             Some(ns) => ns,
-                            None => return Err(location.new_custom_error(StyleParseErrorKind::UnspecifiedError)),
+                            None => {
+                                return Err(location
+                                    .new_custom_error(StyleParseErrorKind::UnspecifiedError))
+                            },
                         };
                         Some((prefix, ns))
                     } else {

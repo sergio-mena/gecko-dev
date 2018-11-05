@@ -56,8 +56,10 @@
 
 extern "C" {
 
+// This must match AudioIpcInitParams in media/audioipc/client/src/lib.rs.
+// TODO: Generate this from the Rust definition rather than duplicating it.
 struct AudioIpcInitParams {
-  int mServerConnection;
+  mozilla::ipc::FileDescriptor::PlatformHandleType mServerConnection;
   size_t mPoolSize;
   size_t mStackSize;
   void (*mThreadCreateCallback)(const char*);
@@ -403,9 +405,19 @@ ipc::FileDescriptor CreateAudioIPCConnection()
 {
 #ifdef MOZ_CUBEB_REMOTING
   MOZ_ASSERT(sServerHandle);
-  int rawFD = audioipc_server_new_client(sServerHandle);
+  ipc::FileDescriptor::PlatformHandleType rawFD = audioipc_server_new_client(sServerHandle);
   ipc::FileDescriptor fd(rawFD);
+  if (!fd.IsValid()) {
+    MOZ_LOG(gCubebLog, LogLevel::Error, ("audioipc_server_new_client failed"));
+    return ipc::FileDescriptor();
+  }
+  // Close rawFD since FileDescriptor's ctor cloned it.
+  // TODO: Find cleaner cross-platform way to close rawFD.
+#ifdef XP_WIN
+  CloseHandle(rawFD);
+#else
   close(rawFD);
+#endif
   return fd;
 #else
   return ipc::FileDescriptor();
@@ -419,6 +431,10 @@ cubeb* GetCubebContextUnlocked()
     // Pref set such that we should return a null context
     MOZ_LOG(gCubebLog, LogLevel::Debug,
             ("%s: returning null context due to %s!", __func__, PREF_CUBEB_FORCE_NULL_CONTEXT));
+    return nullptr;
+  }
+  if (recordreplay::IsRecordingOrReplaying()) {
+    // Media is not supported when recording or replaying. See bug 1304146.
     return nullptr;
   }
   if (sCubebState != CubebState::Uninitialized) {

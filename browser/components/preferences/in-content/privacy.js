@@ -20,29 +20,11 @@ ChromeUtils.defineModuleGetter(this, "SiteDataManager",
 
 ChromeUtils.import("resource://gre/modules/PrivateBrowsingUtils.jsm");
 
-XPCOMUtils.defineLazyPreferenceGetter(this, "contentBlockingUiEnabled",
-                                      "browser.contentblocking.ui.enabled");
-
-XPCOMUtils.defineLazyPreferenceGetter(this, "contentBlockingCookiesAndSiteDataRejectTrackersRecommended",
-                                      "browser.contentblocking.cookies-site-data.ui.reject-trackers.recommended");
-
-XPCOMUtils.defineLazyPreferenceGetter(this, "contentBlockingCookiesAndSiteDataRejectTrackersEnabled",
-                                      "browser.contentblocking.cookies-site-data.ui.reject-trackers.enabled");
-
-XPCOMUtils.defineLazyPreferenceGetter(this, "contentBlockingFastBlockUiEnabled",
-                                      "browser.contentblocking.fastblock.ui.enabled");
-
 XPCOMUtils.defineLazyPreferenceGetter(this, "contentBlockingTrackingProtectionUiEnabled",
                                       "browser.contentblocking.trackingprotection.ui.enabled");
 
 XPCOMUtils.defineLazyPreferenceGetter(this, "contentBlockingRejectTrackersUiEnabled",
                                       "browser.contentblocking.rejecttrackers.ui.enabled");
-
-XPCOMUtils.defineLazyPreferenceGetter(this, "contentBlockingRejectTrackersRecommended",
-                                      "browser.contentblocking.rejecttrackers.ui.recommended");
-
-XPCOMUtils.defineLazyPreferenceGetter(this, "contentBlockingEnabled",
-                                      "browser.contentblocking.enabled");
 
 const PREF_UPLOAD_ENABLED = "datareporting.healthreport.uploadEnabled";
 
@@ -67,15 +49,14 @@ XPCOMUtils.defineLazyGetter(this, "AlertsServiceDND", function() {
 });
 
 Preferences.addAll([
-  // Content Blocking
-  { id: "browser.contentblocking.enabled", type: "bool" },
-
-  // FastBlock
-  { id: "browser.fastblock.enabled", type: "bool" },
-
   // Tracking Protection
   { id: "privacy.trackingprotection.enabled", type: "bool" },
   { id: "privacy.trackingprotection.pbmode.enabled", type: "bool" },
+  // This isn't a configuration pref, rather it's for saving the previous state
+  // of the UI when we turn off the TP controls when the user checks off the
+  // All Detected Trackers under Content Blocking.  This pref isn't listed in
+  // all.js/firefox.js to make sure it doesn't appear in about:config by default.
+  { id: "browser.privacy.trackingprotection.menu", type: "string" },
 
   // Button prefs
   { id: "pref.privacy.disable_button.cookie_exceptions", type: "bool" },
@@ -180,19 +161,6 @@ var gPrivacyPane = {
   _shouldPromptForRestart: true,
 
   /**
-   * Initialize the tracking protection prefs and linkify its Learn More link.
-   */
-  _initTrackingProtection() {
-    setEventListener("trackingProtectionRadioGroup", "command",
-      this.trackingProtectionWritePrefs);
-    setEventListener("changeBlockList", "command", this.showBlockLists);
-
-    let link = document.getElementById("trackingProtectionLearnMore");
-    let url = Services.urlFormatter.formatURLPref("app.support.baseURL") + "tracking-protection";
-    link.setAttribute("href", url);
-  },
-
-  /**
    * Update the tracking protection UI to deal with extension control.
    */
   _updateTrackingProtectionUI() {
@@ -201,23 +169,12 @@ var gPrivacyPane = {
 
     function setInputsDisabledState(isControlled) {
       let disabled = isLocked || isControlled;
-      if (contentBlockingUiEnabled) {
-        let tpCheckbox =
-          document.getElementById("contentBlockingTrackingProtectionCheckbox");
-        if (!tpCheckbox.checked) {
-          disabled = true;
-        }
-        // Only enable the TP menu if content blocking is enabled.
-        document.getElementById("trackingProtectionMenu").disabled = disabled ||
-          !contentBlockingEnabled;
-      } else {
-        document.querySelectorAll("#trackingProtectionRadioGroup > radio")
-          .forEach((element) => {
-            element.disabled = disabled;
-          });
-        document.querySelector("#trackingProtectionDesc > label")
-          .disabled = disabled;
-      }
+      let tpCheckbox =
+        document.getElementById("contentBlockingTrackingProtectionCheckbox");
+      // Only enable the TP menu if Detect All Trackers is enabled.
+      document.getElementById("trackingProtectionMenu").disabled = disabled ||
+        !tpCheckbox.checked;
+      tpCheckbox.disabled = disabled;
 
       // Notify observers that the TP UI has been updated.
       // This is needed since our tests need to be notified about the
@@ -242,9 +199,7 @@ var gPrivacyPane = {
    * for tracking protection.
    */
   _initTrackingProtectionExtensionControl() {
-    let disableButton = contentBlockingUiEnabled ?
-      "contentBlockingDisableTrackingProtectionExtension" : "disableTrackingProtectionExtension";
-    setEventListener(disableButton, "command",
+    setEventListener("contentBlockingDisableTrackingProtectionExtension", "command",
       makeDisableControllingExtension(
         PREF_SETTING_TYPE, TRACKING_PROTECTION_KEY));
 
@@ -286,19 +241,12 @@ var gPrivacyPane = {
     this.initAutoStartPrivateBrowsingReverter();
     this._initAutocomplete();
 
-    /* Initialize Content Blocking / Tracking Protection */
-
-    if (contentBlockingUiEnabled) {
-      this.initContentBlocking();
-    } else {
-      this._initTrackingProtection();
-    }
+    /* Initialize Content Blocking */
+    this.initContentBlocking();
 
     this.trackingProtectionReadPrefs();
     this.networkCookieBehaviorReadPrefs();
     this._initTrackingProtectionExtensionControl();
-
-    this.updateContentBlockingVisibility();
 
     Preferences.get("privacy.trackingprotection.enabled").on("change",
       gPrivacyPane.trackingProtectionReadPrefs.bind(gPrivacyPane));
@@ -399,15 +347,7 @@ var gPrivacyPane = {
       }
     }
 
-    Services.obs.addObserver(this, "sitedatamanager:sites-updated");
-    Services.obs.addObserver(this, "sitedatamanager:updating-sites");
-    let unload = () => {
-      window.removeEventListener("unload", unload);
-      Services.obs.removeObserver(this, "sitedatamanager:sites-updated");
-      Services.obs.removeObserver(this, "sitedatamanager:updating-sites");
-    };
-    window.addEventListener("unload", unload);
-    SiteDataManager.updateSites();
+    this.initSiteDataControls();
     setEventListener("clearSiteDataButton", "command",
       gPrivacyPane.clearSiteData);
     setEventListener("siteDataSettings", "command",
@@ -465,17 +405,24 @@ var gPrivacyPane = {
     Services.obs.notifyObservers(window, "privacy-pane-loaded");
   },
 
+  initSiteDataControls() {
+    Services.obs.addObserver(this, "sitedatamanager:sites-updated");
+    Services.obs.addObserver(this, "sitedatamanager:updating-sites");
+    let unload = () => {
+      window.removeEventListener("unload", unload);
+      Services.obs.removeObserver(this, "sitedatamanager:sites-updated");
+      Services.obs.removeObserver(this, "sitedatamanager:updating-sites");
+    };
+    window.addEventListener("unload", unload);
+    SiteDataManager.updateSites();
+  },
+
   // CONTENT BLOCKING
 
   /**
    * Initializes the content blocking section.
    */
   initContentBlocking() {
-    let contentBlockingCheckbox = document.getElementById("contentBlockingCheckbox");
-    setEventListener("contentBlockingToggle", "command",
-      () => contentBlockingCheckbox.click());
-    setEventListener("contentBlockingToggle", "command",
-      this.updateContentBlockingControls);
     setEventListener("changeBlockListLink", "click", this.showBlockLists);
     setEventListener("contentBlockingRestoreDefaults", "command",
       this.restoreContentBlockingPrefs);
@@ -502,7 +449,6 @@ var gPrivacyPane = {
     // Honour our Content Blocking category UI prefs. If each pref is set to false,
     // Make all descendants of the corresponding selector hidden.
     let selectorPrefMap = {
-      ".fast-block-ui": contentBlockingFastBlockUiEnabled,
       ".tracking-protection-ui": contentBlockingTrackingProtectionUiEnabled,
       ".reject-trackers-ui": contentBlockingRejectTrackersUiEnabled,
     };
@@ -516,23 +462,6 @@ var gPrivacyPane = {
         }
       }
     }
-
-    // Allow turning off the "(recommended)" label using a pref
-    let blockCookiesFromTrackers = document.getElementById("blockCookiesFromTrackersCB");
-    if (contentBlockingRejectTrackersRecommended) {
-      document.l10n.setAttributes(blockCookiesFromTrackers, "content-blocking-reject-trackers-block-trackers-option-recommended");
-    }
-
-    // Reorder the privacy pane to put the Content Blocking section first and the
-    // Cookies & Site Data section right after it.
-    let trackingGroup = document.getElementById("trackingGroup");
-    let siteDataGroup = document.getElementById("siteDataGroup");
-    let browserPrivacyCategory = document.getElementById("browserPrivacyCategory");
-
-    browserPrivacyCategory.parentNode.insertBefore(siteDataGroup,
-                                                   browserPrivacyCategory.nextSibling);
-    browserPrivacyCategory.parentNode.insertBefore(trackingGroup,
-                                                   browserPrivacyCategory.nextSibling);
   },
 
   /**
@@ -545,8 +474,6 @@ var gPrivacyPane = {
       }
     }
 
-    clearIfNotLocked("browser.contentblocking.enabled");
-    clearIfNotLocked("browser.fastblock.enabled");
     clearIfNotLocked("urlclassifier.trackingTable");
     clearIfNotLocked("network.cookie.cookieBehavior");
     clearIfNotLocked("network.cookie.lifetimePolicy");
@@ -567,105 +494,6 @@ var gPrivacyPane = {
     gotoPref("privacy-sitedata");
   },
 
-  /**
-   * Changes the visibility of elements in the TP/CB section depending on the
-   * content blocking UI pref.
-   */
-  updateContentBlockingVisibility() {
-    // First, update the content blocking UI.
-    let visibleState = {
-      "contentBlockingHeader": true,
-      "contentBlockingDescription": true,
-      "contentBlockingLearnMore": true,
-      "contentBlockingRestoreDefaults": true,
-      "contentBlockingCheckboxContainer": true,
-      "contentBlockingCategories": true,
-
-      "trackingProtectionHeader": false,
-      "trackingProtectionDescription": false,
-      "trackingProtectionBox": false,
-    };
-    for (let id in visibleState) {
-      document.getElementById(id).hidden = contentBlockingUiEnabled != visibleState[id];
-    }
-
-    // Update the Do Not Track section to not mention "Tracking Protection".
-    if (contentBlockingUiEnabled) {
-      let dntDefaultRadioItem =
-        document.querySelector("#doNotTrackRadioGroup > radio[value=false]");
-      document.l10n.setAttributes(
-        dntDefaultRadioItem, "do-not-track-option-default-content-blocking");
-    }
-
-    // Allow turning off the "(recommended)" label using a pref
-    let blockCookiesFromTrackers = document.getElementById("blockCookiesFromTrackers");
-    if (contentBlockingCookiesAndSiteDataRejectTrackersRecommended) {
-      document.l10n.setAttributes(blockCookiesFromTrackers, "sitedata-block-trackers-option-recommended");
-    }
-
-    // Allow hiding the Reject Trackers option based on a pref
-    if (!contentBlockingCookiesAndSiteDataRejectTrackersEnabled) {
-      blockCookiesFromTrackers.remove();
-    }
-  },
-
-  /**
-   * Updates the preferences UI to reflect the browser.contentblocking.enabled pref.
-   * This affects the button to toggle the pref and the disabled state of the dependent controls.
-   */
-  updateContentBlockingToggle() {
-    let onOrOff = contentBlockingEnabled ? "on" : "off";
-    let contentBlockingToggle = document.getElementById("contentBlockingToggle");
-    let contentBlockingToggleLabel = document.getElementById("contentBlockingToggleLabel");
-
-    document.l10n.setAttributes(contentBlockingToggle,
-      "content-blocking-toggle-" + onOrOff);
-    contentBlockingToggle.setAttribute("aria-pressed", contentBlockingEnabled);
-    document.l10n.setAttributes(contentBlockingToggleLabel,
-      "content-blocking-toggle-label-" + onOrOff);
-
-    this.updateContentBlockingControls();
-  },
-
-  /**
-   * Changes the disabled state of controls that depend on the browser.contentblocking.enabled pref.
-   */
-  updateContentBlockingControls() {
-    let dependentControls = [
-      "#content-blocking-categories-label",
-      ".content-blocking-checkbox",
-      ".content-blocking-icon",
-      ".content-blocking-category-name",
-      "#changeBlockListLink",
-      "#contentBlockingChangeCookieSettings",
-      "#blockCookiesCB, #blockCookiesCB > radio",
-    ];
-
-    this._toggleControls(dependentControls, contentBlockingEnabled);
-
-    // Need to make sure we account for pref locking/extension overrides when enabling the TP menu.
-    this._updateTrackingProtectionUI();
-
-    // If we are turning Content Blocking on, we may need to keep some parts of the Third-Party Cookies
-    // UI off, depending on the value of the cookieBehavior pref.  readBlockCookiesCheckbox() can do
-    // the work that is needed for that.
-    this.readBlockCookiesCheckbox();
-  },
-
-  _toggleControls(dependentControls, enabled) {
-    for (let selector of dependentControls) {
-      let controls = document.querySelectorAll(selector);
-
-      for (let control of controls) {
-        if (enabled) {
-          control.removeAttribute("disabled");
-        } else {
-          control.setAttribute("disabled", "true");
-        }
-      }
-    }
-  },
-
   // TRACKING PROTECTION MODE
 
   /**
@@ -674,13 +502,16 @@ var gPrivacyPane = {
   trackingProtectionReadPrefs() {
     let enabledPref = Preferences.get("privacy.trackingprotection.enabled");
     let pbmPref = Preferences.get("privacy.trackingprotection.pbmode.enabled");
-    let tpControl,
-        tpCheckbox;
-    if (contentBlockingUiEnabled) {
-      tpControl = document.getElementById("trackingProtectionMenu");
-      tpCheckbox = document.getElementById("contentBlockingTrackingProtectionCheckbox");
-    } else {
-      tpControl = document.getElementById("trackingProtectionRadioGroup");
+    let btpmPref = Preferences.get("browser.privacy.trackingprotection.menu");
+    let tpControl = document.getElementById("trackingProtectionMenu");
+    let tpCheckbox = document.getElementById("contentBlockingTrackingProtectionCheckbox");
+
+    let savedMenuValue;
+    // Only look at the backup pref when restoring the checkbox next to
+    // "All Detected Trackers".
+    if (["always", "private"].includes(btpmPref.value) &&
+        tpCheckbox.checked) {
+      savedMenuValue = btpmPref.value;
     }
 
     this._updateTrackingProtectionUI();
@@ -699,6 +530,9 @@ var gPrivacyPane = {
     } else if (!tpCheckbox) {
       tpControl.value = "never";
     } else {
+      if (savedMenuValue) {
+        tpControl.value = savedMenuValue;
+      }
       tpCheckbox.checked = false;
     }
   },
@@ -711,8 +545,7 @@ var gPrivacyPane = {
     let blockCookiesCtrl = document.getElementById("blockCookies");
     let blockCookiesLabel = document.getElementById("blockCookiesLabel");
     let blockCookiesMenu = document.getElementById("blockCookiesMenu");
-    let keepUntilLabel = document.getElementById("keepUntil");
-    let keepUntilMenu = document.getElementById("keepCookiesUntil");
+    let deleteOnCloseCheckbox = document.getElementById("deleteOnClose");
 
     let blockCookies = (behavior != 0);
     let cookieBehaviorLocked = Services.prefs.prefIsLocked("network.cookie.cookieBehavior");
@@ -722,8 +555,8 @@ var gPrivacyPane = {
     let completelyBlockCookies = (behavior == 2);
     let privateBrowsing = Preferences.get("browser.privatebrowsing.autostart").value;
     let cookieExpirationLocked = Services.prefs.prefIsLocked("network.cookie.lifetimePolicy");
-    let keepUntilControlsDisabled = privateBrowsing || completelyBlockCookies || cookieExpirationLocked;
-    keepUntilLabel.disabled = keepUntilMenu.disabled = keepUntilControlsDisabled;
+    deleteOnCloseCheckbox.disabled = privateBrowsing || completelyBlockCookies ||
+                                     cookieExpirationLocked;
 
     switch (behavior) {
       case Ci.nsICookieService.BEHAVIOR_ACCEPT:
@@ -754,19 +587,15 @@ var gPrivacyPane = {
   trackingProtectionWritePrefs() {
     let enabledPref = Preferences.get("privacy.trackingprotection.enabled");
     let pbmPref = Preferences.get("privacy.trackingprotection.pbmode.enabled");
-    let tpControl,
-        tpCheckbox;
-    if (contentBlockingUiEnabled) {
-      tpControl = document.getElementById("trackingProtectionMenu");
-      tpCheckbox = document.getElementById("contentBlockingTrackingProtectionCheckbox");
-    } else {
-      tpControl = document.getElementById("trackingProtectionRadioGroup");
-    }
+    let btpmPref = Preferences.get("browser.privacy.trackingprotection.menu");
+    let tpControl = document.getElementById("trackingProtectionMenu");
+    let tpCheckbox = document.getElementById("contentBlockingTrackingProtectionCheckbox");
 
     let value;
     if (tpCheckbox) {
       if (tpCheckbox.checked) {
         value = tpControl.value;
+        btpmPref.value = value;
       } else {
         value = "never";
       }
@@ -911,9 +740,9 @@ var gPrivacyPane = {
    * value of the private browsing auto-start preference.
    */
   updatePrivacyMicroControls() {
-    // Set "Keep cookies until..." to "I close Nightly" and disable the setting
+    // Check the "Delete cookies when Firefox is closed" checkbox and disable the setting
     // when we're in auto private mode (or reset it back otherwise).
-    document.getElementById("keepCookiesUntil").value = this.readKeepCookiesUntil();
+    document.getElementById("deleteOnClose").checked = this.readDeleteOnClose();
 
     let clearDataSettings = document.getElementById("clearDataSettings");
 
@@ -1101,20 +930,19 @@ var gPrivacyPane = {
    *     2   means keep cookies until the browser is closed
    */
 
-  readKeepCookiesUntil() {
+  readDeleteOnClose() {
     let privateBrowsing = Preferences.get("browser.privatebrowsing.autostart").value;
     if (privateBrowsing) {
-      return Ci.nsICookieService.ACCEPT_SESSION;
+      return true;
     }
 
     let lifetimePolicy = Preferences.get("network.cookie.lifetimePolicy").value;
-    if (lifetimePolicy == Ci.nsICookieService.ACCEPT_SESSION) {
-      return Ci.nsICookieService.ACCEPT_SESSION;
-    }
+    return lifetimePolicy == Ci.nsICookieService.ACCEPT_SESSION;
+  },
 
-    // network.cookie.lifetimePolicy can be set to any value, but we just
-    // support ACCEPT_SESSION and ACCEPT_NORMALLY. Let's force ACCEPT_NORMALLY.
-    return Ci.nsICookieService.ACCEPT_NORMALLY;
+  writeDeleteOnClose() {
+    let checkbox = document.getElementById("deleteOnClose");
+    return checkbox.checked ? Ci.nsICookieService.ACCEPT_SESSION : Ci.nsICookieService.ACCEPT_NORMALLY;
   },
 
   /**
@@ -1154,16 +982,6 @@ var gPrivacyPane = {
   enableThirdPartyCookiesUI() {
     document.getElementById("blockCookiesCBDeck").selectedIndex = 0;
     document.getElementById("contentBlockingChangeCookieSettings").hidden = true;
-
-    let dependentControls = [
-      ".reject-trackers-ui .content-blocking-checkbox",
-      ".reject-trackers-ui .content-blocking-icon",
-      ".reject-trackers-ui .content-blocking-category-name",
-      "#blockCookiesCB, #blockCookiesCB > radio",
-      "#blockCookiesCBDeck",
-    ];
-
-    this._toggleControls(dependentControls, contentBlockingEnabled);
   },
 
   disableThirdPartyCookiesUI(reason) {
@@ -1178,16 +996,6 @@ var gPrivacyPane = {
     }
     document.getElementById("blockCookiesCBDeck").selectedIndex = deckIndex;
     document.getElementById("contentBlockingChangeCookieSettings").hidden = false;
-
-    let dependentControls = [
-      ".reject-trackers-ui .content-blocking-checkbox",
-      ".reject-trackers-ui .content-blocking-icon",
-      ".reject-trackers-ui .content-blocking-category-name",
-      "#blockCookiesCB, #blockCookiesCB > radio",
-      "#blockCookiesCBDeck",
-    ];
-
-    this._toggleControls(dependentControls, false);
   },
 
   /**
@@ -1262,12 +1070,12 @@ var gPrivacyPane = {
       case Ci.nsICookieService.BEHAVIOR_REJECT_FOREIGN:
         this.enableThirdPartyCookiesUI();
         bcCheckbox.checked = true;
-        bcControl.disabled = !contentBlockingEnabled;
+        bcControl.disabled = false;
         break;
       case Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER:
         this.enableThirdPartyCookiesUI();
         bcCheckbox.checked = true;
-        bcControl.disabled = !contentBlockingEnabled;
+        bcControl.disabled = false;
         break;
       default:
         break;

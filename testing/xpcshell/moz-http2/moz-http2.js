@@ -604,8 +604,8 @@ function handleRequest(req, res) {
     return;
 
   }
-  // for use with test_trr.js, test8b
-  else if (u.path === "/dns-ecs?dns=AAABAAABAAAAAAABA2VjcwdleGFtcGxlA2NvbQAAAQABAAApEAAAAAAAAAgACAAEAAIAAA") {
+    // for use with test_trr.js, test8b
+  else if (u.path === "/dns-ecs?dns=AAABAAABAAAAAAABA2VjcwdleGFtcGxlA2NvbQAAAQABAAApEAAAAAAAAAgACAAEAAEAAA") {
     // the query string asks for an A entry for ecs.example.com
     // ecs.example.com has A entry 5.5.5.5
     var content= new Buffer("00000100000100010000000003656373076578616D706C6503636F6D0000010001C00C0001000100000037000405050505", "hex");
@@ -750,6 +750,32 @@ function handleRequest(req, res) {
     }
     // bar.example.com has A entry 127.0.0.1
     var content= new Buffer("00000100000100010000000003626172076578616D706C6503636F6D0000010001C00C000100010000003700047F000001", "hex");
+    res.setHeader('Content-Type', 'application/dns-message');
+    res.setHeader('Content-Length', content.length);
+    res.writeHead(200);
+    res.write(content);
+    res.end("");
+    return;
+  }
+
+  // for use with test_esni_dns_fetch.js
+  else if (u.pathname === "/esni-dns") {
+    content = new Buffer("0000" +
+                         "8180" +
+                         "0001" + // QDCOUNT
+                         "0001" + // ANCOUNT
+                         "00000000" + // NSCOUNT + ARCOUNT
+                         "055F65736E69076578616D706C6503636F6D00" + // esni.example.com
+                         "00100001" + // question type (TXT) + question class (IN)
+
+                         "C00C" + // name pointer to .example.com
+                         "0010" + // type (TXT)
+                         "0001" + // class
+                         "00000037" + // TTL
+                         "0021" + // RDLENGTH
+                         "2062586B67646D39705932556761584D6762586B676347467A63336476636D513D", // esni keys.
+                         "hex");
+
     res.setHeader('Content-Type', 'application/dns-message');
     res.setHeader('Content-Length', content.length);
     res.writeHead(200);

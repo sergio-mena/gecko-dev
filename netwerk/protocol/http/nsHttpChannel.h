@@ -7,6 +7,7 @@
 #ifndef nsHttpChannel_h__
 #define nsHttpChannel_h__
 
+#include "DelayHttpChannelQueue.h"
 #include "HttpBaseChannel.h"
 #include "nsTArray.h"
 #include "nsICachingChannel.h"
@@ -32,12 +33,13 @@
 #include "nsIRaceCacheWithNetwork.h"
 #include "mozilla/extensions/PStreamFilterParent.h"
 #include "mozilla/Mutex.h"
+#include "nsITabParent.h"
 
 class nsDNSPrefetch;
 class nsICancelable;
 class nsIHttpChannelAuthProvider;
 class nsInputStreamPump;
-class nsISSLStatus;
+class nsITransportSecurityInfo;
 
 namespace mozilla { namespace net {
 
@@ -204,6 +206,8 @@ public: /* internal necko use only */
         return mRequestTime;
     }
 
+    nsresult AsyncOpenFinal(TimeStamp aTimeStamp);
+
     MOZ_MUST_USE nsresult OpenCacheEntry(bool usingSSL);
     MOZ_MUST_USE nsresult OpenCacheEntryInternal(bool isHttps,
                                                  nsIApplicationCache *applicationCache,
@@ -278,6 +282,10 @@ public:
     void SetTransactionObserver(TransactionObserver *arg) { mTransactionObserver = arg; }
     TransactionObserver *GetTransactionObserver() { return mTransactionObserver; }
 
+    typedef MozPromise<nsCOMPtr<nsITabParent>, nsresult, false> TabPromise;
+    already_AddRefed<TabPromise> TakeRedirectTabPromise() { return mRedirectTabPromise.forget(); }
+    uint64_t CrossProcessRedirectIdentifier() { return mCrossProcessRedirectIdentifier; }
+
 protected:
     virtual ~nsHttpChannel();
 
@@ -292,6 +300,7 @@ private:
     // Connections will only be established in this function.
     // (including DNS prefetch and speculative connection.)
     nsresult BeginConnectActual();
+    void MaybeStartDNSPrefetch();
 
     // We might synchronously or asynchronously call BeginConnectActual,
     // which includes DNS prefetch and speculative connection, according to
@@ -347,6 +356,7 @@ private:
     virtual MOZ_MUST_USE nsresult
     SetupReplacementChannel(nsIURI *, nsIChannel *, bool preserveMethod,
                             uint32_t redirectFlags) override;
+    nsresult StartCrossProcessRedirect();
 
     // proxy specific methods
     MOZ_MUST_USE nsresult ProxyFailover();
@@ -433,8 +443,8 @@ private:
      * from ProcessSecurityHeaders.
      */
     MOZ_MUST_USE nsresult ProcessSingleSecurityHeader(uint32_t aType,
-                                                      nsISSLStatus *aSSLStatus,
-                                                      uint32_t aFlags);
+      nsITransportSecurityInfo* aSecInfo,
+      uint32_t aFlags);
 
     void InvalidateCacheEntryForLocation(const char *location);
     void AssembleCacheKey(const char *spec, uint32_t postID, nsACString &key);
@@ -506,6 +516,12 @@ private:
     nsCOMPtr<nsIURI> mRedirectURI;
     nsCOMPtr<nsIChannel> mRedirectChannel;
     nsCOMPtr<nsIChannel> mPreflightChannel;
+
+    // The associated childChannel is getting relocated to another process.
+    // This promise will be resolved when that process is set up.
+    RefPtr<TabPromise> mRedirectTabPromise;
+    // This identifier is passed to the childChannel in order to identify it.
+    uint64_t mCrossProcessRedirectIdentifier = 0;
 
     // nsChannelClassifier checks this channel's URI against
     // the URI classifier service.
@@ -632,6 +648,10 @@ private:
     // due to the tracking protection rules, but the asynchronous cancellation
     // process hasn't finished yet.
     uint32_t                          mTrackingProtectionCancellationPending : 1;
+
+    // True only when we are between Resume and async fire of mCallOnResume.
+    // Used to suspend any newly created pumps in mCallOnResume handler.
+    uint32_t                          mAsyncResumePending : 1;
 
     nsTArray<nsContinueRedirectionFunc> mRedirectFuncStack;
 

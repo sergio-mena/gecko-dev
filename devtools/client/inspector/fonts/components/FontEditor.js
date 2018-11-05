@@ -8,8 +8,8 @@ const { createFactory, PureComponent } = require("devtools/client/shared/vendor/
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 
+const FontAxis = createFactory(require("./FontAxis"));
 const FontName = createFactory(require("./FontName"));
-const FontPropertyValue = createFactory(require("./FontPropertyValue"));
 const FontSize = createFactory(require("./FontSize"));
 const FontStyle = createFactory(require("./FontStyle"));
 const FontWeight = createFactory(require("./FontWeight"));
@@ -33,42 +33,15 @@ class FontEditor extends PureComponent {
   }
 
   /**
-   * Naive implementation to get increment step for variable font axis that ensures
-   * a wide spectrum of precision based on range of values between min and max.
-   *
-   * @param  {Number|String} min
-   *         Minumum value for range.
-   * @param  {Number|String} max
-   *         Maximum value for range.
-   * @return {String}
-   *         Step value used in range input for font axis.
-   */
-  getAxisStep(min, max) {
-    let step = 1;
-    const delta = parseInt(max, 10) - parseInt(min, 10);
-
-    if (delta <= 1) {
-      step = 0.001;
-    } else if (delta <= 10) {
-      step = 0.01;
-    } else if (delta <= 100) {
-      step = 0.1;
-    }
-
-    return step.toString();
-  }
-
-  /**
-   * Get an array of FontPropertyValue components with editing controls
-   * for of the given variable font axes. If no axes were given, return null.
-   * If an axis has a value in the fontEditor store (i.e.: it was declared in CSS or
-   * it was changed using the font editor), use its value, otherwise use the font axis
-   * default.
+   * Get an array of FontAxis components with editing controls for of the given variable
+   * font axes. If no axes were given, return null.
+   * If an axis' value was declared on the font-variation-settings CSS property or was
+   * changed using the font editor, use that value, otherwise use the axis default.
    *
    * @param  {Array} fontAxes
    *         Array of font axis instances
    * @param  {Object} editedAxes
-   *         Object with axes and values edited by the user or predefined in the CSS
+   *         Object with axes and values edited by the user or defined in the CSS
    *         declaration for font-variation-settings.
    * @return {Array|null}
    */
@@ -78,16 +51,12 @@ class FontEditor extends PureComponent {
     }
 
     return fontAxes.map(axis => {
-      return FontPropertyValue({
+      return FontAxis({
         key: axis.tag,
-        className: "font-control-axis",
-        label: axis.name,
-        min: axis.minValue,
-        max: axis.maxValue,
-        name: axis.tag,
+        axis,
         onChange: this.props.onPropertyChange,
-        step: this.getAxisStep(axis.minValue, axis.maxValue),
-        unit: null,
+        minLabel: true,
+        maxLabel: true,
         value: editedAxes[axis.tag] || axis.defaultValue,
       });
     });
@@ -138,7 +107,7 @@ class FontEditor extends PureComponent {
         {
           className: "font-control-label",
         },
-        getStr("fontinspector.usedFontsLabel")
+        getStr("fontinspector.fontsUsedLabel")
       ),
       dom.div(
         {
@@ -160,11 +129,11 @@ class FontEditor extends PureComponent {
 
     return dom.div(
       {
-        className: "font-group"
+        className: "font-group",
       },
       dom.div(
         {
-          className: "font-family-name"
+          className: "font-family-name",
         },
         family),
       group
@@ -219,7 +188,7 @@ class FontEditor extends PureComponent {
     // Append a "Custom" instance entry which represents the latest manual axes changes.
     const customInstance = {
       name: getStr("fontinspector.customInstanceName"),
-      values: this.props.fontEditor.customInstanceValues
+      values: this.props.fontEditor.customInstanceValues,
     };
     fontInstances = [ ...fontInstances, customInstance ];
 
@@ -241,7 +210,7 @@ class FontEditor extends PureComponent {
         onChange: (e) => {
           const instance = fontInstances.find(inst => e.target.value === inst.name);
           instance && this.props.onInstanceChange(instance.name, instance.values);
-        }
+        },
       },
       instanceOptions
     );
@@ -263,11 +232,11 @@ class FontEditor extends PureComponent {
   renderWarning(warning) {
     return dom.div(
       {
-        id: "font-editor"
+        id: "font-editor",
       },
       dom.div(
         {
-          className: "devtools-sidepanel-no-result"
+          className: "devtools-sidepanel-no-result",
         },
         warning
       )
@@ -296,7 +265,7 @@ class FontEditor extends PureComponent {
 
     return dom.div(
       {
-        id: "font-editor"
+        id: "font-editor",
       },
       // Always render UI for used fonts.
       this.renderUsedFonts(fonts),

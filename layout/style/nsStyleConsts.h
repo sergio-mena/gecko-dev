@@ -285,9 +285,11 @@ enum class FillMode : uint8_t;
 // See nsStyleDisplay
 #define NS_STYLE_ANIMATION_ITERATION_COUNT_INFINITE 0
 
-// See nsStyleDisplay
-#define NS_STYLE_ANIMATION_PLAY_STATE_RUNNING     0
-#define NS_STYLE_ANIMATION_PLAY_STATE_PAUSED      1
+// Animation play state
+enum class StyleAnimationPlayState : uint8_t {
+    Running,
+    Paused
+};
 
 // See nsStyleImageLayers
 enum class StyleImageLayerAttachment : uint8_t {
@@ -767,11 +769,7 @@ enum class StyleGridTrackBreadth : uint8_t {
 #define NS_STYLE_TEXT_ALIGN_MOZ_CENTER            8
 #define NS_STYLE_TEXT_ALIGN_MOZ_RIGHT             9
 #define NS_STYLE_TEXT_ALIGN_MOZ_LEFT             10
-// NS_STYLE_TEXT_ALIGN_MOZ_CENTER_OR_INHERIT is only used in data structs; it
-// is never present in stylesheets or computed data.
-#define NS_STYLE_TEXT_ALIGN_MOZ_CENTER_OR_INHERIT 11
-#define NS_STYLE_TEXT_ALIGN_UNSAFE                12
-#define NS_STYLE_TEXT_ALIGN_MATCH_PARENT          13
+
 // Note: make sure that the largest NS_STYLE_TEXT_ALIGN_* value is smaller than
 // the smallest NS_STYLE_VERTICAL_ALIGN_* value below!
 
@@ -806,6 +804,7 @@ enum class StyleGridTrackBreadth : uint8_t {
 #define NS_STYLE_TEXT_TRANSFORM_LOWERCASE       2
 #define NS_STYLE_TEXT_TRANSFORM_UPPERCASE       3
 #define NS_STYLE_TEXT_TRANSFORM_FULL_WIDTH      4
+#define NS_STYLE_TEXT_TRANSFORM_FULL_SIZE_KANA  5
 
 // See nsStyleDisplay
 #define NS_STYLE_TOUCH_ACTION_NONE            (1 << 0)
@@ -817,15 +816,6 @@ enum class StyleGridTrackBreadth : uint8_t {
 // See nsStyleDisplay
 #define NS_STYLE_TOP_LAYER_NONE   0 // not in the top layer
 #define NS_STYLE_TOP_LAYER_TOP    1 // in the top layer
-
-// See nsStyleDisplay
-#define NS_STYLE_TRANSITION_TIMING_FUNCTION_EASE         0
-#define NS_STYLE_TRANSITION_TIMING_FUNCTION_LINEAR       1
-#define NS_STYLE_TRANSITION_TIMING_FUNCTION_EASE_IN      2
-#define NS_STYLE_TRANSITION_TIMING_FUNCTION_EASE_OUT     3
-#define NS_STYLE_TRANSITION_TIMING_FUNCTION_EASE_IN_OUT  4
-#define NS_STYLE_TRANSITION_TIMING_FUNCTION_STEP_START   5
-#define NS_STYLE_TRANSITION_TIMING_FUNCTION_STEP_END     6
 
 // See nsStyleText
 // Note: these values pickup after the text-align values because there
@@ -998,7 +988,7 @@ enum class StyleWhiteSpace : uint8_t {
 #define NS_STYLE_IMAGE_RENDERING_AUTO             0
 #define NS_STYLE_IMAGE_RENDERING_OPTIMIZESPEED    1
 #define NS_STYLE_IMAGE_RENDERING_OPTIMIZEQUALITY  2
-#define NS_STYLE_IMAGE_RENDERING_CRISPEDGES       3
+#define NS_STYLE_IMAGE_RENDERING_CRISP_EDGES      3
 
 // mask-type
 #define NS_STYLE_MASK_TYPE_LUMINANCE            0

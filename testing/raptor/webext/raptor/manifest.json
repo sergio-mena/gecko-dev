@@ -27,6 +27,7 @@
                   "*://*/webaudio/*",
                   "*://*/unity-webgl/index.html*",
                   "*://*/wasm-misc/index.html*",
+                  "*://*/wasm-godot/index.html*",
                   "*://*/assorted-dom/assorted/results.html*"],
       "js": ["benchmark-relay.js"]
     }
@@ -35,6 +36,7 @@
     "<all_urls>",
     "tabs",
     "storage",
-    "alarms"
+    "alarms",
+    "geckoProfiler"
   ]
 }

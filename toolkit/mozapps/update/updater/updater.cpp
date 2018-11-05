@@ -415,15 +415,11 @@ get_full_path(const NS_tchar *relpath)
  * return pointer to the location within fullpath where the relative path starts
  *        or fullpath itself if it already looks relative.
  */
+#ifndef XP_WIN
 static const NS_tchar*
 get_relative_path(const NS_tchar *fullpath)
 {
-  // If the path isn't absolute, just return it as-is.
-#ifdef XP_WIN
-  if (fullpath[1] != ':' && fullpath[2] != '\\') {
-#else
   if (fullpath[0] != '/') {
-#endif
     return fullpath;
   }
 
@@ -436,6 +432,7 @@ get_relative_path(const NS_tchar *fullpath)
 
   return fullpath + NS_tstrlen(prefix) + 1;
 }
+#endif
 
 /**
  * Gets the platform specific path and performs simple checks to the path. If
@@ -2052,7 +2049,7 @@ LaunchWinPostProcess(const WCHAR *installationDir,
   CopyFileW(slogFile, dlogFile, false);
 
   STARTUPINFOW si = {sizeof(si), 0};
-  si.lpDesktop = L"";
+  si.lpDesktop = const_cast<LPWSTR>(L""); // -Wwritable-strings
   PROCESS_INFORMATION pi = {0};
 
   bool ok = CreateProcessW(exefullpath,

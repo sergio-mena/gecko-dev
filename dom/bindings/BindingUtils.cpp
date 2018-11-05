@@ -52,9 +52,10 @@
 #include "mozilla/dom/HTMLEmbedElementBinding.h"
 #include "mozilla/dom/XULElementBinding.h"
 #include "mozilla/dom/XULFrameElementBinding.h"
+#include "mozilla/dom/XULMenuElementBinding.h"
 #include "mozilla/dom/XULPopupElementBinding.h"
+#include "mozilla/dom/XULTextElementBinding.h"
 #include "mozilla/dom/Promise.h"
-#include "mozilla/dom/ResolveSystemBinding.h"
 #include "mozilla/dom/WebIDLGlobalNameHash.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/dom/WorkerScope.h"
@@ -1069,6 +1070,9 @@ CreateInterfaceObjects(JSContext* cx, JS::Handle<JSObject*> global,
                                      isChrome ? chromeOnlyProperties : nullptr,
                                      unscopableNames, toStringTag, isGlobal);
     if (!proto) {
+      if (name && !strcmp(name, "Document")) {
+        MOZ_CRASH("Bug 1405521/1488480: CreateInterfacePrototypeObject failed for Document.prototype");
+      }
       return;
     }
 
@@ -1087,6 +1091,9 @@ CreateInterfaceObjects(JSContext* cx, JS::Handle<JSObject*> global,
                                       isChrome,
                                       defineOnGlobal);
     if (!interface) {
+      if (name && !strcmp(name, "Document")) {
+        MOZ_CRASH("Bug 1405521/1488480: CreateInterfaceObject failed for Document");
+      }
       if (protoCache) {
         // If we fail we need to make sure to clear the value of protoCache we
         // set above.
@@ -1147,10 +1154,13 @@ NativeInterface2JSObjectAndThrowIfFailed(JSContext* aCx,
 }
 
 bool
-TryPreserveWrapper(JSObject* obj)
+TryPreserveWrapper(JS::Handle<JSObject*> obj)
 {
   MOZ_ASSERT(IsDOMObject(obj));
 
+  // nsISupports objects are special cased because DOM proxies are nsISupports
+  // and have addProperty hooks that do more than wrapper preservation (so we
+  // don't want to call them).
   if (nsISupports* native = UnwrapDOMObjectToISupports(obj)) {
     nsWrapperCache* cache = nullptr;
     CallQueryInterface(native, &cache);
@@ -1160,11 +1170,25 @@ TryPreserveWrapper(JSObject* obj)
     return true;
   }
 
-  // If this DOMClass is not cycle collected, then it isn't wrappercached,
-  // so it does not need to be preserved. If it is cycle collected, then
-  // we can't tell if it is wrappercached or not, so we just return false.
+  // The addProperty hook for WebIDL classes does wrapper preservation, and
+  // nothing else, so call it, if present.
   const DOMJSClass* domClass = GetDOMClass(obj);
-  return domClass && !domClass->mParticipant;
+  const JSClass* clasp = domClass->ToJSClass();
+  JSAddPropertyOp addProperty = clasp->getAddProperty();
+
+  // We expect all proxies to be nsISupports.
+  MOZ_RELEASE_ASSERT(!js::Valueify(clasp)->isProxy(), "Should not call addProperty for proxies.");
+
+  // The class should have an addProperty hook iff it is a CC participant.
+  MOZ_RELEASE_ASSERT(bool(domClass->mParticipant) == bool(addProperty));
+
+  if (!addProperty) {
+    return true;
+  }
+
+  JS::Rooted<jsid> dummyId(RootingCx());
+  JS::Rooted<JS::Value> dummyValue(RootingCx());
+  return addProperty(nullptr, obj, dummyId, dummyValue);
 }
 
 // Can only be called with a DOM JSClass.
@@ -3377,35 +3401,20 @@ bool
 CreateGlobalOptionsWithXPConnect::PostCreateGlobal(JSContext* aCx,
                                                    JS::Handle<JSObject*> aGlobal)
 {
+  JSPrincipals* principals =
+    JS::GetRealmPrincipals(js::GetNonCCWObjectRealm(aGlobal));
+  nsIPrincipal* principal = nsJSPrincipals::get(principals);
+
+  // We create the SiteIdentifier here instead of in the XPCWrappedNativeScope
+  // constructor because this is fallible.
+  SiteIdentifier site;
+  nsresult rv = BasePrincipal::Cast(principal)->GetSiteIdentifier(site);
+  NS_ENSURE_SUCCESS(rv, false);
+
   // Invoking the XPCWrappedNativeScope constructor automatically hooks it
-  // up to the compartment of aGlobal.
-  (void) new XPCWrappedNativeScope(aCx, aGlobal);
+  // up to the realm of aGlobal.
+  (void) new XPCWrappedNativeScope(aCx, aGlobal, site);
   return true;
-}
-
-static bool sRegisteredDOMNames = false;
-
-static void
-RegisterDOMNames()
-{
-  if (sRegisteredDOMNames) {
-    return;
-  }
-
-  // Register new DOM bindings
-  WebIDLGlobalNameHash::Init();
-
-  sRegisteredDOMNames = true;
-}
-
-/* static */
-bool
-CreateGlobalOptions<nsGlobalWindowInner>::PostCreateGlobal(JSContext* aCx,
-                                                           JS::Handle<JSObject*> aGlobal)
-{
-  RegisterDOMNames();
-
-  return CreateGlobalOptionsWithXPConnect::PostCreateGlobal(aCx, aGlobal);
 }
 
 #ifdef DEBUG
@@ -3506,29 +3515,6 @@ UnwrapWindowProxyImpl(JSContext* cx,
   nsCOMPtr<nsPIDOMWindowOuter> outer = inner->GetOuterWindow();
   outer.forget(ppArg);
   return NS_OK;
-}
-
-bool
-SystemGlobalResolve(JSContext* cx, JS::Handle<JSObject*> obj,
-                    JS::Handle<jsid> id, bool* resolvedp)
-{
-  if (!ResolveGlobal(cx, obj, id, resolvedp)) {
-    return false;
-  }
-
-  if (*resolvedp) {
-    return true;
-  }
-
-  return ResolveSystemBinding(cx, obj, id, resolvedp);
-}
-
-bool
-SystemGlobalEnumerate(JSContext* cx, JS::Handle<JSObject*> obj)
-{
-  bool ignored = false;
-  return JS_EnumerateStandardClasses(cx, obj) &&
-         ResolveSystemBinding(cx, obj, JSID_VOIDHANDLE, &ignored);
 }
 
 template<decltype(JS::NewMapObject) Method>
@@ -3705,6 +3691,48 @@ GetDesiredProto(JSContext* aCx, const JS::CallArgs& aCallArgs,
   return true;
 }
 
+namespace {
+
+class MOZ_RAII AutoConstructionDepth final
+{
+public:
+  MOZ_IMPLICIT AutoConstructionDepth(CustomElementDefinition* aDefinition)
+    : mDefinition(aDefinition)
+  {
+    MOZ_ASSERT(mDefinition->mConstructionStack.IsEmpty());
+
+    mDefinition->mConstructionDepth++;
+    // If the mConstructionDepth isn't matched with the length of mPrefixStack,
+    // this means the constructor is called directly from JS, i.e.
+    // 'new CustomElementConstructor()', we have to push a dummy prefix into
+    // stack.
+    if (mDefinition->mConstructionDepth > mDefinition->mPrefixStack.Length()) {
+      mDidPush = true;
+      mDefinition->mPrefixStack.AppendElement(nullptr);
+    }
+
+    MOZ_ASSERT(mDefinition->mConstructionDepth == mDefinition->mPrefixStack.Length());
+  }
+
+  ~AutoConstructionDepth()
+  {
+    MOZ_ASSERT(mDefinition->mConstructionDepth > 0);
+    MOZ_ASSERT(mDefinition->mConstructionDepth == mDefinition->mPrefixStack.Length());
+
+    if (mDidPush) {
+      MOZ_ASSERT(mDefinition->mPrefixStack.LastElement() == nullptr);
+      mDefinition->mPrefixStack.RemoveLastElement();
+    }
+    mDefinition->mConstructionDepth--;
+  }
+
+private:
+  CustomElementDefinition* mDefinition;
+  bool mDidPush = false;
+};
+
+} // anonymous namespace
+
 // https://html.spec.whatwg.org/multipage/dom.html#htmlconstructor
 namespace binding_detail {
 bool
@@ -3800,15 +3828,21 @@ HTMLConstructor(JSContext* aCx, unsigned aArgc, JS::Value* aVp,
 
   constructorGetterCallback cb = nullptr;
   if (ns == kNameSpaceID_XUL) {
-    if (definition->mLocalName == nsGkAtoms::menupopup ||
-        definition->mLocalName == nsGkAtoms::popup ||
-        definition->mLocalName == nsGkAtoms::panel ||
-        definition->mLocalName == nsGkAtoms::tooltip) {
+    if (definition->mLocalName == nsGkAtoms::description ||
+        definition->mLocalName == nsGkAtoms::label) {
+      cb = XULTextElement_Binding::GetConstructorObject;
+    } else if (definition->mLocalName == nsGkAtoms::menupopup ||
+               definition->mLocalName == nsGkAtoms::popup ||
+               definition->mLocalName == nsGkAtoms::panel ||
+               definition->mLocalName == nsGkAtoms::tooltip) {
       cb = XULPopupElement_Binding::GetConstructorObject;
     } else if (definition->mLocalName == nsGkAtoms::iframe ||
                 definition->mLocalName == nsGkAtoms::browser ||
                 definition->mLocalName == nsGkAtoms::editor) {
       cb = XULFrameElement_Binding::GetConstructorObject;
+    } else if (definition->mLocalName == nsGkAtoms::menu ||
+               definition->mLocalName == nsGkAtoms::menulist) {
+      cb = XULMenuElement_Binding::GetConstructorObject;
     } else if (definition->mLocalName == nsGkAtoms::scrollbox) {
       cb = XULScrollElement_Binding::GetConstructorObject;
     } else {
@@ -3909,10 +3943,11 @@ HTMLConstructor(JSContext* aCx, unsigned aArgc, JS::Value* aVp,
     // realm, not caller realm (the normal constructor behavior),
     // just in case those elements create JS things.
     JSAutoRealm ar(aCx, global.Get());
+    AutoConstructionDepth acd(definition);
 
     RefPtr<NodeInfo> nodeInfo =
       doc->NodeInfoManager()->GetNodeInfo(definition->mLocalName,
-                                          nullptr,
+                                          definition->mPrefixStack.LastElement(),
                                           ns,
                                           nsINode::ELEMENT_NODE);
     MOZ_ASSERT(nodeInfo);
@@ -4108,6 +4143,10 @@ GetPerInterfaceObjectHandle(JSContext* aCx,
   /* Make sure our global is sane.  Hopefully we can remove this sometime */
   JSObject* global = JS::CurrentGlobalOrNull(aCx);
   if (!(js::GetObjectClass(global)->flags & JSCLASS_DOM_GLOBAL)) {
+    if (aSlotId == prototypes::id::HTMLDocument ||
+        aSlotId == prototypes::id::Document) {
+      MOZ_CRASH("Looks like bug 1488480/1405521, with a non-DOM global in GetPerInterfaceObjectHandle");
+    }
     return nullptr;
   }
 
@@ -4132,6 +4171,30 @@ GetPerInterfaceObjectHandle(JSContext* aCx,
   const JS::Heap<JSObject*>& entrySlot =
     protoAndIfaceCache.EntrySlotMustExist(aSlotId);
   MOZ_ASSERT(JS::ObjectIsNotGray(entrySlot));
+
+  if (!entrySlot) {
+    switch (aSlotId) {
+      case prototypes::id::HTMLDocument: {
+         MOZ_CRASH("Looks like bug 1488480/1405521, with aCreator failing to create HTMLDocument.prototype");
+         break;
+      }
+      case prototypes::id::Document: {
+        MOZ_CRASH("Looks like bug 1488480/1405521, with aCreator failing to create Document.prototype");
+        break;
+      }
+      case prototypes::id::Node: {
+        MOZ_CRASH("Looks like bug 1488480/1405521, with aCreator failing to create Node.prototype");
+        break;
+      }
+      case prototypes::id::EventTarget: {
+        MOZ_CRASH("Looks like bug 1488480/1405521, with aCreator failing to create EventTarget.prototype");
+        break;
+      }
+      default:
+      break;
+    }
+  }
+
   return JS::Handle<JSObject*>::fromMarkedLocation(entrySlot.address());
 }
 

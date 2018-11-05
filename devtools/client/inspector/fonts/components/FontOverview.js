@@ -53,9 +53,9 @@ class FontOverview extends PureComponent {
       :
       dom.div(
         {
-          className: "devtools-sidepanel-no-result"
+          className: "devtools-sidepanel-no-result",
         },
-        getStr("fontinspector.noFontsOnSelectedElement")
+        getStr("fontinspector.noFontsUsedOnCurrentElement")
       );
   }
 
@@ -87,11 +87,11 @@ class FontOverview extends PureComponent {
             fontOptions,
             fonts,
             onPreviewTextChange,
-            onToggleFontHighlight: this.onToggleFontHighlightGlobal
+            onToggleFontHighlight: this.onToggleFontHighlightGlobal,
           },
-          opened: false
-        }
-      ]
+          opened: false,
+        },
+      ],
     });
   }
 

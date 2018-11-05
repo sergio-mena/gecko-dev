@@ -7,21 +7,28 @@ const Telemetry = require("devtools/client/shared/telemetry");
 const telemetry = new Telemetry();
 const TELEMETRY_EYEDROPPER_OPENED = "DEVTOOLS_EYEDROPPER_OPENED_COUNT";
 const TELEMETRY_EYEDROPPER_OPENED_MENU = "DEVTOOLS_MENU_EYEDROPPER_OPENED_COUNT";
+const SHOW_ALL_ANONYMOUS_CONTENT_PREF = "devtools.inspector.showAllAnonymousContent";
 
 const {
   Front,
   FrontClassWithSpec,
   custom,
   preEvent,
-  types
+  types,
 } = require("devtools/shared/protocol.js");
 const {
   inspectorSpec,
-  walkerSpec
+  walkerSpec,
 } = require("devtools/shared/specs/inspector");
+
+const Services = require("Services");
 const defer = require("devtools/shared/defer");
 loader.lazyRequireGetter(this, "nodeConstants",
   "devtools/shared/dom-node-constants");
+loader.lazyRequireGetter(this, "Selection",
+  "devtools/client/framework/selection", true);
+loader.lazyRequireGetter(this, "flags",
+  "devtools/shared/flags");
 
 /**
  * Client side of the DOM walker.
@@ -135,7 +142,7 @@ const WalkerFront = FrontClassWithSpec(walkerSpec, {
       }
     });
   }, {
-    impl: "_unretainNode"
+    impl: "_unretainNode",
   }),
 
   releaseNode: custom(function(node, options = {}) {
@@ -145,7 +152,7 @@ const WalkerFront = FrontClassWithSpec(walkerSpec, {
     this._releaseFront(node, !!options.force);
     return this._releaseNode({ actorID: actorID });
   }, {
-    impl: "_releaseNode"
+    impl: "_releaseNode",
   }),
 
   findInspectingNode: custom(function() {
@@ -153,7 +160,7 @@ const WalkerFront = FrontClassWithSpec(walkerSpec, {
       return response.node;
     });
   }, {
-    impl: "_findInspectingNode"
+    impl: "_findInspectingNode",
   }),
 
   querySelector: custom(function(queryNode, selector) {
@@ -161,7 +168,7 @@ const WalkerFront = FrontClassWithSpec(walkerSpec, {
       return response.node;
     });
   }, {
-    impl: "_querySelector"
+    impl: "_querySelector",
   }),
 
   getNodeActorFromObjectActor: custom(function(objectActorID) {
@@ -169,7 +176,7 @@ const WalkerFront = FrontClassWithSpec(walkerSpec, {
       return response ? response.node : null;
     });
   }, {
-    impl: "_getNodeActorFromObjectActor"
+    impl: "_getNodeActorFromObjectActor",
   }),
 
   getNodeActorFromWindowID: custom(function(windowID) {
@@ -177,7 +184,7 @@ const WalkerFront = FrontClassWithSpec(walkerSpec, {
       return response ? response.node : null;
     });
   }, {
-    impl: "_getNodeActorFromWindowID"
+    impl: "_getNodeActorFromWindowID",
   }),
 
   getStyleSheetOwnerNode: custom(function(styleSheetActorID) {
@@ -185,7 +192,7 @@ const WalkerFront = FrontClassWithSpec(walkerSpec, {
       return response ? response.node : null;
     });
   }, {
-    impl: "_getStyleSheetOwnerNode"
+    impl: "_getStyleSheetOwnerNode",
   }),
 
   getNodeFromActor: custom(function(actorID, path) {
@@ -193,7 +200,7 @@ const WalkerFront = FrontClassWithSpec(walkerSpec, {
       return response ? response.node : null;
     });
   }, {
-    impl: "_getNodeFromActor"
+    impl: "_getNodeFromActor",
   }),
 
   /*
@@ -241,7 +248,7 @@ const WalkerFront = FrontClassWithSpec(walkerSpec, {
       resultsIndex: searchData.index,
     };
   }, {
-    impl: "_search"
+    impl: "_search",
   }),
 
   _releaseFront: function(node, force) {
@@ -414,7 +421,7 @@ const WalkerFront = FrontClassWithSpec(walkerSpec, {
       this.emit("mutations", emitMutations);
     });
   }, {
-    impl: "_getMutations"
+    impl: "_getMutations",
   }),
 
   /**
@@ -438,7 +445,7 @@ const WalkerFront = FrontClassWithSpec(walkerSpec, {
       nextSibling: nextSibling,
     };
   }, {
-    impl: "_removeNode"
+    impl: "_removeNode",
   }),
 });
 
@@ -449,43 +456,67 @@ exports.WalkerFront = WalkerFront;
  * inspector-related actors, including the walker.
  */
 var InspectorFront = FrontClassWithSpec(inspectorSpec, {
-  initialize: function(client, tabForm) {
+  initialize: async function(client, tabForm) {
     Front.prototype.initialize.call(this, client);
     this.actorID = tabForm.inspectorActor;
+    this._client = client;
+    this._highlighters = new Map();
 
     // XXX: This is the first actor type in its hierarchy to use the protocol
     // library, so we're going to self-own on the client side for now.
     this.manage(this);
+
+    // async initialization
+    await Promise.all([
+      this._getWalker(),
+      this._getHighlighter(),
+    ]);
+
+    this.selection = new Selection(this.walker);
+  },
+
+  _getWalker: async function() {
+    const showAllAnonymousContent = Services.prefs.getBoolPref(
+      SHOW_ALL_ANONYMOUS_CONTENT_PREF);
+    this.walker = await this.getWalker({ showAllAnonymousContent });
+  },
+
+  _getHighlighter: async function() {
+    const autohide = !flags.testing;
+    this.highlighter = await this.getHighlighter(autohide);
+  },
+
+  hasHighlighter(type) {
+    return this._highlighters.has(type);
   },
 
   destroy: function() {
+    this.destroyHighlighters();
     delete this.walker;
     Front.prototype.destroy.call(this);
   },
 
-  getWalker: custom(function(options = {}) {
-    return this._getWalker(options).then(walker => {
-      this.walker = walker;
-      return walker;
-    });
-  }, {
-    impl: "_getWalker"
-  }),
-
-  getPageStyle: custom(function() {
-    return this._getPageStyle().then(pageStyle => {
-      // We need a walker to understand node references from the
-      // node style.
-      if (this.walker) {
-        return pageStyle;
+  destroyHighlighters: function() {
+    for (const type of this._highlighters.keys()) {
+      if (this._highlighters.has(type)) {
+        this._highlighters.get(type).finalize();
+        this._highlighters.delete(type);
       }
-      return this.getWalker().then(() => {
-        return pageStyle;
-      });
-    });
-  }, {
-    impl: "_getPageStyle"
-  }),
+    }
+  },
+
+  getKnownHighlighter: function(type) {
+    return this._highlighters.get(type);
+  },
+
+  getOrCreateHighlighterByType: async function(type) {
+    let front =  this._highlighters.get(type);
+    if (!front) {
+      front = await this.getHighlighterByType(type);
+      this._highlighters.set(type, front);
+    }
+    return front;
+  },
 
   pickColorFromPage: custom(async function(options) {
     await this._pickColorFromPage(options);
@@ -495,8 +526,8 @@ var InspectorFront = FrontClassWithSpec(inspectorSpec, {
       telemetry.getHistogramById(TELEMETRY_EYEDROPPER_OPENED).add(true);
     }
   }, {
-    impl: "_pickColorFromPage"
-  })
+    impl: "_pickColorFromPage",
+  }),
 });
 
 exports.InspectorFront = InspectorFront;

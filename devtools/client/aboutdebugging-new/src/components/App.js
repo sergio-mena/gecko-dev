@@ -13,52 +13,91 @@ const FluentReact = require("devtools/client/shared/vendor/fluent-react");
 const LocalizationProvider = createFactory(FluentReact.LocalizationProvider);
 
 const { PAGES } = require("../constants");
+const Types = require("../types");
 
-const ConnectPage = createFactory(require("./ConnectPage"));
+const ConnectPage = createFactory(require("./connect/ConnectPage"));
 const RuntimePage = createFactory(require("./RuntimePage"));
 const Sidebar = createFactory(require("./sidebar/Sidebar"));
 
 class App extends PureComponent {
   static get propTypes() {
     return {
+      adbAddonStatus: PropTypes.string,
       // The "dispatch" helper is forwarded to the App component via connect.
       // From that point, components are responsible for forwarding the dispatch
       // property to all components who need to dispatch actions.
       dispatch: PropTypes.func.isRequired,
-      messageContexts: PropTypes.arrayOf(PropTypes.object).isRequired,
+      fluentBundles: PropTypes.arrayOf(PropTypes.object).isRequired,
+      isScanningUsb: PropTypes.bool.isRequired,
+      networkEnabled: PropTypes.bool.isRequired,
       networkLocations: PropTypes.arrayOf(PropTypes.string).isRequired,
-      selectedPage: PropTypes.string.isRequired,
+      networkRuntimes: PropTypes.arrayOf(Types.runtime).isRequired,
+      selectedPage: PropTypes.string,
+      usbRuntimes: PropTypes.arrayOf(Types.runtime).isRequired,
+      wifiEnabled: PropTypes.bool.isRequired,
     };
   }
 
   getSelectedPageComponent() {
-    const { dispatch, networkLocations, selectedPage } = this.props;
+    const {
+      adbAddonStatus,
+      dispatch,
+      networkEnabled,
+      networkLocations,
+      selectedPage,
+      wifiEnabled,
+    } = this.props;
+
+    if (!selectedPage) {
+      // No page selected.
+      return null;
+    }
 
     switch (selectedPage) {
-      case PAGES.THIS_FIREFOX:
-        return RuntimePage({ dispatch });
       case PAGES.CONNECT:
-        return ConnectPage({ networkLocations });
+        return ConnectPage({
+          adbAddonStatus,
+          dispatch,
+          networkEnabled,
+          networkLocations,
+          wifiEnabled,
+        });
       default:
-        // Invalid page, blank.
-        return null;
+        // All pages except for the CONNECT page are RUNTIME pages.
+        return RuntimePage({ dispatch });
     }
   }
 
   render() {
     const {
+      adbAddonStatus,
       dispatch,
-      messageContexts,
-      networkLocations,
+      fluentBundles,
+      isScanningUsb,
+      networkRuntimes,
       selectedPage,
+      usbRuntimes,
     } = this.props;
 
     return LocalizationProvider(
-      { messages: messageContexts },
+      { messages: fluentBundles },
       dom.div(
         { className: "app" },
-        Sidebar({ dispatch, networkLocations, selectedPage }),
-        this.getSelectedPageComponent()
+        Sidebar(
+          {
+            adbAddonStatus,
+            className: "app__sidebar",
+            dispatch,
+            isScanningUsb,
+            networkRuntimes,
+            selectedPage,
+            usbRuntimes,
+          }
+        ),
+        dom.main(
+          { className: "app__content" },
+          this.getSelectedPageComponent()
+        )
       )
     );
   }
@@ -66,8 +105,14 @@ class App extends PureComponent {
 
 const mapStateToProps = state => {
   return {
+    adbAddonStatus: state.ui.adbAddonStatus,
+    isScanningUsb: state.ui.isScanningUsb,
+    networkEnabled: state.ui.networkEnabled,
     networkLocations: state.ui.networkLocations,
+    networkRuntimes: state.runtimes.networkRuntimes,
     selectedPage: state.ui.selectedPage,
+    usbRuntimes: state.runtimes.usbRuntimes,
+    wifiEnabled: state.ui.wifiEnabled,
   };
 };
 

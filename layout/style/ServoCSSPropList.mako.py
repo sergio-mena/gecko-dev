@@ -67,11 +67,15 @@ def method(prop):
 # but other non-trivial dependence like scrollbar colors.
 SERIALIZED_PREDEFINED_TYPES = [
     "Appearance",
+    "BackgroundRepeat",
+    "BackgroundSize",
     "Clear",
+    "ClipRectOrAuto",
     "Color",
     "Content",
     "CounterIncrement",
     "CounterReset",
+    "FillRule",
     "Float",
     "FontFamily",
     "FontFeatureSettings",
@@ -89,6 +93,7 @@ SERIALIZED_PREDEFINED_TYPES = [
     "FontVariationSettings",
     "FontWeight",
     "Integer",
+    "ImageLayer",
     "Length",
     "LengthOrPercentage",
     "NonNegativeLength",
@@ -97,8 +102,14 @@ SERIALIZED_PREDEFINED_TYPES = [
     "OffsetPath",
     "Opacity",
     "Resize",
+    "TextAlign",
+    "TimingFunction",
+    "TransformStyle",
+    "background::BackgroundSize",
     "basic_shape::ClippingShape",
     "basic_shape::FloatAreaShape",
+    "position::HorizontalPosition",
+    "position::VerticalPosition",
     "url::ImageUrlOrNone",
 ]
 

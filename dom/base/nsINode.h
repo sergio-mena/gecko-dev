@@ -370,7 +370,7 @@ public:
   friend class AttrArray;
 
 #ifdef MOZILLA_INTERNAL_API
-  explicit nsINode(already_AddRefed<mozilla::dom::NodeInfo>& aNodeInfo);
+  explicit nsINode(already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
 #endif
 
   virtual ~nsINode();
@@ -1769,7 +1769,11 @@ public:
   {
     return HasChildren();
   }
-  uint16_t CompareDocumentPosition(nsINode& aOther) const;
+
+  // See nsContentUtils::PositionIsBefore for aThisIndex and aOtherIndex usage.
+  uint16_t CompareDocumentPosition(nsINode& aOther,
+                                   int32_t* aThisIndex = nullptr,
+                                   int32_t* aOtherIndex = nullptr) const;
   void GetNodeValue(nsAString& aNodeValue)
   {
     GetNodeValueInternal(aNodeValue);
@@ -1836,8 +1840,8 @@ public:
   }
 
   // ChildNode methods
-  mozilla::dom::Element* GetPreviousElementSibling() const;
-  mozilla::dom::Element* GetNextElementSibling() const;
+  inline mozilla::dom::Element* GetPreviousElementSibling() const;
+  inline mozilla::dom::Element* GetNextElementSibling() const;
 
   MOZ_CAN_RUN_SCRIPT void Before(const Sequence<OwningNodeOrString>& aNodes,
                                  ErrorResult& aRv);
@@ -1966,8 +1970,7 @@ protected:
   virtual void CheckNotNativeAnonymous() const;
 #endif
 
-  void EnsurePreInsertionValidity1(nsINode& aNewChild, nsINode* aRefChild,
-                                   mozilla::ErrorResult& aError);
+  void EnsurePreInsertionValidity1(mozilla::ErrorResult& aError);
   void EnsurePreInsertionValidity2(bool aReplace, nsINode& aNewChild,
                                    nsINode* aRefChild,
                                    mozilla::ErrorResult& aError);
@@ -1995,17 +1998,20 @@ protected:
                                                 mozilla::ErrorResult&);
 
 public:
-  /* Event stuff that documents and elements share.  This needs to be
-     NS_IMETHOD because some subclasses implement DOM methods with
-     this exact name and signature and then the calling convention
-     needs to match.
+  /* Event stuff that documents and elements share.
 
      Note that we include DOCUMENT_ONLY_EVENT events here so that we
      can forward all the document stuff to this implementation.
   */
-#define EVENT(name_, id_, type_, struct_)                             \
-  mozilla::dom::EventHandlerNonNull* GetOn##name_();                  \
-  void SetOn##name_(mozilla::dom::EventHandlerNonNull* listener);
+#define EVENT(name_, id_, type_, struct_)                               \
+  mozilla::dom::EventHandlerNonNull* GetOn##name_()                     \
+  {                                                                     \
+    return GetEventHandler(nsGkAtoms::on##name_);                       \
+  }                                                                     \
+  void SetOn##name_(mozilla::dom::EventHandlerNonNull* handler)         \
+  {                                                                     \
+    SetEventHandler(nsGkAtoms::on##name_, handler);                     \
+  }
 #define TOUCH_EVENT EVENT
 #define DOCUMENT_ONLY_EVENT EVENT
 #include "mozilla/EventNameList.h"

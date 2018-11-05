@@ -85,7 +85,8 @@
             // Calculate positions taking care of arrowscrollbox
             let scrollbox = this._scrollBox;
             let eventY = aEvent.layerY + (scrollbox.boxObject.y - this.boxObject.y);
-            let scrollboxOffset = this.boxObject.y;
+            let scrollboxOffset = scrollbox.scrollBoxObject.y -
+                                  (scrollbox.boxObject.y - this.boxObject.y);
             let eltY = elt.boxObject.y - scrollboxOffset;
             let eltHeight = elt.boxObject.height;
 
@@ -109,7 +110,7 @@
             let tagName = PlacesUtils.nodeIsTagQuery(elt._placesNode) ?
                             elt._placesNode.title : null;
             if ((PlacesUtils.nodeIsFolder(elt._placesNode) &&
-                 !PlacesUIUtils.isFolderReadOnly(elt._placesNode, this._rootView)) ||
+                 !PlacesUIUtils.isFolderReadOnly(elt._placesNode)) ||
                 PlacesUtils.nodeIsTagQuery(elt._placesNode)) {
               // This is a folder or a tag container.
               if (eventY - eltY < eltHeight * 0.20) {
@@ -433,7 +434,7 @@
         }
 
         // We should display the drop indicator relative to the arrowscrollbox.
-        let scrollbox = this._scrollBox.boxObject;
+        let scrollbox = this._scrollBox.scrollBoxObject;
         let newMarginTop = 0;
         if (scrollDir == 0) {
           let elt = this.firstElementChild;

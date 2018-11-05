@@ -65,7 +65,7 @@ const NetworkEventActor = protocol.ActorClassWithSpec(networkEventSpec, {
       fromCache: this._fromCache,
       fromServiceWorker: this._fromServiceWorker,
       private: this._private,
-      isTrackingResource: this._isTrackingResource,
+      isThirdPartyTrackingResource: this._isThirdPartyTrackingResource,
     };
   },
 
@@ -104,7 +104,7 @@ const NetworkEventActor = protocol.ActorClassWithSpec(networkEventSpec, {
     this._cause = networkEvent.cause;
     this._fromCache = networkEvent.fromCache;
     this._fromServiceWorker = networkEvent.fromServiceWorker;
-    this._isTrackingResource = networkEvent.isTrackingResource;
+    this._isThirdPartyTrackingResource = networkEvent.isThirdPartyTrackingResource;
     this._channelId = networkEvent.channelId;
 
     // Stack trace info isn't sent automatically. The client
@@ -241,7 +241,7 @@ const NetworkEventActor = protocol.ActorClassWithSpec(networkEventSpec, {
     return {
       timings: this._timings,
       totalTime: this._totalTime,
-      offsets: this._offsets
+      offsets: this._offsets,
     };
   },
 
@@ -388,7 +388,7 @@ const NetworkEventActor = protocol.ActorClassWithSpec(networkEventSpec, {
     this._discardResponseBody = !!info.discardResponseBody;
 
     this.emit("network-event-update:response-start", "responseStart", {
-      response: info
+      response: info,
     });
   },
 
@@ -515,7 +515,7 @@ const NetworkEventActor = protocol.ActorClassWithSpec(networkEventSpec, {
     this._offsets = offsets;
 
     this.emit("network-event-update:event-timings", "eventTimings", {
-      totalTime: total
+      totalTime: total,
     });
   },
 

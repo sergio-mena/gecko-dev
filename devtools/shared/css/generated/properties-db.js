@@ -41,7 +41,6 @@ exports.CSS_PROPERTIES = {
       "ease-in-out",
       "ease-out",
       "forwards",
-      "frames",
       "infinite",
       "inherit",
       "initial",
@@ -167,7 +166,6 @@ exports.CSS_PROPERTIES = {
       "ease-in",
       "ease-in-out",
       "ease-out",
-      "frames",
       "inherit",
       "initial",
       "linear",
@@ -1230,7 +1228,6 @@ exports.CSS_PROPERTIES = {
       "ease-in",
       "ease-in-out",
       "ease-out",
-      "frames",
       "inherit",
       "initial",
       "linear",
@@ -1293,7 +1290,6 @@ exports.CSS_PROPERTIES = {
       "ease-in",
       "ease-in-out",
       "ease-out",
-      "frames",
       "inherit",
       "initial",
       "linear",
@@ -1496,7 +1492,6 @@ exports.CSS_PROPERTIES = {
       "ease-in-out",
       "ease-out",
       "forwards",
-      "frames",
       "infinite",
       "inherit",
       "initial",
@@ -1622,7 +1617,6 @@ exports.CSS_PROPERTIES = {
       "ease-in",
       "ease-in-out",
       "ease-out",
-      "frames",
       "inherit",
       "initial",
       "linear",
@@ -2678,7 +2672,6 @@ exports.CSS_PROPERTIES = {
       "ease-in",
       "ease-in-out",
       "ease-out",
-      "frames",
       "inherit",
       "initial",
       "linear",
@@ -2741,7 +2734,6 @@ exports.CSS_PROPERTIES = {
       "ease-in",
       "ease-in-out",
       "ease-out",
-      "frames",
       "inherit",
       "initial",
       "linear",
@@ -3052,8 +3044,7 @@ exports.CSS_PROPERTIES = {
       "-moz-user-modify",
       "-moz-user-focus",
       "caret-color",
-      "scrollbar-face-color",
-      "scrollbar-track-color",
+      "scrollbar-color",
       "text-anchor",
       "color-interpolation",
       "color-interpolation-filters",
@@ -3204,7 +3195,6 @@ exports.CSS_PROPERTIES = {
       "ease-in-out",
       "ease-out",
       "forwards",
-      "frames",
       "infinite",
       "inherit",
       "initial",
@@ -3330,7 +3320,6 @@ exports.CSS_PROPERTIES = {
       "ease-in",
       "ease-in-out",
       "ease-out",
-      "frames",
       "inherit",
       "initial",
       "linear",
@@ -6357,6 +6346,7 @@ exports.CSS_PROPERTIES = {
     "values": [
       "-moz-crisp-edges",
       "auto",
+      "crisp-edges",
       "inherit",
       "initial",
       "optimizequality",
@@ -7566,8 +7556,8 @@ exports.CSS_PROPERTIES = {
   "overflow": {
     "isInherited": false,
     "subproperties": [
-      "overflow-y",
-      "overflow-x"
+      "overflow-x",
+      "overflow-y"
     ],
     "supports": [],
     "values": [
@@ -8215,6 +8205,43 @@ exports.CSS_PROPERTIES = {
       "unset"
     ]
   },
+  "scrollbar-color": {
+    "isInherited": true,
+    "subproperties": [
+      "scrollbar-color"
+    ],
+    "supports": [
+      2
+    ],
+    "values": [
+      "COLOR",
+      "auto",
+      "currentColor",
+      "hsl",
+      "hsla",
+      "inherit",
+      "initial",
+      "rgb",
+      "rgba",
+      "transparent",
+      "unset"
+    ]
+  },
+  "scrollbar-width": {
+    "isInherited": false,
+    "subproperties": [
+      "scrollbar-width"
+    ],
+    "supports": [],
+    "values": [
+      "auto",
+      "inherit",
+      "initial",
+      "none",
+      "thin",
+      "unset"
+    ]
+  },
   "shape-image-threshold": {
     "isInherited": false,
     "subproperties": [
@@ -8815,6 +8842,7 @@ exports.CSS_PROPERTIES = {
     "supports": [],
     "values": [
       "capitalize",
+      "full-size-kana",
       "full-width",
       "inherit",
       "initial",
@@ -8954,7 +8982,6 @@ exports.CSS_PROPERTIES = {
       "ease-in",
       "ease-in-out",
       "ease-out",
-      "frames",
       "inherit",
       "initial",
       "linear",
@@ -9017,7 +9044,6 @@ exports.CSS_PROPERTIES = {
       "ease-in",
       "ease-in-out",
       "ease-out",
-      "frames",
       "inherit",
       "initial",
       "linear",
@@ -9365,6 +9391,10 @@ exports.PREFERENCES = [
     "layout.css.scroll-snap.enabled"
   ],
   [
+    "scrollbar-color",
+    "layout.css.scrollbar-color.enabled"
+  ],
+  [
     "shape-outside",
     "layout.css.shape-outside.enabled"
   ],
@@ -9379,14 +9409,6 @@ exports.PREFERENCES = [
   [
     "scroll-snap-points-y",
     "layout.css.scroll-snap.enabled"
-  ],
-  [
-    "scrollbar-face-color",
-    "layout.css.scrollbar-colors.enabled"
-  ],
-  [
-    "scrollbar-track-color",
-    "layout.css.scrollbar-colors.enabled"
   ],
   [
     "scroll-snap-destination",

@@ -61,7 +61,7 @@ FILEOrDefault(FILE* aFile)
   return aFile ? aFile : stderr;
 }
 
-typedef FrameMetrics::ViewID ViewID;
+typedef ScrollableLayerGuid::ViewID ViewID;
 
 using namespace mozilla::gfx;
 using namespace mozilla::Compression;
@@ -76,11 +76,11 @@ LayerManager::GetLog()
   return sLog;
 }
 
-FrameMetrics::ViewID
+ScrollableLayerGuid::ViewID
 LayerManager::GetRootScrollableLayerId()
 {
   if (!mRoot) {
-    return FrameMetrics::NULL_SCROLL_ID;
+    return ScrollableLayerGuid::NULL_SCROLL_ID;
   }
 
   LayerMetricsWrapper layerMetricsRoot = LayerMetricsWrapper(mRoot);
@@ -96,7 +96,7 @@ LayerManager::GetRootScrollableLayerId()
 
   return rootScrollableLayerMetrics.IsValid() ?
       rootScrollableLayerMetrics.Metrics().GetScrollId() :
-      FrameMetrics::NULL_SCROLL_ID;
+      ScrollableLayerGuid::NULL_SCROLL_ID;
 }
 
 LayerMetricsWrapper
@@ -1483,7 +1483,7 @@ RefLayer::FillSpecificAttributes(SpecificLayerAttributes& aAttrs)
  *   older than this, it means that some frames were not recorded, so data is invalid.
  */
 uint32_t
-LayerManager::StartFrameTimeRecording(int32_t aBufferSize)
+FrameRecorder::StartFrameTimeRecording(int32_t aBufferSize)
 {
   if (mRecording.mIsPaused) {
     mRecording.mIsPaused = false;
@@ -1506,7 +1506,7 @@ LayerManager::StartFrameTimeRecording(int32_t aBufferSize)
 }
 
 void
-LayerManager::RecordFrame()
+FrameRecorder::RecordFrame()
 {
   if (!mRecording.mIsPaused) {
     TimeStamp now = TimeStamp::Now();
@@ -1524,8 +1524,8 @@ LayerManager::RecordFrame()
 }
 
 void
-LayerManager::StopFrameTimeRecording(uint32_t         aStartIndex,
-                                     nsTArray<float>& aFrameIntervals)
+FrameRecorder::StopFrameTimeRecording(uint32_t         aStartIndex,
+                                      nsTArray<float>& aFrameIntervals)
 {
   uint32_t bufferSize = mRecording.mIntervals.Length();
   uint32_t length = mRecording.mNextIndex - aStartIndex;
@@ -2378,7 +2378,7 @@ LayerManager::IsLogEnabled()
 }
 
 bool
-LayerManager::SetPendingScrollUpdateForNextTransaction(FrameMetrics::ViewID aScrollId,
+LayerManager::SetPendingScrollUpdateForNextTransaction(ScrollableLayerGuid::ViewID aScrollId,
                                                        const ScrollUpdateInfo& aUpdateInfo)
 {
   Layer* withPendingTransform = DepthFirstSearch<ForwardIterator>(GetRoot(),
@@ -2394,7 +2394,7 @@ LayerManager::SetPendingScrollUpdateForNextTransaction(FrameMetrics::ViewID aScr
 }
 
 Maybe<ScrollUpdateInfo>
-LayerManager::GetPendingScrollInfoUpdate(FrameMetrics::ViewID aScrollId)
+LayerManager::GetPendingScrollInfoUpdate(ScrollableLayerGuid::ViewID aScrollId)
 {
   auto it = mPendingScrollUpdates.find(aScrollId);
   if (it != mPendingScrollUpdates.end()) {

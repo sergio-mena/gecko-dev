@@ -4,16 +4,14 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-[ChromeOnly, Exposed=(Window,System)]
+[ChromeOnly, Exposed=Window]
 namespace PrioEncoder {
   [Throws, NewObject]
-  Promise<PrioEncodedData> encode(ByteString batchID, PrioParams params);
+  PrioEncodedData encode(ByteString batchID, PrioParams params);
 };
 
 dictionary PrioParams {
-  required boolean startupCrashDetected;
-  required boolean safeModeUsage;
-  required boolean browserIsUserDefault;
+  required sequence<boolean> booleans;
 };
 
 dictionary PrioEncodedData {

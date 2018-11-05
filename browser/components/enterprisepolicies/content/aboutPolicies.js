@@ -4,6 +4,7 @@
 
 "use strict";
 
+ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
 ChromeUtils.import("resource://gre/modules/Services.jsm");
 ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
 
@@ -25,7 +26,7 @@ function machine_only_col(text) {
   let icon = document.createElement("span");
   icon.classList.add("icon");
   icon.classList.add("machine-only");
-  icon.title = "Machine-only";
+  icon.setAttribute("data-l10n-id", "gpo-machine-only");
   let column = document.createElement("td");
   let content = document.createTextNode(text);
   column.appendChild(content);
@@ -160,9 +161,10 @@ function generatePolicy(data, row, depth, new_cont, islast, arr_sep = false) {
           }
 
           last_row.appendChild(col(obj));
+          last_row.classList.add(color_class);
 
           if (arr_sep) {
-            last_row.classList.add(color_class, "arr_sep");
+            last_row.classList.add("arr_sep");
           }
 
           generatePolicy(data[obj], last_row, depth + 1, new_cont, islast ? islast : false, false);
@@ -203,7 +205,8 @@ function generateErrors() {
                     "Enterprise Policies Child",
                     "BookmarksPolicies.jsm",
                     "ProxyPolicies.jsm",
-                    "WebsiteFilter Policy"];
+                    "WebsiteFilter Policy",
+                    "macOSPoliciesParser.jsm"];
 
   let new_cont = document.getElementById("errorsContent");
   new_cont.classList.add("errors");
@@ -228,6 +231,13 @@ function generateDocumentation() {
   let new_cont = document.getElementById("documentationContent");
   new_cont.setAttribute("id", "documentationContent");
 
+  // map specific policies to a different string ID, to allow updates to
+  // existing descriptions
+  let string_mapping = {
+    "DisableSetDesktopBackground": "DisableSetAsDesktopBackground",
+    "Certificates": "CertificatesDescription",
+  };
+
   for (let policyName in schema.properties) {
     let main_tbody = document.createElement("tbody");
     main_tbody.classList.add("collapsible");
@@ -236,12 +246,16 @@ function generateDocumentation() {
       content.classList.toggle("content");
     });
     let row = document.createElement("tr");
-    if (schema.properties[policyName].machine_only) {
+    if (AppConstants.platform == "win" &&
+        schema.properties[policyName].machine_only) {
       row.appendChild(machine_only_col(policyName));
     } else {
       row.appendChild(col(policyName));
     }
-    row.appendChild(col(schema.properties[policyName].description));
+    let descriptionColumn = col("");
+    let stringID = string_mapping[policyName] || policyName;
+    descriptionColumn.setAttribute("data-l10n-id", `policy-${stringID}`);
+    row.appendChild(descriptionColumn);
     main_tbody.appendChild(row);
     let sec_tbody = document.createElement("tbody");
     sec_tbody.classList.add("content");
@@ -249,6 +263,11 @@ function generateDocumentation() {
     let schema_row = document.createElement("tr");
     if (schema.properties[policyName].properties) {
       let column = col(JSON.stringify(schema.properties[policyName].properties, null, 1), "schema");
+      column.colSpan = "2";
+      schema_row.appendChild(column);
+      sec_tbody.appendChild(schema_row);
+    } else if (schema.properties[policyName].items) {
+      let column = col(JSON.stringify(schema.properties[policyName], null, 1), "schema");
       column.colSpan = "2";
       schema_row.appendChild(column);
       sec_tbody.appendChild(schema_row);

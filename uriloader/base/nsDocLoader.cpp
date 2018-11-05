@@ -6,8 +6,6 @@
 #include "nspr.h"
 #include "mozilla/Logging.h"
 #include "mozilla/IntegerPrintfMacros.h"
-#include "mozilla/dom/Promise.h"
-#include "mozilla/dom/PromiseNativeHandler.h"
 
 #include "nsDocLoader.h"
 #include "nsCURILoader.h"
@@ -21,7 +19,7 @@
 #include "nsIURL.h"
 #include "nsCOMPtr.h"
 #include "nscore.h"
-#include "nsWeakPtr.h"
+#include "nsIWeakReferenceUtils.h"
 #include "nsAutoPtr.h"
 #include "nsQueryObject.h"
 
@@ -39,6 +37,7 @@
 #include "nsILoadURIDelegate.h"
 #include "nsIBrowserDOMWindow.h"
 
+using mozilla::dom::ContentBlockingLog;
 using mozilla::DebugOnly;
 using mozilla::LogLevel;
 
@@ -646,11 +645,8 @@ nsresult nsDocLoader::RemoveChildLoader(nsDocLoader* aChild)
 
 nsresult nsDocLoader::AddChildLoader(nsDocLoader* aChild)
 {
-  nsresult rv = mChildList.AppendElement(aChild) ? NS_OK : NS_ERROR_OUT_OF_MEMORY;
-  if (NS_SUCCEEDED(rv)) {
-    rv = aChild->SetDocLoaderParent(this);
-  }
-  return rv;
+  mChildList.AppendElement(aChild);
+  return aChild->SetDocLoaderParent(this);
 }
 
 NS_IMETHODIMP nsDocLoader::GetDocumentChannel(nsIChannel ** aChannel)
@@ -886,8 +882,8 @@ nsDocLoader::AddProgressListener(nsIWebProgressListener *aListener,
     return NS_ERROR_INVALID_ARG;
   }
 
-  return mListenerInfoList.AppendElement(nsListenerInfo(listener, aNotifyMask)) ?
-         NS_OK : NS_ERROR_OUT_OF_MEMORY;
+  mListenerInfoList.AppendElement(nsListenerInfo(listener, aNotifyMask));
+  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -1425,101 +1421,36 @@ int64_t nsDocLoader::CalculateMaxProgress()
   return max;
 }
 
-class LoadURIDelegateRedirectHandler final : public mozilla::dom::PromiseNativeHandler
-{
-public:
-  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_CLASS(LoadURIDelegateRedirectHandler)
-
-  LoadURIDelegateRedirectHandler(nsDocLoader* aDocLoader,
-                                 nsIChannel* aOldChannel,
-                                 nsIChannel* aNewChannel,
-                                 uint32_t aFlags,
-                                 nsIAsyncVerifyRedirectCallback* aCallback)
-  : mDocLoader(aDocLoader)
-  , mOldChannel(aOldChannel)
-  , mNewChannel(aNewChannel)
-  , mFlags(aFlags)
-  , mCallback(aCallback)
-  {}
-
-  void
-  ResolvedCallback(JSContext* aCx, JS::Handle<JS::Value> aValue) override
-  {
-    if (aValue.isBoolean() && aValue.toBoolean()) {
-      // The app handled the redirect, notify the callback
-      mCallback->OnRedirectVerifyCallback(NS_ERROR_ABORT);
-    } else {
-      UnhandledCallback();
-    }
-  }
-
-  void
-  RejectedCallback(JSContext* aCx, JS::Handle<JS::Value> aValue) override
-  {
-    UnhandledCallback();
-  }
-
-private:
-  ~LoadURIDelegateRedirectHandler()
-  {}
-
-  void UnhandledCallback()
-  {
-    // If the redirect wasn't handled by the nsILoadURIDelegate, let Gecko
-    // handle it.
-    mFlags |= nsIChannelEventSink::REDIRECT_DELEGATES_CHECKED;
-    mDocLoader->AsyncOnChannelRedirect(mOldChannel, mNewChannel, mFlags,
-                                       mCallback);
-  }
-
-  RefPtr<nsDocLoader> mDocLoader;
-  nsCOMPtr<nsIChannel> mOldChannel;
-  nsCOMPtr<nsIChannel> mNewChannel;
-  uint32_t mFlags;
-  nsCOMPtr<nsIAsyncVerifyRedirectCallback> mCallback;
-};
-
-NS_IMPL_CYCLE_COLLECTION(LoadURIDelegateRedirectHandler, mDocLoader, 
-                         mOldChannel, mNewChannel, mCallback)
-
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(LoadURIDelegateRedirectHandler)
-  NS_INTERFACE_MAP_ENTRY(nsISupports)
-NS_INTERFACE_MAP_END
-
-NS_IMPL_CYCLE_COLLECTING_ADDREF(LoadURIDelegateRedirectHandler)
-NS_IMPL_CYCLE_COLLECTING_RELEASE(LoadURIDelegateRedirectHandler)
-
 NS_IMETHODIMP nsDocLoader::AsyncOnChannelRedirect(nsIChannel *aOldChannel,
                                                   nsIChannel *aNewChannel,
                                                   uint32_t aFlags,
                                                   nsIAsyncVerifyRedirectCallback *cb)
 {
-  if ((aFlags &
+  if (aFlags &
       (nsIChannelEventSink::REDIRECT_TEMPORARY |
-       nsIChannelEventSink::REDIRECT_PERMANENT)) &&
-      !(aFlags & nsIChannelEventSink::REDIRECT_DELEGATES_CHECKED)) {
+       nsIChannelEventSink::REDIRECT_PERMANENT)) {
     nsCOMPtr<nsIDocShell> docShell =
       do_QueryInterface(static_cast<nsIRequestObserver*>(this));
 
     nsCOMPtr<nsILoadURIDelegate> delegate;
-    docShell->GetLoadURIDelegate(getter_AddRefs(delegate));
+    if (docShell) {
+      docShell->GetLoadURIDelegate(getter_AddRefs(delegate));
+    }
 
     nsCOMPtr<nsIURI> newURI;
-    aNewChannel->GetURI(getter_AddRefs(newURI));
+    if (delegate) {
+      // No point in getting the URI if we don't have a LoadURIDelegate.
+      aNewChannel->GetURI(getter_AddRefs(newURI));
+    }
 
-    if (newURI && delegate) {
-      RefPtr<mozilla::dom::Promise> promise;
+    if (newURI) {
       const int where = nsIBrowserDOMWindow::OPEN_CURRENTWINDOW;
+      bool loadURIHandled = false;
       nsresult rv = delegate->LoadURI(newURI, where, /* flags */ 0,
                                       /* triggering principal */ nullptr,
-                                      getter_AddRefs(promise));
-      if (NS_SUCCEEDED(rv) && promise) {
-        RefPtr<LoadURIDelegateRedirectHandler> handler =
-          new LoadURIDelegateRedirectHandler(this, aOldChannel, aNewChannel,
-                                             aFlags, cb);
-
-        promise->AppendNativeHandler(handler);
+                                      &loadURIHandled);
+      if (NS_SUCCEEDED(rv) && loadURIHandled) {
+        cb->OnRedirectVerifyCallback(NS_OK);
         return NS_OK;
       }
     }
@@ -1542,7 +1473,7 @@ NS_IMETHODIMP nsDocLoader::AsyncOnChannelRedirect(nsIChannel *aOldChannel,
       // We only set mDocumentRequest in OnStartRequest(), but its possible
       // to get a redirect before that for service worker interception.
       if (mDocumentRequest) {
-        nsCOMPtr<nsIRequest> request(do_QueryInterface(aOldChannel));
+        nsCOMPtr<nsIRequest> request(aOldChannel);
         NS_ASSERTION(request == mDocumentRequest, "Wrong Document Channel");
       }
 #endif /* DEBUG */
@@ -1561,7 +1492,9 @@ NS_IMETHODIMP nsDocLoader::AsyncOnChannelRedirect(nsIChannel *aOldChannel,
  */
 
 NS_IMETHODIMP nsDocLoader::OnSecurityChange(nsISupports * aContext,
-                                            uint32_t aState)
+                                            uint32_t aOldState,
+                                            uint32_t aState,
+                                            ContentBlockingLog* aContentBlockingLog)
 {
   //
   // Fire progress notifications out to any registered nsIWebProgressListeners.
@@ -1569,14 +1502,17 @@ NS_IMETHODIMP nsDocLoader::OnSecurityChange(nsISupports * aContext,
 
   nsCOMPtr<nsIRequest> request = do_QueryInterface(aContext);
   nsIWebProgress* webProgress = static_cast<nsIWebProgress*>(this);
+  nsAutoString contentBlockingLogJSON(
+    aContentBlockingLog ? aContentBlockingLog->Stringify() : EmptyString());
 
   NOTIFY_LISTENERS(nsIWebProgress::NOTIFY_SECURITY,
-    listener->OnSecurityChange(webProgress, request, aState);
+    listener->OnSecurityChange(webProgress, request, aOldState, aState,
+                               contentBlockingLogJSON);
   );
 
   // Pass the notification up to the parent...
   if (mParent) {
-    mParent->OnSecurityChange(aContext, aState);
+    mParent->OnSecurityChange(aContext, aOldState, aState, aContentBlockingLog);
   }
   return NS_OK;
 }

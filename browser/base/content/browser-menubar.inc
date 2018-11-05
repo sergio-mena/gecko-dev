@@ -400,26 +400,6 @@
       <menuitem id="menu_bookmarkThisPage"
                 command="Browser:AddBookmarkAs"
                 key="addBookmarkAsKb"/>
-      <menuitem id="subscribeToPageMenuitem"
-                disabled="true"
-#ifndef XP_MACOSX
-                class="menuitem-iconic"
-#endif
-                label="&subscribeToPageMenuitem.label;"
-                oncommand="return FeedHandler.subscribeToFeed(null, event);"
-                onclick="checkForMiddleClick(this, event);"
-                />
-      <menu id="subscribeToPageMenupopup"
-            hidden="true"
-#ifndef XP_MACOSX
-            class="menu-iconic"
-#endif
-            label="&subscribeToPageMenupopup.label;">
-        <menupopup id="subscribeToPageSubmenuMenupopup"
-                   onpopupshowing="return FeedHandler.buildFeedList(event.target);"
-                   oncommand="return FeedHandler.subscribeToFeed(null, event);"
-                   onclick="checkForMiddleClick(this, event);"/>
-      </menu>
       <menuitem id="menu_bookmarkAllTabs"
                 label="&addCurPagesCmd.label;"
                 class="show-only-for-keyboard"
@@ -518,18 +498,6 @@
                             key="key_viewSource"
                             command="View:PageSource"
                             accesskey="&pageSourceCmd.accesskey;"/>
-                  <menuitem id="menu_devtools_recordExecution"
-                            label="&devtoolsRecordExecution.label;"
-                            command="Tools:RecordExecution"
-                            hidden="true"/>
-                  <menuitem id="menu_devtools_saveRecording"
-                            label="&devtoolsSaveRecording.label;"
-                            command="Tools:SaveRecording"
-                            hidden="true"/>
-                  <menuitem id="menu_devtools_replayExecution"
-                            label="&devtoolsReplayExecution.label;"
-                            command="Tools:ReplayExecution"
-                            hidden="true"/>
                 </menupopup>
               </menu>
               <menuitem id="menu_pageInfo"

@@ -17,24 +17,12 @@ var historyListener = {
     sendAsyncMessage("ss-test:OnHistoryNewEntry");
   },
 
-  OnHistoryGoBack() {
-    sendAsyncMessage("ss-test:OnHistoryGoBack");
-    return true;
-  },
-
-  OnHistoryGoForward() {
-    sendAsyncMessage("ss-test:OnHistoryGoForward");
-    return true;
-  },
-
   OnHistoryGotoIndex() {
     sendAsyncMessage("ss-test:OnHistoryGotoIndex");
-    return true;
   },
 
   OnHistoryPurge() {
     sendAsyncMessage("ss-test:OnHistoryPurge");
-    return true;
   },
 
   OnHistoryReload() {

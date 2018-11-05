@@ -11,9 +11,6 @@ loader.lazyRequireGetter(this, "NetworkObserver", "devtools/server/actors/networ
 loader.lazyRequireGetter(this, "NetworkEventActor", "devtools/server/actors/network-event", true);
 
 const NetworkMonitorActor = ActorClassWithSpec(networkMonitorSpec, {
-  _netEvents: new Map(),
-  _networkEventActorsByURL: new Map(),
-
   /**
    * NetworkMonitorActor is instanciated from WebConsoleActor.startListeners
    * Either in the same process, for debugging service worker requests or when debugging
@@ -36,6 +33,12 @@ const NetworkMonitorActor = ActorClassWithSpec(networkMonitorSpec, {
   initialize(conn, filters, parentID, messageManager) {
     Actor.prototype.initialize.call(this, conn);
 
+    // Map of all NetworkEventActor indexed by channel ID
+    this._netEvents = new Map();
+
+    // Map of all NetworkEventActor indexed by URL
+    this._networkEventActorsByURL = new Map();
+
     this.parentID = parentID;
     this.messageManager = messageManager;
 
@@ -45,27 +48,46 @@ const NetworkMonitorActor = ActorClassWithSpec(networkMonitorSpec, {
     this.observer.init();
 
     this.stackTraces = new Set();
+
     this.onStackTraceAvailable = this.onStackTraceAvailable.bind(this);
-    this.messageManager.addMessageListener("debug:request-stack-available",
-      this.onStackTraceAvailable);
     this.onRequestContent = this.onRequestContent.bind(this);
-    this.messageManager.addMessageListener("debug:request-content:request",
-      this.onRequestContent);
     this.onSetPreference = this.onSetPreference.bind(this);
-    this.messageManager.addMessageListener("debug:netmonitor-preference",
-      this.onSetPreference);
     this.onGetNetworkEventActor = this.onGetNetworkEventActor.bind(this);
-    this.messageManager.addMessageListener("debug:get-network-event-actor:request",
-      this.onGetNetworkEventActor);
     this.onDestroyMessage = this.onDestroyMessage.bind(this);
-    this.messageManager.addMessageListener("debug:destroy-network-monitor",
-      this.onDestroyMessage);
+
+    this.startListening();
   },
 
   onDestroyMessage({ data }) {
     if (data.actorID == this.parentID) {
       this.destroy();
     }
+  },
+
+  startListening() {
+    this.messageManager.addMessageListener("debug:request-stack-available",
+      this.onStackTraceAvailable);
+    this.messageManager.addMessageListener("debug:request-content:request",
+      this.onRequestContent);
+    this.messageManager.addMessageListener("debug:netmonitor-preference",
+      this.onSetPreference);
+    this.messageManager.addMessageListener("debug:get-network-event-actor:request",
+      this.onGetNetworkEventActor);
+    this.messageManager.addMessageListener("debug:destroy-network-monitor",
+      this.onDestroyMessage);
+  },
+
+  stopListening() {
+    this.messageManager.removeMessageListener("debug:request-stack-available",
+      this.onStackTraceAvailable);
+    this.messageManager.removeMessageListener("debug:request-content:request",
+      this.onRequestContent);
+    this.messageManager.removeMessageListener("debug:netmonitor-preference",
+      this.onSetPreference);
+    this.messageManager.removeMessageListener("debug:get-network-event-actor:request",
+      this.onGetNetworkEventActor);
+    this.messageManager.removeMessageListener("debug:destroy-network-monitor",
+      this.onDestroyMessage);
   },
 
   destroy() {
@@ -78,18 +100,20 @@ const NetworkMonitorActor = ActorClassWithSpec(networkMonitorSpec, {
 
     this.stackTraces.clear();
     if (this.messageManager) {
-      this.messageManager.removeMessageListener("debug:request-stack-available",
-        this.onStackTraceAvailable);
-      this.messageManager.removeMessageListener("debug:request-content:request",
-        this.onRequestContent);
-      this.messageManager.removeMessageListener("debug:netmonitor-preference",
-        this.onSetPreference);
-      this.messageManager.removeMessageListener("debug:get-network-event-actor:request",
-        this.onGetNetworkEventActor);
-      this.messageManager.removeMessageListener("debug:destroy-network-monitor",
-        this.onDestroyMessage);
+      this.stopListening();
       this.messageManager = null;
     }
+  },
+
+  /**
+   * onBrowserSwap is called by the server when a browser frame swap occurs (typically
+   * switching on/off RDM) and a new message manager should be used.
+   */
+  onBrowserSwap(mm) {
+    this.stopListening();
+    this.messageManager = mm;
+    this.stackTraces = new Set();
+    this.startListening();
   },
 
   onStackTraceAvailable(msg) {
@@ -152,7 +176,7 @@ const NetworkMonitorActor = ActorClassWithSpec(networkMonitorSpec, {
     const actor = this.getNetworkEventActor(data.channelId);
     this.messageManager.sendAsyncMessage("debug:get-network-event-actor:response", {
       channelId: data.channelId,
-      actor: actor.form()
+      actor: actor.form(),
     });
   },
 
@@ -188,7 +212,7 @@ const NetworkMonitorActor = ActorClassWithSpec(networkMonitorSpec, {
     const packet = {
       from: this.parentID,
       type: "networkEvent",
-      eventActor: actor.form()
+      eventActor: actor.form(),
     };
 
     this.conn.send(packet);

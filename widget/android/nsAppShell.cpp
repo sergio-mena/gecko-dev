@@ -64,12 +64,14 @@
 #include "GeckoNetworkManager.h"
 #include "GeckoProcessManager.h"
 #include "GeckoScreenOrientation.h"
+#include "GeckoSystemStateListener.h"
 #include "GeckoVRManager.h"
 #include "PrefsHelper.h"
 #include "fennec/MemoryMonitor.h"
 #include "fennec/Telemetry.h"
 #include "fennec/ThumbnailHelper.h"
 #include "ScreenHelperAndroid.h"
+#include "WebExecutorSupport.h"
 
 #ifdef DEBUG_ANDROID_EVENTS
 #define EVLOG(args...)  ALOG(args)
@@ -405,6 +407,8 @@ nsAppShell::nsAppShell()
         sAppShell = this;
     }
 
+    hal::Init();
+
     if (!XRE_IsParentProcess()) {
         if (jni::IsAvailable()) {
             GeckoThreadSupport::Init();
@@ -428,7 +432,9 @@ nsAppShell::nsAppShell()
         mozilla::GeckoNetworkManager::Init();
         mozilla::GeckoProcessManager::Init();
         mozilla::GeckoScreenOrientation::Init();
+        mozilla::GeckoSystemStateListener::Init();
         mozilla::PrefsHelper::Init();
+        mozilla::widget::WebExecutorSupport::Init();
         nsWindow::InitNatives();
 
         if (jni::IsFennec()) {
@@ -472,6 +478,8 @@ nsAppShell::~nsAppShell()
         sPowerManagerService = nullptr;
         sWakeLockListener = nullptr;
     }
+
+    hal::Shutdown();
 
     if (jni::IsAvailable() && XRE_IsParentProcess()) {
         DestroyAndroidUiThread();
@@ -741,6 +749,7 @@ nsAppShell::ProcessNextNativeEvent(bool mayWait)
                                 IDLE);
             mozilla::BackgroundHangMonitor().NotifyWait();
 
+            AUTO_PROFILER_THREAD_SLEEP;
             curEvent = mEventQueue.Pop(/* mayWait */ true);
         }
     }

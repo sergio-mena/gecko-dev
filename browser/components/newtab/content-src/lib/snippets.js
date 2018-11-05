@@ -62,9 +62,7 @@ export class SnippetsMap extends Map {
     }
   }
 
-  disableOnboarding() {
-    this._dispatch(ac.AlsoToMain({type: at.DISABLE_ONBOARDING}));
-  }
+  disableOnboarding() {}
 
   showFirefoxAccounts() {
     this._dispatch(ac.AlsoToMain({type: at.SHOW_FIREFOX_ACCOUNTS}));
@@ -253,14 +251,6 @@ export class SnippetsProvider {
     // TODO
   }
 
-  _forceOnboardingVisibility(shouldBeVisible) {
-    const onboardingEl = document.getElementById("onboarding-notification-bar");
-
-    if (onboardingEl) {
-      onboardingEl.style.display = shouldBeVisible ? "" : "none";
-    }
-  }
-
   _showRemoteSnippets() {
     const snippetsEl = document.getElementById(this.elementId);
     const payload = this.snippetsMap.get("snippets");
@@ -313,7 +303,7 @@ export class SnippetsProvider {
     Object.assign(this, {
       appData: {},
       elementId: "snippets",
-      connect: true
+      connect: true,
     }, options);
 
     // Add listener so we know when snippets are blocked on other pages
@@ -352,13 +342,11 @@ export class SnippetsProvider {
 
     window.dispatchEvent(new Event(SNIPPETS_ENABLED_EVENT));
 
-    this._forceOnboardingVisibility(true);
     this.initialized = true;
   }
 
   uninit() {
     window.dispatchEvent(new Event(SNIPPETS_DISABLED_EVENT));
-    this._forceOnboardingVisibility(false);
     if (global.RPMRemoveMessageListener) {
       global.RPMRemoveMessageListener("ActivityStream:MainToContent", this._onAction);
     }
@@ -381,33 +369,56 @@ export function addSnippetsSubscriber(store) {
 
   store.subscribe(async () => {
     const state = store.getState();
-    let snippetsEnabled = false;
-    try {
-      snippetsEnabled = JSON.parse(state.Prefs.values["asrouter.messageProviders"]).find(i => i.id === "snippets").enabled;
-    } catch (e) {}
-    const isASRouterEnabled = state.Prefs.values.asrouterExperimentEnabled && snippetsEnabled;
-    // state.Prefs.values["feeds.snippets"]:  Should snippets be shown?
-    // state.Snippets.initialized             Is the snippets data initialized?
-    // snippets.initialized:                  Is SnippetsProvider currently initialised?
-    if (state.Prefs.values["feeds.snippets"] &&
-      // If the message center experiment is enabled, don't show snippets
-      !isASRouterEnabled &&
+
+    /**
+     * Sorry this code is so complicated. It will be removed soon.
+     * This is what the different values actually mean:
+     *
+     * ASRouter.initialized                   Is ASRouter.jsm initialised?
+     * ASRouter.allowLegacySnippets           Are ASRouter snippets turned OFF (i.e. legacy snippets are allowed)
+     * state.Prefs.values["feeds.snippets"]   User preference for snippets
+     * state.Snippets.initialized             Is SnippetsFeed.jsm initialised?
+     * snippets.initialized                   Is in-content snippets currently initialised?
+     * state.Prefs.values.disableSnippets     This pref is used to disable legacy snippets in an emergency
+     *                                        in a way that is not user-editable (true = disabled)
+     */
+
+    /** If we should initialize snippets... */
+    if (
+      state.Prefs.values["feeds.snippets"] &&
+      state.ASRouter.initialized &&
+      state.ASRouter.allowLegacySnippets &&
       !state.Prefs.values.disableSnippets &&
       state.Snippets.initialized &&
       !snippets.initialized &&
       // Don't call init multiple times
       !initializing &&
-      location.href !== "about:welcome"
+      location.href !== "about:welcome" &&
+      location.hash !== "#asrouter"
     ) {
       initializing = true;
       await snippets.init({appData: state.Snippets});
+      // istanbul ignore if
+      if (state.Prefs.values["asrouter.devtoolsEnabled"]) {
+        console.log("Legacy snippets initialized"); // eslint-disable-line no-console
+      }
       initializing = false;
+
+    /** If we should remove snippets... */
     } else if (
-      (state.Prefs.values["feeds.snippets"] === false ||
-        state.Prefs.values.disableSnippets === true) &&
+      (
+        state.Prefs.values["feeds.snippets"] === false ||
+        state.Prefs.values.disableSnippets === true ||
+        (state.ASRouter.initialized && !state.ASRouter.allowLegacySnippets)
+      ) &&
       snippets.initialized
     ) {
+      // Remove snippets
       snippets.uninit();
+      // istanbul ignore if
+      if (state.Prefs.values["asrouter.devtoolsEnabled"]) {
+        console.log("Legacy snippets removed"); // eslint-disable-line no-console
+      }
     }
   });
 

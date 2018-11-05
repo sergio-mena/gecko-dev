@@ -9,6 +9,10 @@ const { createFactory, PureComponent } = require("devtools/client/shared/vendor/
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 
+const FluentReact = require("devtools/client/shared/vendor/fluent-react");
+const Localized = createFactory(FluentReact.Localized);
+
+const ConnectionPromptSetting = createFactory(require("./ConnectionPromptSetting"));
 const DebugTargetPane = createFactory(require("./debugtarget/DebugTargetPane"));
 const ExtensionDetail = createFactory(require("./debugtarget/ExtensionDetail"));
 const InspectAction = createFactory(require("./debugtarget/InspectAction"));
@@ -20,14 +24,22 @@ const TemporaryExtensionInstaller =
   createFactory(require("./debugtarget/TemporaryExtensionInstaller"));
 const WorkerDetail = createFactory(require("./debugtarget/WorkerDetail"));
 
-const Services = require("Services");
+const { DEBUG_TARGET_PANE } = require("../constants");
+const {
+  getCurrentConnectionPromptSetting,
+  getCurrentRuntimeInfo,
+} = require("../modules/runtimes-state-helper");
+const { isSupportedDebugTargetPane } = require("../modules/debug-target-support");
 
 class RuntimePage extends PureComponent {
   static get propTypes() {
     return {
+      collapsibilities: PropTypes.object.isRequired,
+      connectionPromptEnabled: PropTypes.bool.isRequired,
       dispatch: PropTypes.func.isRequired,
       installedExtensions: PropTypes.arrayOf(PropTypes.object).isRequired,
       otherWorkers: PropTypes.arrayOf(PropTypes.object).isRequired,
+      runtimeInfo: PropTypes.object,
       serviceWorkers: PropTypes.arrayOf(PropTypes.object).isRequired,
       sharedWorkers: PropTypes.arrayOf(PropTypes.object).isRequired,
       tabs: PropTypes.arrayOf(PropTypes.object).isRequired,
@@ -35,81 +47,120 @@ class RuntimePage extends PureComponent {
     };
   }
 
+  renderConnectionPromptSetting() {
+    const { connectionPromptEnabled, dispatch } = this.props;
+
+    return dom.div(
+      {
+        className: "connection-prompt-setting",
+      },
+      ConnectionPromptSetting({ connectionPromptEnabled, dispatch }),
+    );
+  }
+
+  renderDebugTargetPane(name, targets, actionComponent,
+                        detailComponent, paneKey, localizationId) {
+    const { collapsibilities, dispatch, runtimeInfo } = this.props;
+
+    if (!isSupportedDebugTargetPane(runtimeInfo.type, paneKey)) {
+      return null;
+    }
+
+    return Localized(
+      {
+        id: localizationId,
+        attrs: { name: true },
+      },
+      DebugTargetPane({
+        actionComponent,
+        collapsibilityKey: paneKey,
+        detailComponent,
+        dispatch,
+        isCollapsed: collapsibilities.get(paneKey),
+        name,
+        targets,
+      })
+    );
+  }
+
   render() {
     const {
       dispatch,
       installedExtensions,
       otherWorkers,
+      runtimeInfo,
       serviceWorkers,
       sharedWorkers,
       tabs,
       temporaryExtensions,
     } = this.props;
 
+    if (!runtimeInfo) {
+      // runtimeInfo can be null when the selectPage action navigates from a runtime A
+      // to a runtime B (between unwatchRuntime and watchRuntime).
+      return null;
+    }
+
     return dom.article(
       {
-        className: "page",
+        className: "page js-runtime-page",
       },
-      RuntimeInfo({
-        icon: "chrome://branding/content/icon64.png",
-        name: Services.appinfo.name,
-        version: Services.appinfo.version,
-      }),
-      TemporaryExtensionInstaller({ dispatch }),
-      DebugTargetPane({
-        actionComponent: TemporaryExtensionAction,
-        detailComponent: ExtensionDetail,
-        dispatch,
-        name: "Temporary Extensions",
-        targets: temporaryExtensions,
-      }),
-      DebugTargetPane({
-        actionComponent: InspectAction,
-        detailComponent: ExtensionDetail,
-        dispatch,
-        name: "Extensions",
-        targets: installedExtensions,
-      }),
-      DebugTargetPane({
-        actionComponent: InspectAction,
-        detailComponent: TabDetail,
-        dispatch,
-        name: "Tabs",
-        targets: tabs
-      }),
-      DebugTargetPane({
-        actionComponent: ServiceWorkerAction,
-        detailComponent: WorkerDetail,
-        dispatch,
-        name: "Service Workers",
-        targets: serviceWorkers
-      }),
-      DebugTargetPane({
-        actionComponent: InspectAction,
-        detailComponent: WorkerDetail,
-        dispatch,
-        name: "Shared Workers",
-        targets: sharedWorkers
-      }),
-      DebugTargetPane({
-        actionComponent: InspectAction,
-        detailComponent: WorkerDetail,
-        dispatch,
-        name: "Other Workers",
-        targets: otherWorkers
-      }),
+      RuntimeInfo(runtimeInfo),
+      this.renderConnectionPromptSetting(),
+      isSupportedDebugTargetPane(runtimeInfo.type, DEBUG_TARGET_PANE.TEMPORARY_EXTENSION)
+        ? TemporaryExtensionInstaller({ dispatch })
+        : null,
+      this.renderDebugTargetPane("Temporary Extensions",
+                                 temporaryExtensions,
+                                 TemporaryExtensionAction,
+                                 ExtensionDetail,
+                                 DEBUG_TARGET_PANE.TEMPORARY_EXTENSION,
+                                 "about-debugging-runtime-temporary-extensions"),
+      this.renderDebugTargetPane("Extensions",
+                                 installedExtensions,
+                                 InspectAction,
+                                 ExtensionDetail,
+                                 DEBUG_TARGET_PANE.INSTALLED_EXTENSION,
+                                 "about-debugging-runtime-extensions"),
+      this.renderDebugTargetPane("Tabs",
+                                 tabs,
+                                 InspectAction,
+                                 TabDetail,
+                                 DEBUG_TARGET_PANE.TAB,
+                                 "about-debugging-runtime-tabs"),
+      this.renderDebugTargetPane("Service Workers",
+                                 serviceWorkers,
+                                 ServiceWorkerAction,
+                                 WorkerDetail,
+                                 DEBUG_TARGET_PANE.SERVICE_WORKER,
+                                 "about-debugging-runtime-service-workers"),
+      this.renderDebugTargetPane("Shared Workers",
+                                 sharedWorkers,
+                                 InspectAction,
+                                 WorkerDetail,
+                                 DEBUG_TARGET_PANE.SHARED_WORKER,
+                                 "about-debugging-runtime-shared-workers"),
+      this.renderDebugTargetPane("Other Workers",
+                                 otherWorkers,
+                                 InspectAction,
+                                 WorkerDetail,
+                                 DEBUG_TARGET_PANE.OTHER_WORKER,
+                                 "about-debugging-runtime-other-workers"),
     );
   }
 }
 
 const mapStateToProps = state => {
   return {
-    installedExtensions: state.runtime.installedExtensions,
-    otherWorkers: state.runtime.otherWorkers,
-    serviceWorkers: state.runtime.serviceWorkers,
-    sharedWorkers: state.runtime.sharedWorkers,
-    tabs: state.runtime.tabs,
-    temporaryExtensions: state.runtime.temporaryExtensions,
+    connectionPromptEnabled: getCurrentConnectionPromptSetting(state.runtimes),
+    collapsibilities: state.ui.debugTargetCollapsibilities,
+    installedExtensions: state.debugTargets.installedExtensions,
+    otherWorkers: state.debugTargets.otherWorkers,
+    runtimeInfo: getCurrentRuntimeInfo(state.runtimes),
+    serviceWorkers: state.debugTargets.serviceWorkers,
+    sharedWorkers: state.debugTargets.sharedWorkers,
+    tabs: state.debugTargets.tabs,
+    temporaryExtensions: state.debugTargets.temporaryExtensions,
   };
 };
 

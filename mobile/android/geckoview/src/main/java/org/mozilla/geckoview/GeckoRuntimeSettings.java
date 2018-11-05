@@ -8,7 +8,10 @@ package org.mozilla.geckoview;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.Collections;
+import java.util.Map;
 
+import android.app.Service;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.Parcel;
@@ -16,14 +19,13 @@ import android.os.Parcelable;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v4.util.ArrayMap;
 
+import org.mozilla.gecko.EventDispatcher;
+import org.mozilla.gecko.util.GeckoBundle;
 import org.mozilla.geckoview.GeckoSession.TrackingProtectionDelegate;
 
 public final class GeckoRuntimeSettings implements Parcelable {
-    /**
-     * {@link #mExtras} key for the crash reporting job id.
-     */
-    public static final String EXTRA_CRASH_REPORTING_JOB_ID = "crashReporterJobId";
 
     /**
      * Settings builder used to construct the settings object.
@@ -125,53 +127,6 @@ public final class GeckoRuntimeSettings implements Parcelable {
         }
 
         /**
-         * Set whether crash reporting for native code should be enabled. This will cause
-         * a SIGSEGV handler to be installed, and any crash encountered there will be
-         * reported to Mozilla.
-         *
-         * <br>If crash reporting is enabled {@link #crashReportingJobId(int)} must also be used.
-         *
-         * @param enabled A flag determining whether native crash reporting should be enabled.
-         *                Defaults to false.
-         * @return This Builder.
-         */
-        public @NonNull Builder nativeCrashReportingEnabled(final boolean enabled) {
-            mSettings.mNativeCrashReporting = enabled;
-            return this;
-        }
-
-        /**
-         * Set whether crash reporting for Java code should be enabled. This will cause
-         * a default unhandled exception handler to be installed, and any exceptions encountered
-         * will automatically reported to Mozilla.
-         *
-         * <br>If crash reporting is enabled {@link #crashReportingJobId(int)} must also be used.
-         *
-         * @param enabled A flag determining whether Java crash reporting should be enabled.
-         *                Defaults to false.
-         * @return This Builder.
-         */
-        public @NonNull Builder javaCrashReportingEnabled(final boolean enabled) {
-            mSettings.mJavaCrashReporting = enabled;
-            return this;
-        }
-
-        /**
-         * On Oreo and later devices we use the JobScheduler for crash reporting in the background.<br>
-         * This allows for setting the unique Job Id to be used.
-         * <a href="https://developer.android.com/reference/android/app/job/JobInfo.Builder#JobInfo.Builder(int,%20android.content.ComponentName)">
-         *           See why it must be unique</a>
-         *
-         * @param id A unique integer.
-         *
-         * @return This Builder.
-         */
-        public @NonNull Builder crashReportingJobId(final int id) {
-            mSettings.mCrashReportingJobId = id;
-            return this;
-        }
-
-        /**
          * Set whether there should be a pause during startup. This is useful if you need to
          * wait for a debugger to attach.
          *
@@ -251,8 +206,8 @@ public final class GeckoRuntimeSettings implements Parcelable {
 
         /** Set whether or not known malware sites should be blocked.
          *
-         * Note: For each blocked site, {@link NavigationDelegate#onLoadError}
-         * with error category {@link NavigationDelegate#ERROR_CATEGORY_SAFEBROWSING}
+         * Note: For each blocked site, {@link GeckoSession.NavigationDelegate#onLoadError}
+         * with error category {@link WebRequestError#ERROR_CATEGORY_SAFEBROWSING}
          * is called.
          *
          * @param enabled A flag determining whether or not to block malware
@@ -267,8 +222,8 @@ public final class GeckoRuntimeSettings implements Parcelable {
         /**
          * Set whether or not known phishing sites should be blocked.
          *
-         * Note: For each blocked site, {@link NavigationDelegate#onLoadError}
-         * with error category {@link NavigationDelegate#ERROR_CATEGORY_SAFEBROWSING}
+         * Note: For each blocked site, {@link GeckoSession.NavigationDelegate#onLoadError}
+         * with error category {@link WebRequestError#ERROR_CATEGORY_SAFEBROWSING}
          * is called.
          *
          * @param enabled A flag determining whether or not to block phishing
@@ -303,6 +258,55 @@ public final class GeckoRuntimeSettings implements Parcelable {
             mSettings.mScreenHeightOverride = height;
             return this;
         }
+
+        /**
+         * When set, the specified {@link android.app.Service} will be started by
+         * an {@link android.content.Intent} with action {@link GeckoRuntime#ACTION_CRASHED} when
+         * a crash is encountered. Crash details can be found in the Intent extras, such as
+         * {@link GeckoRuntime#EXTRA_MINIDUMP_PATH}.
+         * <br><br>
+         * The crash handler Service must be declared to run in a different process from
+         * the {@link GeckoRuntime}. Additionally, the handler will be run as a foreground service,
+         * so the normal rules about activating a foreground service apply.
+         * <br><br>
+         * In practice, you have one of three
+         * options once the crash handler is started:
+         * <ul>
+         * <li>Call {@link android.app.Service#startForeground(int, android.app.Notification)}. You can then
+         * take as much time as necessary to report the crash.</li>
+         * <li>Start an activity. Unless you also call {@link android.app.Service#startForeground(int, android.app.Notification)}
+         * this should be in a different process from the crash handler, since Android will
+         * kill the crash handler process as part of the background execution limitations.</li>
+         * <li>Schedule work via {@link android.app.job.JobScheduler}. This will allow you to
+         * do substantial work in the background without execution limits.</li>
+         * </ul><br>
+         * You can use {@link CrashReporter} to send the report to Mozilla, which provides Mozilla
+         * with data needed to fix the crash. Be aware that the minidump may contain
+         * personally identifiable information (PII). Consult Mozilla's
+         * <a href="https://www.mozilla.org/en-US/privacy/">privacy policy</a> for information
+         * on how this data will be handled.
+         *
+         * @param handler The class for the crash handler Service.
+         * @return This builder instance.
+         *
+         * @see <a href="https://developer.android.com/about/versions/oreo/background">Android Background Execution Limits</a>
+         * @see GeckoRuntime#ACTION_CRASHED
+         */
+        public @NonNull Builder crashHandler(final Class<? extends Service> handler) {
+            mSettings.mCrashHandler = handler;
+            return this;
+        }
+
+        /**
+         * Set the locale.
+         *
+         * @param languageTag The locale code in Gecko format ("en" or "en-US").
+         * @return The builder instance.
+         */
+        public @NonNull Builder locale(String languageTag) {
+            mSettings.mLocale = languageTag;
+            return this;
+        }
     }
 
     /* package */ GeckoRuntime runtime;
@@ -328,16 +332,34 @@ public final class GeckoRuntimeSettings implements Parcelable {
         public void set(T newValue) {
             mValue = newValue;
             mIsSet = true;
-            flush();
+
+            // There is a flush() in GeckoRuntimeSettings, so be explicit.
+            this.flush();
         }
 
         public T get() {
             return mValue;
         }
 
-        public void flush() {
-            if (GeckoRuntimeSettings.this.runtime != null) {
-                GeckoRuntimeSettings.this.runtime.setPref(name, mValue, mIsSet);
+        private void flush() {
+            final GeckoRuntime runtime = GeckoRuntimeSettings.this.runtime;
+            if (runtime != null) {
+                final GeckoBundle prefs = new GeckoBundle(1);
+                intoBundle(prefs);
+                runtime.setDefaultPrefs(prefs);
+            }
+        }
+
+        public void intoBundle(final GeckoBundle bundle) {
+            final T value = mIsSet ? mValue : defaultValue;
+            if (value instanceof String) {
+                bundle.putString(name, (String)value);
+            } else if (value instanceof Integer) {
+                bundle.putInt(name, (Integer)value);
+            } else if (value instanceof Boolean) {
+                bundle.putBoolean(name, (Boolean)value);
+            } else {
+                throw new UnsupportedOperationException("Unhandled pref type for " + name);
             }
         }
     }
@@ -366,14 +388,13 @@ public final class GeckoRuntimeSettings implements Parcelable {
     /* package */ Pref<Boolean> mSafebrowsingPhishing = new Pref<Boolean>(
         "browser.safebrowsing.phishing.enabled", true);
 
-    /* package */ boolean mNativeCrashReporting;
-    /* package */ boolean mJavaCrashReporting;
-    /* package */ int mCrashReportingJobId;
     /* package */ boolean mDebugPause;
     /* package */ float mDisplayDensityOverride = -1.0f;
     /* package */ int mDisplayDpiOverride;
     /* package */ int mScreenWidthOverride;
     /* package */ int mScreenHeightOverride;
+    /* package */ Class<? extends Service> mCrashHandler;
+    /* package */ String mLocale;
 
     private final Pref<?>[] mPrefs = new Pref<?>[] {
         mCookieBehavior, mCookieLifetime, mConsoleOutput,
@@ -410,20 +431,41 @@ public final class GeckoRuntimeSettings implements Parcelable {
             uncheckedPref.set(settings.mPrefs[i].get());
         }
 
-        mNativeCrashReporting = settings.mNativeCrashReporting;
-        mJavaCrashReporting = settings.mJavaCrashReporting;
-        mCrashReportingJobId = settings.mCrashReportingJobId;
         mDebugPause = settings.mDebugPause;
         mDisplayDensityOverride = settings.mDisplayDensityOverride;
         mDisplayDpiOverride = settings.mDisplayDpiOverride;
         mScreenWidthOverride = settings.mScreenWidthOverride;
         mScreenHeightOverride = settings.mScreenHeightOverride;
+        mCrashHandler = settings.mCrashHandler;
+        mLocale = settings.mLocale;
+    }
+
+    /* package */ Map<String, Object> getPrefsMap() {
+        final ArrayMap<String, Object> prefs = new ArrayMap<>(mPrefs.length);
+        for (final Pref<?> pref : mPrefs) {
+            prefs.put(pref.name, pref.get());
+        }
+
+        return Collections.unmodifiableMap(prefs);
     }
 
     /* package */ void flush() {
-        for (final Pref<?> pref: mPrefs) {
-            pref.flush();
+        flushLocale();
+
+        // Prefs are flushed individually when they are set, and
+        // initial values are handled by GeckoRuntime itself.
+        // We may have user prefs due to previous versions of
+        // this class operating differently, though, so we'll
+        // send a message to clear any user prefs that may have
+        // been set on the prefs we manage.
+        final String[] names = new String[mPrefs.length];
+        for (int i = 0; i < mPrefs.length; i++) {
+            names[i] = mPrefs[i].name;
         }
+
+        final GeckoBundle data = new GeckoBundle(1);
+        data.putStringArray("names", names);
+        EventDispatcher.getInstance().dispatch("GeckoView:ResetUserPrefs", data);
     }
 
     /**
@@ -514,31 +556,6 @@ public final class GeckoRuntimeSettings implements Parcelable {
     }
 
     /**
-     * Get whether native crash reporting is enabled or not.
-     *
-     * @return True if native crash reporting is enabled.
-     */
-    public boolean getNativeCrashReportingEnabled() {
-        return mNativeCrashReporting;
-    }
-
-    /**
-     * Get whether Java crash reporting is enabled or not.
-     *
-     * @return True if Java crash reporting is enabled.
-     */
-    public boolean getJavaCrashReportingEnabled() {
-        return mJavaCrashReporting;
-    }
-
-    /**
-     * Get the Job Id used on Oreo and later devices to manage crash reporting in background.
-     */
-    public int getCrashReportingServiceJobId() {
-        return mCrashReportingJobId;
-    }
-
-    /**
      * Gets whether the pause-for-debugger is enabled or not.
      *
      * @return True if the pause is enabled.
@@ -569,6 +586,10 @@ public final class GeckoRuntimeSettings implements Parcelable {
         return null;
     }
 
+    public Class<? extends Service> getCrashHandler() {
+        return mCrashHandler;
+    }
+
     /**
      * Gets the screen size  override value.
      *
@@ -582,10 +603,34 @@ public final class GeckoRuntimeSettings implements Parcelable {
         return null;
     }
 
+    /**
+     * @return The locale code in Gecko format ("en" or "en-US").
+     */
+    public String getLocale() {
+        return mLocale;
+    }
+
+    /**
+     * Set the locale.
+     *
+     * @param languageTag The locale code in Gecko format ("en-US").
+     */
+    public void setLocale(String languageTag) {
+        mLocale = languageTag;
+        flushLocale();
+    }
+
+    private void flushLocale() {
+        final GeckoBundle data = new GeckoBundle(1);
+        data.putString("languageTag", mLocale);
+        EventDispatcher.getInstance().dispatch("GeckoView:SetLocale", data);
+    }
+
     // Sync values with nsICookieService.idl.
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({ COOKIE_ACCEPT_ALL, COOKIE_ACCEPT_FIRST_PARTY,
-              COOKIE_ACCEPT_NONE, COOKIE_ACCEPT_VISITED })
+              COOKIE_ACCEPT_NONE, COOKIE_ACCEPT_VISITED,
+              COOKIE_ACCEPT_NON_TRACKERS })
     /* package */ @interface CookieBehavior {}
 
     /**
@@ -606,6 +651,12 @@ public final class GeckoRuntimeSettings implements Parcelable {
      * sites previously visited in a first-party context.
      */
     public static final int COOKIE_ACCEPT_VISITED = 3;
+    /**
+     * Accept only first-party and non-tracking third-party cookies and site data
+     * to block cookies which are not associated with the domain of the visited
+     * site set by known trackers.
+     */
+    public static final int COOKIE_ACCEPT_NON_TRACKERS = 4;
 
     /**
      * Get the assigned cookie storage behavior.
@@ -724,8 +775,8 @@ public final class GeckoRuntimeSettings implements Parcelable {
     /**
      * Set whether or not known malware sites should be blocked.
      *
-     * Note: For each blocked site, {@link NavigationDelegate#onLoadError}
-     * with error category {@link NavigationDelegate#ERROR_CATEGORY_SAFEBROWSING}
+     * Note: For each blocked site, {@link GeckoSession.NavigationDelegate#onLoadError}
+     * with error category {@link WebRequestError#ERROR_CATEGORY_SAFEBROWSING}
      * is called.
      *
      * @param enabled A flag determining whether or not to block malware sites.
@@ -748,8 +799,8 @@ public final class GeckoRuntimeSettings implements Parcelable {
     /**
      * Set whether or not known phishing sites should be blocked.
      *
-     * Note: For each blocked site, {@link NavigationDelegate#onLoadError}
-     * with error category {@link NavigationDelegate#ERROR_CATEGORY_SAFEBROWSING}
+     * Note: For each blocked site, {@link GeckoSession.NavigationDelegate#onLoadError}
+     * with error category {@link WebRequestError#ERROR_CATEGORY_SAFEBROWSING}
      * is called.
      *
      * @param enabled A flag determining whether or not to block phishing sites.
@@ -784,14 +835,13 @@ public final class GeckoRuntimeSettings implements Parcelable {
             out.writeValue(pref.get());
         }
 
-        ParcelableUtils.writeBoolean(out, mNativeCrashReporting);
-        ParcelableUtils.writeBoolean(out, mJavaCrashReporting);
-        out.writeInt(mCrashReportingJobId);
         ParcelableUtils.writeBoolean(out, mDebugPause);
         out.writeFloat(mDisplayDensityOverride);
         out.writeInt(mDisplayDpiOverride);
         out.writeInt(mScreenWidthOverride);
         out.writeInt(mScreenHeightOverride);
+        out.writeString(mCrashHandler != null ? mCrashHandler.getName() : null);
+        out.writeString(mLocale);
     }
 
     // AIDL code may call readFromParcel even though it's not part of Parcelable.
@@ -807,14 +857,25 @@ public final class GeckoRuntimeSettings implements Parcelable {
             uncheckedPref.set(source.readValue(getClass().getClassLoader()));
         }
 
-        mNativeCrashReporting = ParcelableUtils.readBoolean(source);
-        mJavaCrashReporting = ParcelableUtils.readBoolean(source);
-        mCrashReportingJobId = source.readInt();
         mDebugPause = ParcelableUtils.readBoolean(source);
         mDisplayDensityOverride = source.readFloat();
         mDisplayDpiOverride = source.readInt();
         mScreenWidthOverride = source.readInt();
         mScreenHeightOverride = source.readInt();
+
+        final String crashHandlerName = source.readString();
+        if (crashHandlerName != null) {
+            try {
+                @SuppressWarnings("unchecked")
+                final Class<? extends Service> handler =
+                        (Class<? extends Service>) Class.forName(crashHandlerName);
+
+                mCrashHandler = handler;
+            } catch (ClassNotFoundException e) {
+            }
+        }
+
+        mLocale = source.readString();
     }
 
     public static final Parcelable.Creator<GeckoRuntimeSettings> CREATOR

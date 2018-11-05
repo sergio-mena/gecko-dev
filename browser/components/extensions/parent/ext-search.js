@@ -10,6 +10,10 @@
 ChromeUtils.defineModuleGetter(this, "Services",
                                "resource://gre/modules/Services.jsm");
 
+XPCOMUtils.defineLazyModuleGetters(this, {
+  BrowserUsageTelemetry: "resource:///modules/BrowserUsageTelemetry.jsm",
+});
+
 XPCOMUtils.defineLazyPreferenceGetter(this, "searchLoadInBackground",
                                       "browser.search.context.loadInBackground");
 
@@ -34,8 +38,7 @@ this.search = class extends ExtensionAPI {
       search: {
         async get() {
           await searchInitialized;
-          let engines = Services.search.getEngines();
-          let visibleEngines = engines.filter(engine => !engine.hidden);
+          let visibleEngines = Services.search.getVisibleEngines();
           return Promise.all(visibleEngines.map(async engine => {
             let favIconUrl;
             if (engine.iconURI) {
@@ -50,7 +53,7 @@ this.search = class extends ExtensionAPI {
 
             return {
               name: engine.name,
-              isDefault: engine === Services.search.currentEngine,
+              isDefault: engine === Services.search.defaultEngine,
               alias: engine.alias || undefined,
               favIconUrl,
             };
@@ -66,7 +69,7 @@ this.search = class extends ExtensionAPI {
               throw new ExtensionError(`${searchProperties.engine} was not found`);
             }
           } else {
-            engine = Services.search.currentEngine;
+            engine = Services.search.defaultEngine;
           }
           let submission = engine.getSubmission(searchProperties.query, null, "webextension");
           let options = {
@@ -83,6 +86,7 @@ this.search = class extends ExtensionAPI {
             let tab = tabTracker.getTab(searchProperties.tabId);
             tab.linkedBrowser.loadURI(submission.uri.spec, options);
           }
+          BrowserUsageTelemetry.recordSearch(engine, "webextension");
         },
       },
     };

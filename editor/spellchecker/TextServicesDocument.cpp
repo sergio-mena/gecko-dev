@@ -6,7 +6,7 @@
 #include "TextServicesDocument.h"
 
 #include "mozilla/Assertions.h"         // for MOZ_ASSERT, etc
-#include "mozilla/EditorUtils.h"        // for AutoTransactionBatch
+#include "mozilla/EditorUtils.h"        // for AutoTransactionBatchExternal
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/Selection.h"
 #include "mozilla/mozalloc.h"           // for operator new, etc
@@ -31,6 +31,7 @@
 #include "nsRange.h"                    // for nsRange
 #include "nsString.h"                   // for nsString, nsAutoString
 #include "nscore.h"                     // for nsresult, NS_IMETHODIMP, etc
+#include "mozilla/UniquePtr.h"          // for UniquePtr
 
 namespace mozilla {
 
@@ -70,7 +71,8 @@ public:
 };
 
 TextServicesDocument::TextServicesDocument()
-  : mSelStartIndex(-1)
+  : mTxtSvcFilterType(0)
+  , mSelStartIndex(-1)
   , mSelStartOffset(-1)
   , mSelEndIndex(-1)
   , mSelEndOffset(-1)
@@ -99,8 +101,7 @@ NS_IMPL_CYCLE_COLLECTION(TextServicesDocument,
                          mIterator,
                          mPrevTextBlock,
                          mNextTextBlock,
-                         mExtent,
-                         mTxtSvcFilter)
+                         mExtent)
 
 nsresult
 TextServicesDocument::InitWithEditor(nsIEditor* aEditor)
@@ -342,10 +343,9 @@ TextServicesDocument::ExpandRangeToWordBoundaries(nsRange* aRange)
 }
 
 nsresult
-TextServicesDocument::SetFilter(nsComposeTxtSrvFilter* aFilter)
+TextServicesDocument::SetFilterType(uint32_t aFilterType)
 {
-  // Hang on to the filter so we can set it into the filtered iterator.
-  mTxtSvcFilter = aFilter;
+  mTxtSvcFilterType = aFilterType;
 
   return NS_OK;
 }
@@ -1148,12 +1148,9 @@ TextServicesDocument::InsertText(const nsString* aText)
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
-  // AutoTransactionBatch grabs mTextEditor, so, we don't need to grab the
-  // instance with local variable here.
-  // XXX Well, do we really need to create AutoTransactionBatch here?
-  //     Looks like that after InsertTextAsAction(), this does nothing
-  //     from a point of view of editor.
-  AutoTransactionBatch bundleAllTransactions(*mTextEditor);
+  // AutoTransactionBatchExternal grabs mTextEditor, so, we don't need to grab
+  // the instance with local variable here.
+  AutoTransactionBatchExternal treatAsOneTransaction(*mTextEditor);
 
   nsresult rv = mTextEditor->InsertTextAsAction(*aText);
   if (NS_FAILED(rv)) {
@@ -1439,10 +1436,21 @@ TextServicesDocument::CreateContentIterator(nsRange* aRange,
 
   *aIterator = nullptr;
 
+  UniquePtr<nsComposeTxtSrvFilter> composeFilter;
+  switch (mTxtSvcFilterType) {
+  case nsIEditorSpellCheck::FILTERTYPE_NORMAL:
+    composeFilter = nsComposeTxtSrvFilter::CreateNormalFilter();
+    break;
+  case nsIEditorSpellCheck::FILTERTYPE_MAIL:
+    composeFilter = nsComposeTxtSrvFilter::CreateMailFilter();
+    break;
+  }
+
   // Create a nsFilteredContentIterator
   // This class wraps the ContentIterator in order to give itself a chance
   // to filter out certain content nodes
-  RefPtr<nsFilteredContentIterator> filter = new nsFilteredContentIterator(mTxtSvcFilter);
+  RefPtr<nsFilteredContentIterator> filter =
+    new nsFilteredContentIterator(std::move(composeFilter));
 
   nsresult rv = filter->Init(aRange);
   if (NS_FAILED(rv)) {

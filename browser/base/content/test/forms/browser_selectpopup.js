@@ -145,17 +145,17 @@ async function doSelectTests(contentType, content) {
   is(selectPopup.children[1].getAttribute("label"), "One", "option label");
 
   EventUtils.synthesizeKey("KEY_ArrowDown");
-  is(menulist.menuBoxObject.activeChild, menulist.getItemAtIndex(2), "Select item 2");
+  is(menulist.activeChild, menulist.getItemAtIndex(2), "Select item 2");
   is(menulist.selectedIndex, isWindows ? 2 : 1, "Select item 2 selectedIndex");
 
   EventUtils.synthesizeKey("KEY_ArrowDown");
-  is(menulist.menuBoxObject.activeChild, menulist.getItemAtIndex(3), "Select item 3");
+  is(menulist.activeChild, menulist.getItemAtIndex(3), "Select item 3");
   is(menulist.selectedIndex, isWindows ? 3 : 1, "Select item 3 selectedIndex");
 
   EventUtils.synthesizeKey("KEY_ArrowDown");
 
   // On Windows, one can navigate on disabled menuitems
-  is(menulist.menuBoxObject.activeChild, menulist.getItemAtIndex(9),
+  is(menulist.activeChild, menulist.getItemAtIndex(9),
      "Skip optgroup header and disabled items select item 7");
   is(menulist.selectedIndex, isWindows ? 9 : 1, "Select or skip disabled item selectedIndex");
 
@@ -164,7 +164,7 @@ async function doSelectTests(contentType, content) {
   }
 
   EventUtils.synthesizeKey("KEY_ArrowUp");
-  is(menulist.menuBoxObject.activeChild, menulist.getItemAtIndex(3), "Select item 3 again");
+  is(menulist.activeChild, menulist.getItemAtIndex(3), "Select item 3 again");
   is(menulist.selectedIndex, isWindows ? 3 : 1, "Select item 3 selectedIndex");
 
   is((await getInputEvents()), 0, "Before closed - number of input events");
@@ -499,7 +499,7 @@ async function performLargePopupTests(win) {
 
   // Dragging above the popup scrolls it up.
   EventUtils.synthesizeMouseAtPoint(popupRect.left + 20, popupRect.top - 20, { type: "mousemove" }, win);
-  ok(selectPopup.scrollBox.scrollTop, scrollPos, "scroll position at drag up from option");
+  is(selectPopup.scrollBox.scrollTop, scrollPos, "scroll position at drag up from option");
 
   scrollPos = selectPopup.scrollBox.scrollTop;
   EventUtils.synthesizeMouseAtPoint(popupRect.left + 20, popupRect.bottom + 25, { type: "mouseup" }, win);
@@ -590,18 +590,24 @@ add_task(async function test_large_popup() {
 
 // This test checks the same as the previous test but in a new smaller window.
 add_task(async function test_large_popup_in_small_window() {
-  let newwin = await BrowserTestUtils.openNewBrowserWindow({ width: 400, height: 400 });
+  let newWin = await BrowserTestUtils.openNewBrowserWindow();
+
+  let resizePromise = BrowserTestUtils.waitForEvent(newWin, "resize", false, e => {
+    return newWin.innerHeight <= 400 && newWin.innerWidth <= 400;
+  });
+  newWin.resizeTo(400, 400);
+  await resizePromise;
 
   const pageUrl = "data:text/html," + escape(PAGECONTENT_SMALL);
-  let browserLoadedPromise = BrowserTestUtils.browserLoaded(newwin.gBrowser.selectedBrowser);
-  await BrowserTestUtils.loadURI(newwin.gBrowser.selectedBrowser, pageUrl);
+  let browserLoadedPromise = BrowserTestUtils.browserLoaded(newWin.gBrowser.selectedBrowser);
+  await BrowserTestUtils.loadURI(newWin.gBrowser.selectedBrowser, pageUrl);
   await browserLoadedPromise;
 
-  newwin.gBrowser.selectedBrowser.focus();
+  newWin.gBrowser.selectedBrowser.focus();
 
-  await performLargePopupTests(newwin);
+  await performLargePopupTests(newWin);
 
-  await BrowserTestUtils.closeWindow(newwin);
+  await BrowserTestUtils.closeWindow(newWin);
 });
 
 async function performSelectSearchTests(win) {

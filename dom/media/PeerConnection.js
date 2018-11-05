@@ -216,8 +216,8 @@ setupPrototype(GlobalPCList, {
         throw Cr.NS_ERROR_NO_AGGREGATION;
       }
       return _globalPCList.QueryInterface(iid);
-    }
-  }
+    },
+  },
 });
 
 var _globalPCList = new GlobalPCList();
@@ -234,7 +234,7 @@ class RTCIceCandidate {
 setupPrototype(RTCIceCandidate, {
   classID: PC_ICE_CID,
   contractID: PC_ICE_CONTRACT,
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIDOMGlobalPropertyInitializer])
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIDOMGlobalPropertyInitializer]),
 });
 
 class RTCSessionDescription {
@@ -277,7 +277,7 @@ class RTCSessionDescription {
 setupPrototype(RTCSessionDescription, {
   classID: PC_SESSION_CID,
   contractID: PC_SESSION_CONTRACT,
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIDOMGlobalPropertyInitializer])
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIDOMGlobalPropertyInitializer]),
 });
 
 class RTCStatsReport {
@@ -334,7 +334,7 @@ class RTCStatsReport {
                 warnRemoteNullable.warn = null;
               }
               return stat[key];
-            }, entry)
+            }, entry),
           });
         }
         Cu.unwaiveXrays(entry)._isRemote = stat.isRemote;
@@ -351,7 +351,7 @@ class RTCStatsReport {
             warnNullable.warn = null;
           }
           return value;
-        }, this.__DOM_IMPL__.wrappedJSObject)
+        }, this.__DOM_IMPL__.wrappedJSObject),
       };
     }
     Object.defineProperties(this.__DOM_IMPL__.wrappedJSObject, legacyProps);
@@ -377,8 +377,8 @@ setupPrototype(RTCStatsReport, {
         "outbound-rtp": "outboundrtp",
         "candidate-pair": "candidatepair",
         "local-candidate": "localcandidate",
-        "remote-candidate": "remotecandidate"
-  }
+        "remote-candidate": "remotecandidate",
+  },
 });
 
 // This is its own class so that it does not need to be exposed to the client.
@@ -578,10 +578,13 @@ class RTCPeerConnection {
 
     if (!certificate) {
       certificate = await this._win.RTCPeerConnection.generateCertificate({
-        name: "ECDSA", namedCurve: "P-256"
+        name: "ECDSA", namedCurve: "P-256",
       });
     }
-    this._impl.certificate = certificate;
+    // Is the PC still around after the await?
+    if (!this._closed) {
+      this._impl.certificate = certificate;
+    }
   }
 
   _resetPeerIdentityPromise() {
@@ -719,8 +722,7 @@ class RTCPeerConnection {
         return Services.io.newURI(uriStr);
       } catch (e) {
         if (e.result == Cr.NS_ERROR_MALFORMED_URI) {
-          throw new this._win.DOMException(msg + " - malformed URI: " + uriStr,
-                                           "SyntaxError");
+          throw new this._win.SyntaxError(`${msg} - malformed URI: ${uriStr}`);
         }
         throw e;
       }
@@ -730,27 +732,30 @@ class RTCPeerConnection {
 
     iceServers.forEach(({ urls, username, credential, credentialType }) => {
       if (!urls) {
-        throw new this._win.DOMException(msg + " - missing urls", "InvalidAccessError");
+        // TODO: Remove once url is deprecated (Bug 1369563)
+        throw new this._win.TypeError("Missing required 'urls' member of RTCIceServer");
+      }
+      if (urls.length == 0) {
+        throw new this._win.SyntaxError(`${msg} - urls is empty`);
       }
       urls.map(url => nicerNewURI(url)).forEach(({ scheme, spec }) => {
         if (scheme in { turn: 1, turns: 1 }) {
           if (username == undefined) {
-            throw new this._win.DOMException(msg + " - missing username: " + spec,
+            throw new this._win.DOMException(`${msg} - missing username: ${spec}`,
                                              "InvalidAccessError");
           }
           if (username.length > 512) {
-            throw new this._win.DOMException(msg +
-                                             " - username longer then 512 bytes: "
-                                             + username, "InvalidAccessError");
+            throw new this._win.DOMException(
+                `${msg} - username longer then 512 bytes: ${username}`,
+                "InvalidAccessError");
           }
           if (credential == undefined) {
-            throw new this._win.DOMException(msg + " - missing credential: " + spec,
+            throw new this._win.DOMException(`${msg} - missing credential: ${spec}`,
                                              "InvalidAccessError");
           }
           if (credentialType != "password") {
-            this.logWarning("RTCConfiguration TURN credentialType \"" +
-                            credentialType +
-                            "\" is not yet implemented. Treating as password." +
+            this.logWarning(`RTCConfiguration TURN credentialType \"${credentialType}\"` +
+                            " is not yet implemented. Treating as password." +
                             " https://bugzil.la/1247616");
           }
           this._hasTurnServer = true;
@@ -759,8 +764,7 @@ class RTCPeerConnection {
           this._hasStunServer = true;
           stunServers += 1;
         } else {
-          throw new this._win.DOMException(msg + " - improper scheme: " + scheme,
-                                           "SyntaxError");
+          throw new this._win.SyntaxError(`${msg} - improper scheme: ${scheme}`);
         }
         if (scheme in { stuns: 1 }) {
           this.logWarning(scheme.toUpperCase() + " is not yet supported.");
@@ -839,7 +843,7 @@ class RTCPeerConnection {
     Object.defineProperty(this, name,
                           {
                             get() { return this.getEH(name); },
-                            set(h) { return this.setEH(name, h); }
+                            set(h) { return this.setEH(name, h); },
                           });
   }
 
@@ -850,7 +854,7 @@ class RTCPeerConnection {
                             set(h) {
                               this.logWarning(name + " is deprecated! " + msg);
                               return this.setEH(name, h);
-                            }
+                            },
                           });
   }
 
@@ -1076,7 +1080,7 @@ class RTCPeerConnection {
           this._impl.peerIdentity = msg.identity;
           this._resolvePeerIdentity(Cu.cloneInto({
             idp: this._remoteIdp.provider,
-            name: msg.identity
+            name: msg.identity,
           }, this._win));
         }
       } catch (e) {
@@ -1246,7 +1250,7 @@ class RTCPeerConnection {
     } else {
       transceiver = this._addTransceiverNoEvents(track, {
         streams: [stream],
-        direction: "sendrecv"
+        direction: "sendrecv",
       });
     }
 
@@ -1355,6 +1359,7 @@ class RTCPeerConnection {
   }
 
   addTransceiver(sendTrackOrKind, init) {
+    this._checkClosed();
     let transceiver = this._addTransceiverNoEvents(sendTrackOrKind, init);
     this.updateNegotiationNeeded();
     return transceiver;
@@ -1392,7 +1397,7 @@ class RTCPeerConnection {
     let postProcessing = {
       updateStreamFunctions: [],
       muteTracks: [],
-      trackEvents: []
+      trackEvents: [],
     };
 
     for (let transceiver of this._transceivers) {
@@ -1603,7 +1608,7 @@ class RTCPeerConnection {
       "SignalingHaveRemoteOffer":    "have-remote-offer",
       "SignalingHaveLocalPranswer":  "have-local-pranswer",
       "SignalingHaveRemotePranswer": "have-remote-pranswer",
-      "SignalingClosed":             "closed"
+      "SignalingClosed":             "closed",
     }[this._impl.signalingState];
   }
 
@@ -1648,7 +1653,7 @@ class RTCPeerConnection {
   createDataChannel(label, {
                       maxRetransmits, ordered, negotiated, id = 0xFFFF,
                       maxRetransmitTime, maxPacketLifeTime = maxRetransmitTime,
-                      protocol
+                      protocol,
                     } = {}) {
     this._checkClosed();
 
@@ -1718,7 +1723,7 @@ class PeerConnectionObserver {
       "IncompatibleSessionDescriptionError",
       "InternalError",
       "IncompatibleMediaStreamTrackError",
-      "InternalError"
+      "InternalError",
     ];
     let name = reasonName[Math.min(code, reasonName.length - 1)];
     return new this._dompc._win.DOMException(message, name);
@@ -1877,11 +1882,20 @@ class PeerConnectionObserver {
   }
 
   onStateChange(state) {
-    switch (state) {
-      case "SignalingState":
-        this.dispatchEvent(new this._win.Event("signalingstatechange"));
-        break;
+    if (!this._dompc) {
+      return;
+    }
 
+    if (state == "SignalingState") {
+      this.dispatchEvent(new this._win.Event("signalingstatechange"));
+      return;
+    }
+
+    if (!this._dompc._pc) {
+      return;
+    }
+
+    switch (state) {
       case "IceConnectionState":
         let connState = this._dompc._pc.iceConnectionState;
         this._dompc._queueTaskWithClosedCheck(() => {
@@ -1948,7 +1962,7 @@ class PeerConnectionObserver {
 setupPrototype(PeerConnectionObserver, {
   classID: PC_OBS_CID,
   contractID: PC_OBS_CONTRACT,
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIDOMGlobalPropertyInitializer])
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIDOMGlobalPropertyInitializer]),
 });
 
 class RTCPeerConnectionStatic {
@@ -1963,7 +1977,7 @@ class RTCPeerConnectionStatic {
 setupPrototype(RTCPeerConnectionStatic, {
   classID: PC_STATIC_CID,
   contractID: PC_STATIC_CONTRACT,
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIDOMGlobalPropertyInitializer])
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIDOMGlobalPropertyInitializer]),
 });
 
 class RTCDTMFSender {
@@ -1991,7 +2005,7 @@ class RTCDTMFSender {
 setupPrototype(RTCDTMFSender, {
   classID: PC_DTMF_SENDER_CID,
   contractID: PC_DTMF_SENDER_CONTRACT,
-  QueryInterface: ChromeUtils.generateQI([])
+  QueryInterface: ChromeUtils.generateQI([]),
 });
 
 class RTCRtpSender {
@@ -2133,7 +2147,7 @@ class RTCRtpSender {
 setupPrototype(RTCRtpSender, {
   classID: PC_SENDER_CID,
   contractID: PC_SENDER_CONTRACT,
-  QueryInterface: ChromeUtils.generateQI([])
+  QueryInterface: ChromeUtils.generateQI([]),
 });
 
 class RTCRtpReceiver {
@@ -2303,7 +2317,7 @@ class RTCRtpReceiver {
 setupPrototype(RTCRtpReceiver, {
   classID: PC_RECEIVER_CID,
   contractID: PC_RECEIVER_CONTRACT,
-  QueryInterface: ChromeUtils.generateQI([])
+  QueryInterface: ChromeUtils.generateQI([]),
 });
 
 class RTCRtpTransceiver {
@@ -2330,7 +2344,7 @@ class RTCRtpTransceiver {
           _hasBeenUsedToSend: false,
           // the receiver starts out without a track, so record this here
           _kind: kind,
-          _transceiverImpl: transceiverImpl
+          _transceiverImpl: transceiverImpl,
         });
   }
 
@@ -2466,7 +2480,7 @@ class RTCRtpTransceiver {
 setupPrototype(RTCRtpTransceiver, {
   classID: PC_TRANSCEIVER_CID,
   contractID: PC_TRANSCEIVER_CONTRACT,
-  QueryInterface: ChromeUtils.generateQI([])
+  QueryInterface: ChromeUtils.generateQI([]),
 });
 
 class CreateOfferRequest {
@@ -2477,7 +2491,7 @@ class CreateOfferRequest {
 setupPrototype(CreateOfferRequest, {
   classID: PC_COREQUEST_CID,
   contractID: PC_COREQUEST_CONTRACT,
-  QueryInterface: ChromeUtils.generateQI([])
+  QueryInterface: ChromeUtils.generateQI([]),
 });
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory(

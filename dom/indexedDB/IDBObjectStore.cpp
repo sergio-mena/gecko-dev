@@ -1150,8 +1150,6 @@ IDBObjectStore::DeserializeValue(JSContext* aCx,
 
   MOZ_ASSERT(!(aCloneReadInfo.mData.Size() % sizeof(uint64_t)));
 
-  JSAutoRequest ar(aCx);
-
   static const JSStructuredCloneCallbacks callbacks = {
     CommonStructuredCloneReadCallback,
     nullptr,
@@ -2241,7 +2239,9 @@ IDBObjectStore::CreateIndex(const nsAString& aName,
        index < count;
        index++) {
     if (aName == indexes[index].name()) {
-      aRv.Throw(NS_ERROR_DOM_INDEXEDDB_CONSTRAINT_ERR);
+      aRv.ThrowDOMException(NS_ERROR_DOM_INDEXEDDB_CONSTRAINT_ERR,
+        nsPrintfCString("Index named '%s' already exists at index '%u'",
+                        NS_ConvertUTF16toUTF8(aName).get(), index));
       return nullptr;
     }
   }

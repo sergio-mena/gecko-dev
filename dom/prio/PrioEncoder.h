@@ -8,6 +8,7 @@
 #define mozilla_dom_PrioEncoder_h
 
 #include "mozilla/dom/PrioEncoderBinding.h"
+#include "mozilla/dom/RootedDictionary.h"
 
 #include "mprio.h"
 
@@ -21,8 +22,15 @@ class PrioEncoder
 public:
   NS_INLINE_DECL_REFCOUNTING(PrioEncoder)
 
-  static already_AddRefed<Promise>
-  Encode(GlobalObject& aGlobal, const nsCString& aBatchID, const PrioParams& aPrioParams, ErrorResult& aRv);
+  static
+  void Encode(GlobalObject& aGlobal,
+              const nsCString& aBatchID,
+              const PrioParams& aPrioParams,
+              RootedDictionary<PrioEncodedData>& aData,
+              ErrorResult& aRv);
+
+  // maximum number of booleans that can be prio-encoded in a single batch.
+  const static uint32_t gNumBooleans = 2046;
 
 private:
   PrioEncoder();

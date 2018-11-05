@@ -16,6 +16,7 @@
 #include "mozilla/RecursiveMutex.h"     // for RecursiveMutex, etc
 #include "mozilla/TimeStamp.h"          // for TimeStamp
 #include "mozilla/gfx/Point.h"          // For IntSize
+#include "mozilla/gfx/Types.h"          // For ColorDepth
 #include "mozilla/layers/LayersTypes.h"  // for LayersBackend, etc
 #include "mozilla/layers/CompositorTypes.h"
 #include "mozilla/mozalloc.h"           // for operator delete, etc
@@ -161,6 +162,7 @@ class ImageCompositeNotification;
 class ImageContainer;
 class ImageContainerChild;
 class SharedPlanarYCbCrImage;
+class SharedSurfacesAnimation;
 class PlanarYCbCrImage;
 class TextureClient;
 class KnowsCompositor;
@@ -639,6 +641,13 @@ public:
 
   void DropImageClient();
 
+  SharedSurfacesAnimation* GetSharedSurfacesAnimation() const
+  {
+    return mSharedAnimation;
+  }
+
+  SharedSurfacesAnimation* EnsureSharedSurfacesAnimation();
+
 private:
   typedef mozilla::RecursiveMutex RecursiveMutex;
 
@@ -698,6 +707,8 @@ private:
   // frames to the compositor through transactions in the main thread rather than
   // asynchronusly using the ImageBridge IPDL protocol.
   RefPtr<ImageClient> mImageClient;
+
+  nsAutoPtr<SharedSurfacesAnimation> mSharedAnimation;
 
   bool mIsAsync;
   CompositableHandle mAsyncContainerHandle;
@@ -765,7 +776,7 @@ struct PlanarYCbCrData
   gfx::IntSize mPicSize;
   StereoMode mStereoMode;
   YUVColorSpace mYUVColorSpace;
-  uint32_t mBitDepth;
+  gfx::ColorDepth mColorDepth;
 
   gfx::IntRect GetPictureRect() const
   {
@@ -780,7 +791,7 @@ struct PlanarYCbCrData
     , mCbCrStride(0), mCbCrSize(0, 0) , mCbSkip(0), mCrSkip(0)
     , mPicX(0), mPicY(0), mPicSize(0, 0), mStereoMode(StereoMode::MONO)
     , mYUVColorSpace(YUVColorSpace::BT601)
-    , mBitDepth(8)
+    , mColorDepth(gfx::ColorDepth::COLOR_8)
   {}
 };
 

@@ -247,6 +247,7 @@ class AbstractFramePtr
     inline bool debuggerNeedsCheckPrimitiveReturn() const;
 
     inline bool isFunctionFrame() const;
+    inline bool isGeneratorFrame() const;
     inline bool isNonStrictDirectEvalFrame() const;
     inline bool isStrictEvalFrame() const;
 
@@ -646,13 +647,15 @@ class InterpreterFrame
      * frame.
      */
     Value newTarget() const {
-        if (isEvalFrame())
+        if (isEvalFrame()) {
             return ((Value*)this)[-1];
+        }
 
         MOZ_ASSERT(isFunctionFrame());
 
-        if (callee().isArrow())
+        if (callee().isArrow()) {
             return callee().getExtendedSlot(FunctionExtended::ARROW_NEWTARGET_SLOT);
+        }
 
         if (isConstructing()) {
             unsigned pushedArgs = Max(numFormalArgs(), numActualArgs());
@@ -682,8 +685,9 @@ class InterpreterFrame
     }
 
     MutableHandleValue returnValue() {
-        if (!hasReturnValue())
+        if (!hasReturnValue()) {
             rval_.setUndefined();
+        }
         return MutableHandleValue::fromMarkedLocation(&rval_);
     }
 
@@ -968,13 +972,15 @@ class GenericArgsBase
         // callee, this, arguments[, new.target iff constructing]
         size_t len = 2 + argc + uint32_t(Construct);
         MOZ_ASSERT(len > argc);  // no overflow
-        if (!v_.resize(len))
+        if (!v_.resize(len)) {
             return false;
+        }
 
         *static_cast<JS::CallArgs*>(this) = CallArgsFromVp(argc, v_.begin());
         this->constructing_ = Construct;
-        if (Construct)
+        if (Construct) {
             this->CallArgs::setThis(MagicValue(JS_IS_CONSTRUCTING));
+        }
         return true;
     }
 };
@@ -992,8 +998,9 @@ class FixedArgsBase
     explicit FixedArgsBase(JSContext* cx) : v_(cx) {
         *static_cast<JS::CallArgs*>(this) = CallArgsFromVp(N, v_.begin());
         this->constructing_ = Construct;
-        if (Construct)
+        if (Construct) {
             this->CallArgs::setThis(MagicValue(JS_IS_CONSTRUCTING));
+        }
     }
 };
 
@@ -1053,11 +1060,13 @@ inline bool
 FillArgumentsFromArraylike(JSContext* cx, Args& args, const Arraylike& arraylike)
 {
     uint32_t len = arraylike.length();
-    if (!args.init(cx, len))
+    if (!args.init(cx, len)) {
         return false;
+    }
 
-    for (uint32_t i = 0; i < len; i++)
+    for (uint32_t i = 0; i < len; i++) {
         args[i].set(arraylike[i]);
+    }
 
     return true;
 }
@@ -1412,16 +1421,19 @@ class MOZ_RAII ActivationEntryMonitor
     // ActivationEntryMonitor was created.
     JS::dbg::AutoEntryMonitor* entryMonitor_;
 
-    explicit ActivationEntryMonitor(JSContext* cx);
+    explicit inline ActivationEntryMonitor(JSContext* cx);
 
     ActivationEntryMonitor(const ActivationEntryMonitor& other) = delete;
     void operator=(const ActivationEntryMonitor& other) = delete;
 
+    void init(JSContext* cx, jit::CalleeToken entryToken);
+    void init(JSContext* cx, InterpreterFrame* entryFrame);
+
     Value asyncStack(JSContext* cx);
 
   public:
-    ActivationEntryMonitor(JSContext* cx, InterpreterFrame* entryFrame);
-    ActivationEntryMonitor(JSContext* cx, jit::CalleeToken entryToken);
+    inline ActivationEntryMonitor(JSContext* cx, InterpreterFrame* entryFrame);
+    inline ActivationEntryMonitor(JSContext* cx, jit::CalleeToken entryToken);
     inline ~ActivationEntryMonitor();
 };
 
@@ -1591,8 +1603,9 @@ class InterpreterActivation : public Activation
 
     // If this js::Interpret frame is running |script|, enable interrupts.
     void enableInterruptsIfRunning(JSScript* script) {
-        if (regs_.fp()->script() == script)
+        if (regs_.fp()->script() == script) {
             enableInterruptsUnconditionally();
+        }
     }
     void enableInterruptsUnconditionally() {
         opMask_ = EnableInterruptsPseudoOpcode;
@@ -1841,8 +1854,9 @@ class JitActivation : public Activation
 class JitActivationIterator : public ActivationIterator
 {
     void settle() {
-        while (!done() && !activation_->isJit())
+        while (!done() && !activation_->isJit()) {
             ActivationIterator::operator++();
+        }
     }
 
   public:
@@ -1980,8 +1994,9 @@ class JitFrameIter
 class OnlyJSJitFrameIter : public JitFrameIter
 {
     void settle() {
-        while (!done() && !isJSJit())
+        while (!done() && !isJSJit()) {
             JitFrameIter::operator++();
+        }
     }
 
   public:
@@ -2140,6 +2155,7 @@ class FrameIter
     template <class Op> inline void unaliasedForEachActual(JSContext* cx, Op op);
 
     JSObject*  environmentChain(JSContext* cx) const;
+    bool hasInitialEnvironment(JSContext* cx) const;
     CallObject& callObj(JSContext* cx) const;
 
     bool        hasArgsObj() const;
@@ -2210,8 +2226,9 @@ class FrameIter
 class ScriptFrameIter : public FrameIter
 {
     void settle() {
-        while (!done() && !hasScript())
+        while (!done() && !hasScript()) {
             FrameIter::operator++();
+        }
     }
 
   public:
@@ -2353,10 +2370,12 @@ FrameIter::script() const
 {
     MOZ_ASSERT(!done());
     MOZ_ASSERT(hasScript());
-    if (data_.state_ == INTERP)
+    if (data_.state_ == INTERP) {
         return interpFrame()->script();
-    if (jsJitFrame().isIonJS())
+    }
+    if (jsJitFrame().isIonJS()) {
         return ionInlineFrames_.script();
+    }
     return jsJitFrame().script();
 }
 
@@ -2414,13 +2433,15 @@ FrameIter::interpFrame() const
 inline bool
 FrameIter::isPhysicalJitFrame() const
 {
-    if (!isJSJit())
+    if (!isJSJit()) {
         return false;
+    }
 
     auto& jitFrame = jsJitFrame();
 
-    if (jitFrame.isBaselineJS())
+    if (jitFrame.isBaselineJS()) {
         return true;
+    }
 
     if (jitFrame.isIonScripted()) {
         // Only the bottom of a group of inlined Ion frames is a physical frame.

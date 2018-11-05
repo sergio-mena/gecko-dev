@@ -18,19 +18,37 @@ GeckoViewUtils.initLogging("LoadURIDelegate", this);
 const LoadURIDelegate = {
   // Delegate URI loading to the app.
   // Return whether the loading has been handled.
-  load: function(aWindow, aEventDispatcher, aUri, aWhere, aFlags) {
+  load: function(aWindow, aEventDispatcher, aUri, aWhere, aFlags,
+                 aTriggeringPrincipal) {
     if (!aWindow) {
-      return Promise.resolve(false);
+      return false;
     }
+
+    const triggerUri = aTriggeringPrincipal &&
+                       (aTriggeringPrincipal.isNullPrincipal
+                        ? null
+                        : aTriggeringPrincipal.URI);
 
     const message = {
       type: "GeckoView:OnLoadRequest",
       uri: aUri ? aUri.displaySpec : "",
       where: aWhere,
-      flags: aFlags
+      flags: aFlags,
+      triggerUri: triggerUri && triggerUri.displaySpec,
     };
 
-    return aEventDispatcher.sendRequestForResult(message).then((response) => response || false).catch(() => false);
+    let handled = undefined;
+    aEventDispatcher.sendRequestForResult(message).then(response => {
+      handled = response;
+    }, () => {
+      // There was an error or listener was not registered in GeckoSession,
+      // treat as unhandled.
+      handled = false;
+    });
+    Services.tm.spinEventLoopUntil(() =>
+        aWindow.closed || handled !== undefined);
+
+    return handled || false;
   },
 
   handleLoadError: function(aWindow, aEventDispatcher, aUri, aError,
@@ -47,7 +65,7 @@ const LoadURIDelegate = {
       uri: aUri && aUri.spec,
       error: aError,
       errorModule: aErrorModule,
-      errorClass
+      errorClass,
     };
 
     let errorPageURI = undefined;
@@ -67,5 +85,5 @@ const LoadURIDelegate = {
         aWindow.closed || errorPageURI !== undefined);
 
     return errorPageURI;
-  }
+  },
 };

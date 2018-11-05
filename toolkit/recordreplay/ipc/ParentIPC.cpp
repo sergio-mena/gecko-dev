@@ -226,6 +226,7 @@ static void RecvHitBreakpoint(const HitBreakpointMessage& aMsg);
 static void RecvDebuggerResponse(const DebuggerResponseMessage& aMsg);
 static void RecvRecordingFlushed();
 static void RecvAlwaysMarkMajorCheckpoints();
+static void RecvMiddlemanCallRequest(const MiddlemanCallRequestMessage& aMsg);
 
 // The role taken by the active child.
 class ChildRoleActive final : public ChildRole
@@ -250,7 +251,7 @@ public:
   void OnIncomingMessage(const Message& aMsg) override {
     switch (aMsg.mType) {
     case MessageType::Paint:
-      UpdateGraphicsInUIProcess((const PaintMessage*) &aMsg);
+      MaybeUpdateGraphicsAtPaint((const PaintMessage&) aMsg);
       break;
     case MessageType::HitCheckpoint:
       RecvHitCheckpoint((const HitCheckpointMessage&) aMsg);
@@ -267,6 +268,12 @@ public:
     case MessageType::AlwaysMarkMajorCheckpoints:
       RecvAlwaysMarkMajorCheckpoints();
       break;
+    case MessageType::MiddlemanCallRequest:
+      RecvMiddlemanCallRequest((const MiddlemanCallRequestMessage&) aMsg);
+      break;
+    case MessageType::ResetMiddlemanCalls:
+      ResetMiddlemanCalls();
+      break;
     default:
       MOZ_CRASH("Unexpected message");
     }
@@ -276,7 +283,7 @@ public:
 bool
 ActiveChildIsRecording()
 {
-  return gActiveChild->IsRecording();
+  return gActiveChild && gActiveChild->IsRecording();
 }
 
 ChildProcessInfo*
@@ -604,6 +611,12 @@ SwitchActiveChild(ChildProcessInfo* aChild, bool aRecoverPosition = true)
     oldActiveChild->RecoverToCheckpoint(oldActiveChild->MostRecentSavedCheckpoint());
     oldActiveChild->SetRole(MakeUnique<ChildRoleStandby>());
   }
+
+  // The graphics overlay is affected when we switch between recording and
+  // replaying children.
+  if (aChild->IsRecording() != oldActiveChild->IsRecording()) {
+    UpdateGraphicsOverlay();
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -628,9 +641,15 @@ PreferencesLoaded()
     gRewindingEnabled = false;
   }
 
-  // If there is no recording child, we have now initialized enough state
-  // that we can start spawning replaying children.
-  if (!gRecordingChild) {
+  if (gRecordingChild) {
+    // Inform the recording child if we will be running devtools server code in
+    // this process.
+    if (DebuggerRunsInMiddleman()) {
+      gRecordingChild->SendMessage(SetDebuggerRunsInMiddlemanMessage());
+    }
+  } else {
+    // If there is no recording child, we have now initialized enough state
+    // that we can start spawning replaying children.
     if (CanRewind()) {
       SpawnReplayingChildren();
     } else {
@@ -644,6 +663,22 @@ CanRewind()
 {
   MOZ_RELEASE_ASSERT(gPreferencesLoaded);
   return gRewindingEnabled;
+}
+
+bool
+DebuggerRunsInMiddleman()
+{
+  if (IsRecordingOrReplaying()) {
+    // This can be called in recording/replaying processes as well as the
+    // middleman. Fetch the value which the middleman informed us of.
+    return child::DebuggerRunsInMiddleman();
+  }
+
+  // Middleman processes which are recording and can't rewind do not run
+  // developer tools server code. This will run in the recording process
+  // instead.
+  MOZ_RELEASE_ASSERT(IsMiddleman());
+  return !gRecordingChild || CanRewind();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -828,6 +863,19 @@ MaybeSwitchToReplayingChild()
   }
 }
 
+Maybe<double>
+GetRecordingPosition()
+{
+  if (gActiveChild->IsRecording()) {
+    return Nothing();
+  }
+
+  // Get the fraction of the recording that the active child has reached so far.
+  double fraction = (gActiveChild->MostRecentCheckpoint() - CheckpointId::First)
+                  / (double) (gCheckpointTimes.length() - CheckpointId::First);
+  return Some(fraction);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Initialization
 ///////////////////////////////////////////////////////////////////////////////
@@ -855,6 +903,8 @@ InitializeMiddleman(int aArgc, char* aArgv[], base::ProcessId aParentPid,
                     const ipc::FileDescriptor& aPrefMapHandle)
 {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
+
+  CrashReporter::AnnotateCrashReport(CrashReporter::Annotation::RecordReplay, true);
 
   gParentPid = aParentPid;
 
@@ -946,10 +996,44 @@ static bool gResumeForwardOrBackward = false;
 // Hit any breakpoints installed for forced pauses.
 static void HitForcedPauseBreakpoints(bool aRecordingBoundary);
 
+static void
+MaybeSendRepaintMessage()
+{
+  // In repaint stress mode, we want to trigger a repaint at every checkpoint,
+  // so before resuming after the child pauses at each checkpoint, send it a
+  // repaint message. There might not be a debugger open, so manually craft the
+  // same message which the debugger would send to trigger a repaint and parse
+  // the result.
+  if (InRepaintStressMode()) {
+    MaybeSwitchToReplayingChild();
+
+    const char16_t contents[] = u"{\"type\":\"repaint\"}";
+
+    js::CharBuffer request, response;
+    request.append(contents, ArrayLength(contents) - 1);
+    SendRequest(request, &response);
+
+    AutoSafeJSContext cx;
+    JS::RootedValue value(cx);
+    if (JS_ParseJSON(cx, response.begin(), response.length(), &value)) {
+      MOZ_RELEASE_ASSERT(value.isObject());
+      JS::RootedObject obj(cx, &value.toObject());
+      RootedValue width(cx), height(cx);
+      if (JS_GetProperty(cx, obj, "width", &width) && width.isNumber() && width.toNumber() &&
+          JS_GetProperty(cx, obj, "height", &height) && height.isNumber() && height.toNumber()) {
+        PaintMessage message(CheckpointId::Invalid, width.toNumber(), height.toNumber());
+        UpdateGraphicsInUIProcess(&message);
+      }
+    }
+  }
+}
+
 void
 Resume(bool aForward)
 {
   gActiveChild->WaitUntilPaused();
+
+  MaybeSendRepaintMessage();
 
   // Set the preferred direction of travel.
   gResumeForwardOrBackward = false;
@@ -1101,6 +1185,11 @@ static void
 RecvHitCheckpoint(const HitCheckpointMessage& aMsg)
 {
   UpdateCheckpointTimes(aMsg);
+  MaybeUpdateGraphicsAtCheckpoint(aMsg.mCheckpointId);
+
+  if (!gActiveChild->IsRecording()) {
+    UpdateGraphicsOverlay();
+  }
 
   // Resume either forwards or backwards. Break the resume off into a separate
   // runnable, to avoid starving any code already on the stack and waiting for
@@ -1173,6 +1262,18 @@ HitForcedPauseBreakpoints(bool aRecordingBoundary)
                                                          newBreakpoints, breakpoints.length(),
                                                          aRecordingBoundary));
   }
+}
+
+static void
+RecvMiddlemanCallRequest(const MiddlemanCallRequestMessage& aMsg)
+{
+  InfallibleVector<char> outputData;
+  ProcessMiddlemanCall(aMsg.BinaryData(), aMsg.BinaryDataSize(), &outputData);
+
+  MiddlemanCallResponseMessage* response =
+    MiddlemanCallResponseMessage::New(outputData.begin(), outputData.length());
+  gActiveChild->SendMessage(*response);
+  free(response);
 }
 
 } // namespace parent

@@ -56,7 +56,7 @@ const whitelist = {
     "resource://gre/modules/ActorChild.jsm",
     "resource://gre/modules/ActorManagerChild.jsm",
     "resource://gre/modules/E10SUtils.jsm",
-    "resource://gre/modules/ReaderMode.jsm",
+    "resource://gre/modules/Readerable.jsm",
     "resource://gre/modules/WebProgressChild.jsm",
 
     // Pocket
@@ -64,7 +64,7 @@ const whitelist = {
 
     // Telemetry
     "resource://gre/modules/TelemetryController.jsm", // bug 1470339
-    "resource://gre/modules/TelemetrySession.jsm", // bug 1470339
+    "resource://gre/modules/MemoryTelemetry.jsm", // bug 1481812
     "resource://gre/modules/TelemetryUtils.jsm", // bug 1470339
 
     // Extensions
@@ -82,7 +82,6 @@ const intermittently_loaded_whitelist = {
   ]),
   modules: new Set([
     "resource://gre/modules/sessionstore/Utils.jsm",
-    "resource://gre/modules/TelemetryStopwatch.jsm",
   ]),
 };
 
@@ -110,17 +109,16 @@ add_task(async function() {
     Cm.QueryInterface(Ci.nsIServiceManager);
     ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
     let collectStacks = AppConstants.NIGHTLY_BUILD || AppConstants.DEBUG;
-    let loader = Cc["@mozilla.org/moz/jsloader;1"].getService(Ci.xpcIJSModuleLoader);
     let components = {};
-    for (let component of loader.loadedComponents()) {
+    for (let component of Cu.loadedComponents) {
       /* Keep only the file name for components, as the path is an absolute file
          URL rather than a resource:// URL like for modules. */
       components[component.replace(/.*\//, "")] =
-        collectStacks ? loader.getComponentLoadStack(component) : "";
+        collectStacks ? Cu.getComponentLoadStack(component) : "";
     }
     let modules = {};
-    for (let module of loader.loadedModules()) {
-      modules[module] = collectStacks ? loader.getModuleImportStack(module) : "";
+    for (let module of Cu.loadedModules) {
+      modules[module] = collectStacks ? Cu.getModuleImportStack(module) : "";
     }
     let services = {};
     for (let contractID of Object.keys(Cc)) {

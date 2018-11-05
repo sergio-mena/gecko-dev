@@ -1,4 +1,3 @@
-
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -9,6 +8,11 @@
 // Import the inspector's head.js first (which itself imports shared-head.js).
 Services.scriptloader.loadSubScript(
   "chrome://mochitests/content/browser/devtools/client/inspector/test/head.js",
+  this);
+
+// Load the shared Redux helpers into this compartment.
+Services.scriptloader.loadSubScript(
+  "chrome://mochitests/content/browser/devtools/client/shared/test/shared-redux-head.js",
   this);
 
 var {getInplaceEditorForSpan: inplaceEditor} = require("devtools/client/shared/inplace-editor");
@@ -433,7 +437,7 @@ async function simulateNodeDrag(inspector, selector, xOffset = 10, yOffset = 10)
     pageX: scrollX + rect.x,
     pageY: scrollY + rect.y,
     stopPropagation: () => {},
-    preventDefault: () => {}
+    preventDefault: () => {},
   });
 
   // _onMouseDown selects the node, so make sure to wait for the
@@ -445,7 +449,7 @@ async function simulateNodeDrag(inspector, selector, xOffset = 10, yOffset = 10)
   info("Simulate mouseMove on element " + selector);
   container.onMouseMove({
     pageX: scrollX + rect.x + xOffset,
-    pageY: scrollY + rect.y + yOffset
+    pageY: scrollY + rect.y + yOffset,
   });
 }
 
@@ -652,7 +656,7 @@ async function _checkMarkupViewNode(treeNode, container, inspector) {
 function _parseMarkupViewTree(inputString) {
   const tree = {
     level: 0,
-    children: []
+    children: [],
   };
   let lines = inputString.split("\n");
   lines = lines.filter(l => l.trim());
@@ -677,7 +681,7 @@ function _parseMarkupViewTree(inputString) {
       children: [],
       parent,
       level,
-      path: parent.path + " " + nodeString
+      path: parent.path + " " + nodeString,
     };
 
     parent.children.push(node);

@@ -196,7 +196,6 @@ body {
 .sync-state > p {
   padding-inline-end: 10px;
   padding-inline-start: 10px;
-  color: #888;
 }
 
 .text-link {
@@ -255,6 +254,11 @@ body {
   margin: 0 auto;
 }
 
+body[lwt-sidebar] .deck .instructions {
+  color: inherit;
+  opacity: .6;
+}
+
 .deck .button {
   display: block;
   background-color: #0060df;
@@ -301,6 +305,11 @@ body {
 body[lwt-sidebar] {
   background-color: var(--lwt-sidebar-background-color);
   color: var(--lwt-sidebar-text-color);
+  scrollbar-color: rgba(204,204,204,.5) rgba(230,230,235,.5);
+}
+
+body[lwt-sidebar-brighttext] {
+  scrollbar-color: rgba(249,249,250,.4) rgba(20,20,25,.3);
 }
 
 body[lwt-sidebar] .item.selected > .item-title-container {
@@ -309,12 +318,10 @@ body[lwt-sidebar] .item.selected > .item-title-container {
 }
 
 body[lwt-sidebar-brighttext] .item.selected > .item-title-container {
-  -moz-appearance: none;
   background-color: rgba(249,249,250,.1);
 }
 
 body[lwt-sidebar-highlight] .item.selected:focus > .item-title-container {
-  -moz-appearance: none;
   background-color: var(--lwt-sidebar-highlight-background-color);
   color: var(--lwt-sidebar-highlight-text-color);
 }

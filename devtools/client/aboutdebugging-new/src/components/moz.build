@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 DIRS += [
+    'connect',
     'debugtarget',
     'sidebar',
 ]
@@ -10,9 +11,8 @@ DIRS += [
 DevToolsModules(
     'App.css',
     'App.js',
-    'ConnectPage.css',
-    'ConnectPage.js',
-    'RuntimeInfo.css',
+    'ConnectionPromptSetting.js',
     'RuntimeInfo.js',
+    'RuntimePage.css',
     'RuntimePage.js',
 )

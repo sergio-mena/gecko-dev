@@ -374,22 +374,6 @@ var PlacesDBUtils = {
         )`,
       },
 
-      // C.1 Fix built-in folders with incorrect parents.
-      { query:
-        `UPDATE moz_bookmarks SET parent = :rootId
-         WHERE guid IN (
-           :menuGuid, :toolbarGuid, :unfiledGuid, :tagsGuid, :mobileGuid
-         ) AND parent <> :rootId`,
-        params: {
-          rootId: PlacesUtils.placesRootId,
-          menuGuid: PlacesUtils.bookmarks.menuGuid,
-          toolbarGuid: PlacesUtils.bookmarks.toolbarGuid,
-          unfiledGuid: PlacesUtils.bookmarks.unfiledGuid,
-          tagsGuid: PlacesUtils.bookmarks.tagsGuid,
-          mobileGuid: PlacesUtils.bookmarks.mobileGuid,
-        },
-      },
-
       // D.1 remove items without a valid place
       // If fk IS NULL we fix them in D.7
       { query:
@@ -994,9 +978,6 @@ var PlacesDBUtils = {
    *
    */
   async telemetry() {
-    // First deal with some scalars for feeds:
-    await this._telemetryForFeeds();
-
     // This will be populated with one integer property for each probe result,
     // using the histogram name as key.
     let probeValues = {};
@@ -1142,16 +1123,6 @@ var PlacesDBUtils = {
       probeValues[probe.histogram] = val;
       Services.telemetry.getHistogramById(probe.histogram).add(val);
     }
-  },
-
-  async _telemetryForFeeds() {
-    let db = await PlacesUtils.promiseDBConnection();
-    let livebookmarkCount = await db.execute(
-      `SELECT count(*) FROM moz_items_annos a
-                       JOIN moz_anno_attributes aa ON a.anno_attribute_id = aa.id
-                       WHERE aa.name = 'livemark/feedURI'`);
-    livebookmarkCount = livebookmarkCount[0].getResultByIndex(0);
-    Services.telemetry.scalarSet("browser.feeds.livebookmark_count", livebookmarkCount);
   },
 
   /**

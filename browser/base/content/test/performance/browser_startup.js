@@ -59,7 +59,6 @@ const startupPhases = {
       "nsSearchService.js",
     ]),
     modules: new Set([
-      "chrome://webcompat-reporter/content/WebCompatReporter.jsm",
       "chrome://webcompat/content/data/ua_overrides.jsm",
       "chrome://webcompat/content/lib/ua_overrider.jsm",
       "resource:///modules/AboutNewTab.jsm",
@@ -121,7 +120,9 @@ const startupPhases = {
   }},
 };
 
-if (Services.prefs.getBoolPref("browser.startup.blankWindow")) {
+if (Services.prefs.getBoolPref("browser.startup.blankWindow") &&
+    Services.prefs.getCharPref("lightweightThemes.selectedThemeID") ==
+      "default-theme@mozilla.org") {
   startupPhases["before profile selection"].whitelist.components.add("XULStore.js");
 }
 
@@ -156,7 +157,6 @@ add_task(async function() {
   let startupRecorder = Cc["@mozilla.org/test/startuprecorder;1"].getService().wrappedJSObject;
   await startupRecorder.done;
 
-  let loader = Cc["@mozilla.org/moz/jsloader;1"].getService(Ci.xpcIJSModuleLoader);
   let componentStacks = new Map();
   let data = Cu.cloneInto(startupRecorder.data.code, {});
   // Keep only the file name for components, as the path is an absolute file
@@ -165,14 +165,14 @@ add_task(async function() {
     data[phase].components =
       data[phase].components.map(uri => {
         let fileName = uri.replace(/.*\//, "");
-        componentStacks.set(fileName, loader.getComponentLoadStack(uri));
+        componentStacks.set(fileName, Cu.getComponentLoadStack(uri));
         return fileName;
       }).filter(c => c != "startupRecorder.js");
   }
 
   function printStack(scriptType, name) {
     if (scriptType == "modules")
-      info(loader.getModuleImportStack(name));
+      info(Cu.getModuleImportStack(name));
     else if (scriptType == "components")
       info(componentStacks.get(name));
   }

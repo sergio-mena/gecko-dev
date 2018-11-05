@@ -4,9 +4,12 @@
 
 "use strict";
 
-const { PureComponent } = require("devtools/client/shared/vendor/react");
+const { createFactory, PureComponent } = require("devtools/client/shared/vendor/react");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
+
+const FluentReact = require("devtools/client/shared/vendor/fluent-react");
+const Localized = createFactory(FluentReact.Localized);
 
 /**
  * This component displays detail information for extension.
@@ -14,16 +17,19 @@ const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 class ExtensionDetail extends PureComponent {
   static get propTypes() {
     return {
+      // Provided by wrapping the component with FluentReact.withLocalization.
+      getString: PropTypes.func.isRequired,
       target: PropTypes.object.isRequired,
     };
   }
 
-  renderField(name, value, title) {
+  renderField(key, name, value, title) {
     return [
-      dom.dt({}, name),
+      dom.dt({ key: `${ key }-dt` }, name),
       dom.dd(
         {
           className: "ellipsis-text",
+          key: `${ key }-dd`,
           title: title || value,
         },
         value,
@@ -37,17 +43,24 @@ class ExtensionDetail extends PureComponent {
 
     const value = [
       uuid,
-      dom.a(
+      Localized(
         {
-          className: "extension-detail__manifest",
-          href: manifestURL,
-          target: "_blank",
+          id: "about-debugging-extension-manifest-link",
+          key: "manifest",
         },
-        "Manifest URL",
-      )
+        dom.a(
+          {
+            className: "extension-detail__manifest",
+            href: manifestURL,
+            target: "_blank",
+          },
+          "Manifest URL",
+        )
+      ),
     ];
 
-    return this.renderField("Internal UUID", value, uuid);
+    const uuidName = this.props.getString("about-debugging-extension-uuid");
+    return this.renderField("uuid", uuidName, value, uuid);
   }
 
   render() {
@@ -55,15 +68,18 @@ class ExtensionDetail extends PureComponent {
     const { id, details } = target;
     const { location, uuid } = details;
 
+    const locationName = this.props.getString("about-debugging-extension-location");
+    const idName = this.props.getString("about-debugging-extension-id");
+
     return dom.dl(
       {
         className: "extension-detail",
       },
-      location ? this.renderField("Location", location) : null,
-      this.renderField("Extension ID", id),
+      location ? this.renderField("location", locationName, location) : null,
+      this.renderField("extension", idName, id),
       uuid ? this.renderUUID() : null,
     );
   }
 }
 
-module.exports = ExtensionDetail;
+module.exports = FluentReact.withLocalization(ExtensionDetail);

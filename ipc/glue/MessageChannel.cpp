@@ -634,7 +634,6 @@ MessageChannel::MessageChannel(const char* aName,
     mPeerPidSet(false),
     mPeerPid(-1),
     mIsPostponingSends(false),
-    mInKillHardShutdown(false),
     mBuildIDsConfirmedMatch(false)
 {
     MOZ_COUNT_CTOR(ipc::MessageChannel);
@@ -798,10 +797,7 @@ MessageChannel::Clear()
     // before mListener.  But just to be safe, mListener is a weak pointer.
 
 #if !defined(ANDROID)
-    // KillHard shutdowns can occur with the channel in connected state. We are
-    // already collecting crash dump data about KillHard shutdowns and we
-    // shouldn't intentionally crash here.
-    if (!Unsound_IsClosed() && !mInKillHardShutdown) {
+    if (!Unsound_IsClosed()) {
         CrashReporter::AnnotateCrashReport(
           CrashReporter::Annotation::IPCFatalErrorProtocol, nsDependentCString(mName));
         switch (mChannelState) {
@@ -995,6 +991,17 @@ MessageChannel::Echo(Message* aMsg)
 bool
 MessageChannel::Send(Message* aMsg)
 {
+    if (recordreplay::HasDivergedFromRecording() &&
+        recordreplay::child::SuppressMessageAfterDiverge(aMsg))
+    {
+        // Only certain IPDL messages are allowed to be sent in a replaying
+        // process after it has diverged from the recording, to avoid
+        // deadlocking with threads that remain idle. The browser remains
+        // paused after diverging from the recording, and other IPDL messages
+        // do not need to be sent.
+        return true;
+    }
+
     if (aMsg->size() >= kMinTelemetryMessageSize) {
         Telemetry::Accumulate(Telemetry::IPC_MESSAGE_SIZE2, aMsg->size());
     }
@@ -2101,6 +2108,15 @@ MessageChannel::MessageTask::Clear()
 NS_IMETHODIMP
 MessageChannel::MessageTask::GetPriority(uint32_t* aPriority)
 {
+  if (recordreplay::IsRecordingOrReplaying()) {
+    // Ignore message priorities in recording/replaying processes. Incoming
+    // messages were sorted in the middleman process according to their
+    // priority before being forwarded here, and reordering them again in this
+    // process can cause problems such as dispatching messages for an actor
+    // before the constructor for that actor.
+    *aPriority = PRIORITY_NORMAL;
+    return NS_OK;
+  }
   switch (mMessage.priority()) {
   case Message::NORMAL_PRIORITY:
     *aPriority = PRIORITY_NORMAL;

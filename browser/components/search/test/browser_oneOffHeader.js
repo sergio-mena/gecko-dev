@@ -10,12 +10,10 @@ const searchPopup = document.getElementById("PopupSearchAutoComplete");
 const oneOffsContainer =
   document.getAnonymousElementByAttribute(searchPopup, "anonid",
                                           "search-one-off-buttons");
-const searchSettings =
-  document.getAnonymousElementByAttribute(oneOffsContainer, "anonid",
-                                          "search-settings");
-var header =
-  document.getAnonymousElementByAttribute(oneOffsContainer, "anonid",
-                                          "search-panel-one-offs-header");
+const searchSettings = oneOffsContainer.querySelector(".search-setting-button");
+
+var header = oneOffsContainer.querySelector(".search-panel-one-offs-header");
+
 function getHeaderText() {
   let headerChild = header.selectedPanel;
   while (headerChild.hasChildNodes()) {
@@ -58,9 +56,7 @@ add_task(async function init() {
   registerCleanupFunction(() => {
     gCUITestUtils.removeSearchBar();
   });
-  searchIcon = document.getAnonymousElementByAttribute(
-    searchbar, "anonid", "searchbar-search-button"
-  );
+  searchIcon = searchbar.querySelector(".searchbar-search-button");
 
   await promiseNewEngine("testEngine.xml");
 });
@@ -97,7 +93,7 @@ add_task(async function test_notext() {
 });
 
 add_task(async function test_text() {
-  searchbar._textbox.value = "foo";
+  searchbar.textbox.value = "foo";
 
   let promise = promiseEvent(searchPopup, "popupshown");
   info("Opening search panel");
@@ -136,7 +132,7 @@ add_task(async function test_text() {
   });
 
   let url = Services.search.currentEngine
-                           .getSubmission(searchbar._textbox.value).uri.spec;
+                           .getSubmission(searchbar.textbox.value).uri.spec;
   await promiseTabLoadEvent(gBrowser.selectedTab, url);
 
   // Move the cursor out of the panel area to avoid messing with other tests.
@@ -144,5 +140,5 @@ add_task(async function test_text() {
 });
 
 add_task(async function cleanup() {
-  searchbar._textbox.value = "";
+  searchbar.textbox.value = "";
 });
