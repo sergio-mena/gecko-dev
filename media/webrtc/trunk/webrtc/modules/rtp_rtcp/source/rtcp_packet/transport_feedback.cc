@@ -707,16 +707,16 @@ TransportFeedbackRTP::TransportFeedbackRTP()
 TransportFeedbackRTP::~TransportFeedbackRTP() {}
 
 template <typename T>
-T ReadSequential(const uint8_t* const payload, size_t& index) {
-  auto data = ByteReader<T>::ReadBigEndian(&payload[index]);
-  index += sizeof(T);
+T ReadSequential(const uint8_t* const payload, size_t* index) {
+  auto data = ByteReader<T>::ReadBigEndian(&payload[*index]);
+  *index += sizeof(T);
   return data;
 }
 
 template <typename T>
-void WriteSequential(uint8_t* payload, size_t& index, T data) {
-  ByteWriter<T>::WriteBigEndian(&payload[index], data);
-  index += sizeof(T);
+void WriteSequential(uint8_t* payload, size_t* index, T data) {
+  ByteWriter<T>::WriteBigEndian(&payload[*index], data);
+  *index += sizeof(T);
 }
 
 bool RtpHdrGetBit (uint8_t val, uint8_t pos)
@@ -736,19 +736,24 @@ void RtpHdrSetBit (uint8_t& val, uint8_t pos, bool bit)
 
 bool TransportFeedbackRTP::UpdateLength()
 {
+  if (m_reportBlocks.empty()) {
+    return false;
+  }
   //TODO: Take care of base_sequence
-  size_t len = 1; // SSRC of packet sender
-  for (const auto& rb : m_reportBlocks) {
-    ++len; // SSRC
-    ++len; // begin & end seq
+  size_t len = 4; // SSRC of packet sender
+  for (auto& rb : m_reportBlocks) {
+    len+=4; // SSRC
+    len+=4; // begin & end seq
     const auto beginStop = CalculateBeginStopSeq(rb.second);
     const uint16_t beginSeq = beginStop.first;
     const uint16_t stopSeq = beginStop.second;
     const uint16_t nMetricBlocks = stopSeq - beginSeq; //this wraps properly
     const uint16_t nPaddingBlocks = nMetricBlocks % 2;
-    len += (nMetricBlocks + nPaddingBlocks) / 2; // metric blocks are 16 bits long
+    // len += (nMetricBlocks + nPaddingBlocks) / 2; // metric blocks are 16 bits long
+    // FIXME (drno) not sure what is wrong about the above calculation
+    len += 8;
   }
-  ++len; // report timestamp field
+  len+=4; // report timestamp field
   if (len > 0xffff) {
     return false;
   }
@@ -877,13 +882,14 @@ bool TransportFeedbackRTP::Parse(const CommonHeader& packet) {
   Clear();
 
   //length of all report blocks in 16-bit words
-  size_t len_left = (size_t(total_length / 4 - 2 /* sender SSRC + Report Tstmp*/ )) * 2;
+  //size_t len_left = (size_t(total_length / 4 - 2 /* sender SSRC + Report Tstmp*/ )) * 2;
+  size_t len_left = (size_t((total_length - index) / 4 )) * 2;
   while (len_left > 0) {
     RTC_DCHECK_GE(len_left, 4); // SSRC + begin & end
-    const auto ssrc = ReadSequential<uint32_t>(payload, index);
+    const auto ssrc = ReadSequential<uint32_t>(payload, &index);
     auto& rb = m_reportBlocks[ssrc];
-    const uint16_t beginSeq = ReadSequential<uint16_t>(payload, index);
-    const uint16_t endSeq = ReadSequential<uint16_t>(payload, index);
+    const uint16_t beginSeq = ReadSequential<uint16_t>(payload, &index);
+    const uint16_t endSeq = ReadSequential<uint16_t>(payload, &index);
     len_left -= 4;
     const uint16_t diff = endSeq - beginSeq; //this wraps properly
     const uint32_t nMetricBlocks = uint32_t(diff) + 1;
@@ -909,11 +915,11 @@ bool TransportFeedbackRTP::Parse(const CommonHeader& packet) {
     }
     len_left -= nMetricBlocks;
     if (nPaddingBlocks == 1) {
-      (void)ReadSequential<uint16_t>(payload, index); //skip padding
+      (void)ReadSequential<uint16_t>(payload, &index); //skip padding
         --len_left;
     }
   }
-  const uint32_t ntpRef = ReadSequential<uint32_t>(payload, index);
+  const uint32_t ntpRef = ReadSequential<uint32_t>(payload, &index);
   // Populate all timestamps once Report Timestamp is known
   for (auto& rb : m_reportBlocks) {
     for (auto& mb : rb.second) {
@@ -979,11 +985,11 @@ bool TransportFeedbackRTP::Create(uint8_t* packet,
   /* TODO(drno): does this number need to grow like it does in the existing
    * code, because it doesn't right now and prevents feedback packets getting
    * send
+  */
   if (size_bytes_ < 8) // TODO (authors): 0 report blocks should be allowed
     return false;
 
   RTC_DCHECK_EQ(0, size_bytes_ % 4);
-  */
   while (*position + size_bytes_ > max_length) {
     if (!OnBufferFull(packet, position, callback))
       return false;
@@ -997,15 +1003,15 @@ bool TransportFeedbackRTP::Create(uint8_t* packet,
 
   CreateHeader(kFeedbackMessageType, kPacketType, HeaderLength(), packet,
                position);
-  WriteSequential<uint32_t>(packet, *position, sender_ssrc());
+  WriteSequential<uint32_t>(packet, position, sender_ssrc());
 
   for (const auto& rb : m_reportBlocks) {
-    WriteSequential<uint32_t>(packet, *position, rb.first);
+    WriteSequential<uint32_t>(packet, position, rb.first);
     const auto beginStop = CalculateBeginStopSeq(rb.second);
     const uint16_t beginSeq = beginStop.first;
     const uint16_t stopSeq = beginStop.second;
-    WriteSequential<uint16_t>(packet, *position, beginSeq);
-    WriteSequential<uint16_t>(packet, *position, uint16_t(stopSeq - 1));
+    WriteSequential<uint16_t>(packet, position, beginSeq);
+    WriteSequential<uint16_t>(packet, position, uint16_t(stopSeq - 1));
     RTC_DCHECK(!rb.second.empty()); // at least one metric block
     //TODO: PROBLEM: We need to take care of base_sequence, in case it's lost (otherwise the loss won't be seen)
     // This problem also occurs in current NS3 code
@@ -1030,15 +1036,15 @@ bool TransportFeedbackRTP::Create(uint8_t* packet,
       packet[(*position)++] = octet2;
     }
     if (uint16_t(stopSeq - beginSeq) % 2 == 1) {
-      WriteSequential<uint16_t>(packet, *position, 0); //padding
+      WriteSequential<uint16_t>(packet, position, 0); //padding
     }
   }
   const uint32_t ntpTs = UsToNtp(last_timestamp_us_);
-  WriteSequential<uint32_t>(packet, *position, ntpTs);
+  WriteSequential<uint32_t>(packet, position, ntpTs);
 
   /* TODO(drno): see above
-  RTC_DCHECK_EQ(*position, position_end);
   */
+  RTC_DCHECK_EQ(*position, position_end);
   return true;
 }
 
