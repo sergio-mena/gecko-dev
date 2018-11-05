@@ -878,13 +878,15 @@ bool TransportFeedbackRTP::Parse(const CommonHeader& packet) {
 
   const uint8_t* const payload = packet.payload();
   ParseCommonFeedback(payload);
-  size_t index = 8;
+  // Start at the second SSRC as that gets read again in the loop below
+  size_t index = 4;
   Clear();
 
   //length of all report blocks in 16-bit words
   //size_t len_left = (size_t(total_length / 4 - 2 /* sender SSRC + Report Tstmp*/ )) * 2;
   size_t len_left = (size_t((total_length - index) / 4 )) * 2;
-  while (len_left > 0) {
+  // exit when the only the timestamp is left
+  while (len_left > 2) {
     RTC_DCHECK_GE(len_left, 4); // SSRC + begin & end
     const auto ssrc = ReadSequential<uint32_t>(payload, &index);
     auto& rb = m_reportBlocks[ssrc];
@@ -1011,6 +1013,8 @@ bool TransportFeedbackRTP::Create(uint8_t* packet,
     const uint16_t beginSeq = beginStop.first;
     const uint16_t stopSeq = beginStop.second;
     WriteSequential<uint16_t>(packet, position, beginSeq);
+    // TODO(drno): does it really make sense that in the case of a single report
+    // block we write the same number as stopSeq and the beginSeq?
     WriteSequential<uint16_t>(packet, position, uint16_t(stopSeq - 1));
     RTC_DCHECK(!rb.second.empty()); // at least one metric block
     //TODO: PROBLEM: We need to take care of base_sequence, in case it's lost (otherwise the loss won't be seen)
@@ -1032,8 +1036,8 @@ bool TransportFeedbackRTP::Create(uint8_t* packet,
         octet1 |= uint8_t(ato >> 8);
         octet2 |= uint8_t(ato & 0xff);
       }
-      packet[(*position)++] = octet1;
-      packet[(*position)++] = octet2;
+      WriteSequential<uint8_t>(packet, position, octet1);
+      WriteSequential<uint8_t>(packet, position, octet2);
     }
     if (uint16_t(stopSeq - beginSeq) % 2 == 1) {
       WriteSequential<uint16_t>(packet, position, 0); //padding
