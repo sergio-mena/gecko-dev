@@ -739,7 +739,7 @@ bool TransportFeedbackRTP::UpdateLength()
   if (m_reportBlocks.empty()) {
     return false;
   }
-  size_t len = 4; // SSRC of packet sender
+  size_t len = 8; // common header + SSRC of packet sender
   for (auto& rb : m_reportBlocks) {
     len+=4; // SSRC
     len+=4; // begin & end seq

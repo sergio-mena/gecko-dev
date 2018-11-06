@@ -233,7 +233,7 @@ void RemoteEstimatorProxy2::IncomingPacket(int64_t arrival_time_ms,
   rtc::CritScope cs(&lock_);
   media_ssrc_ = header.ssrc; //TODO do we need this member? Probably not
 
-  OnPacketArrival(header.ssrc, arrival_time_ms);
+  OnPacketArrival(header.sequenceNumber, arrival_time_ms);
 }
 
 rtcp::TransportFeedback* RemoteEstimatorProxy2::CreateTFPacket() {
