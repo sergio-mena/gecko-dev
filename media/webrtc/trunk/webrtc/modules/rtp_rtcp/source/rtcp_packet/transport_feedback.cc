@@ -929,7 +929,6 @@ bool TransportFeedbackRTP::Parse(const CommonHeader& packet) {
     LOG(LS_WARNING) << "Empty reports currently not supported";
     return false;
   }
-  size_bytes_ = total_length;
 
   //We need to set all fields, to be compatible with the other FB format
   if (m_reportBlocks.size() > 1) {
@@ -937,11 +936,20 @@ bool TransportFeedbackRTP::Parse(const CommonHeader& packet) {
                     << ") not currently supported";
     return false;
   }
+  // FIXME this needs to be a loop as soon as we support more then one SSRC
+  if (m_reportBlocks[0].empty()) {
+    LOG(LS_WARNING) << "Report with loss only currently not supported";
+    return false;
+  }
+  size_bytes_ = total_length;
+
   const auto& rb = *m_reportBlocks.begin();
   SetMediaSsrc(rb.first);
   RTC_DCHECK(!rb.second.empty()); // at least one metric block
-  const auto& mb_it = rb.second.find(beginSeq);
-  RTC_DCHECK(mb_it != rb.second.end());
+  const auto& mb_it = rb.second.begin();
+  // FIXME This does not work in case the Seq has wrapped!!!
+  beginSeq = mb_it->first;
+  //RTC_DCHECK(mb_it != rb.second.end());
   const auto& mb = mb_it->second;
   SetBase(beginSeq, mb.m_timestampUs);
 
