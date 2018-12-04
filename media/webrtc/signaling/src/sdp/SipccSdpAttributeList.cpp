@@ -924,6 +924,8 @@ SipccSdpAttributeList::LoadRtcpFb(sdp_t* sdp, uint16_t level,
       case SDP_RTCP_FB_ACK:
         type = SdpRtcpFbAttributeList::kAck;
         switch (rtcpfb->param.ack) {
+          // TODO: sipcc doesn't seem to support ack with no following token.
+          // Issue 189.
           case SDP_RTCP_FB_ACK_RPSI:
             parameter = SdpRtcpFbAttributeList::rpsi;
             break;

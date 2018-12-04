@@ -941,7 +941,7 @@ bool TransportFeedbackRTP::Parse(const CommonHeader& packet) {
     LOG(LS_WARNING) << "Report with loss only currently not supported";
     return false;
   }
-  size_bytes_ = total_length;
+  size_bytes_ = total_length + 4 /* Common header */;
 
   const auto& rb = *m_reportBlocks.begin();
   SetMediaSsrc(rb.first);
