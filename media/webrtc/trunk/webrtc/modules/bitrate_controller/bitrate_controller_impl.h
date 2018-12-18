@@ -24,6 +24,9 @@
 #include "webrtc/base/constructormagic.h"
 #include "webrtc/base/criticalsection.h"
 #include "webrtc/modules/bitrate_controller/send_side_bandwidth_estimation.h"
+#include "webrtc/modules/bitrate_controller/nada_bandwidth_estimation.h"
+
+#define ENABLE_NADA 1
 
 namespace webrtc {
 
@@ -91,7 +94,13 @@ class BitrateControllerImpl : public BitrateController {
   RtcEventLog* const event_log_;
 
   rtc::CriticalSection critsect_;
+
+#ifdef ENABLE_NADA
+  NADABandwidthEstimation bandwidth_estimation_ GUARDED_BY(critsect_);
+#else
   SendSideBandwidthEstimation bandwidth_estimation_ GUARDED_BY(critsect_);
+#endif
+
   uint32_t reserved_bitrate_bps_ GUARDED_BY(critsect_);
 
   uint32_t last_bitrate_bps_ GUARDED_BY(critsect_);
@@ -102,4 +111,5 @@ class BitrateControllerImpl : public BitrateController {
   RTC_DISALLOW_IMPLICIT_CONSTRUCTORS(BitrateControllerImpl);
 };
 }  // namespace webrtc
+
 #endif  // WEBRTC_MODULES_BITRATE_CONTROLLER_BITRATE_CONTROLLER_IMPL_H_

@@ -159,7 +159,13 @@ void BitrateControllerImpl::ResetBitrates(int bitrate_bps,
                                           int max_bitrate_bps) {
   {
     rtc::CritScope cs(&critsect_);
+
+#ifdef ENABLE_NADA
+    bandwidth_estimation_ = NADABandwidthEstimation(event_log_);
+#else
     bandwidth_estimation_ = SendSideBandwidthEstimation(event_log_);
+#endif
+
     bandwidth_estimation_.SetBitrates(bitrate_bps, min_bitrate_bps,
                                       max_bitrate_bps);
   }
