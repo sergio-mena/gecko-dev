@@ -988,6 +988,9 @@ SipccSdpAttributeList::LoadRtcpFb(sdp_t* sdp, uint16_t level,
       case SDP_RTCP_FB_REMB: {
         type = SdpRtcpFbAttributeList::kRemb;
       } break;
+      case SDP_RTCP_FB_TRANS_CC: {
+        type = SdpRtcpFbAttributeList::kTransCC;
+      } break;
       default:
         // Type we don't care about, ignore.
         continue;

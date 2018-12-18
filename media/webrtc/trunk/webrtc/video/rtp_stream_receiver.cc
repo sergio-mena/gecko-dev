@@ -145,6 +145,7 @@ RtpStreamReceiver::RtpStreamReceiver(
   rtp_rtcp_->SetRTCPStatus(config_.rtp.rtcp_mode);
   rtp_rtcp_->SetSSRC(config_.rtp.local_ssrc);
   rtp_rtcp_->SetKeyFrameRequestMethod(kKeyFrameReqPliRtcp);
+  //TODO How come no transport-cc? Look into google
   if (config_.rtp.remb) {
     rtp_rtcp_->SetREMBStatus(true);
     remb_->AddReceiveChannel(rtp_rtcp_.get());

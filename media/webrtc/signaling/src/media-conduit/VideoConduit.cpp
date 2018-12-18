@@ -1532,6 +1532,7 @@ WebrtcVideoConduit::ConfigureRecvMediaCodecs(
   bool use_nack_basic = false;
   bool use_tmmbr = false;
   bool use_remb = false;
+  bool use_trans_cc = false;
   bool use_fec = false;
   int ulpfec_payload_type = kNullPayloadType;
   int red_payload_type = kNullPayloadType;
@@ -1586,6 +1587,7 @@ WebrtcVideoConduit::ConfigureRecvMediaCodecs(
     use_nack_basic |= codec_config->RtcpFbNackIsSet("");
     use_tmmbr |= codec_config->RtcpFbCcmIsSet("tmmbr");
     use_remb |= codec_config->RtcpFbRembIsSet();
+    use_trans_cc |= codec_config->RtcpFbTransCCIsSet();
     use_fec |= codec_config->RtcpFbFECIsSet();
 
     recv_codecs.AppendElement(new VideoCodecConfig(*codec_config));
@@ -1601,6 +1603,7 @@ WebrtcVideoConduit::ConfigureRecvMediaCodecs(
       CodecsDifferent(recv_codecs, mRecvCodecList) ||
       mRecvStreamConfig.rtp.nack.rtp_history_ms != (use_nack_basic ? 1000 : 0) ||
       mRecvStreamConfig.rtp.remb != use_remb ||
+      mRecvStreamConfig.rtp.transport_cc != use_trans_cc ||
       mRecvStreamConfig.rtp.tmmbr != use_tmmbr ||
       mRecvStreamConfig.rtp.keyframe_method != kf_request_method ||
       (use_fec &&
@@ -1617,6 +1620,7 @@ WebrtcVideoConduit::ConfigureRecvMediaCodecs(
     mRecvStreamConfig.rtp.rtcp_mode = webrtc::RtcpMode::kCompound;
     mRecvStreamConfig.rtp.nack.rtp_history_ms = use_nack_basic ? 1000 : 0;
     mRecvStreamConfig.rtp.remb = use_remb;
+    mRecvStreamConfig.rtp.transport_cc = use_trans_cc;
     mRecvStreamConfig.rtp.tmmbr = use_tmmbr;
     mRecvStreamConfig.rtp.keyframe_method = kf_request_method;
 

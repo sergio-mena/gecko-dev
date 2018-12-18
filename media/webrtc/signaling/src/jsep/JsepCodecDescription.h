@@ -236,6 +236,7 @@ class JsepVideoCodecDescription : public JsepCodecDescription {
         mTmmbrEnabled(false),
         mRembEnabled(false),
         mFECEnabled(false),
+        mTransCCEnabled(false),
         mREDPayloadType(0),
         mULPFECPayloadType(0),
         mProfileLevelId(0),
@@ -245,6 +246,14 @@ class JsepVideoCodecDescription : public JsepCodecDescription {
     mNackFbTypes.push_back("");
     mNackFbTypes.push_back(SdpRtcpFbAttributeList::pli);
     mCcmFbTypes.push_back(SdpRtcpFbAttributeList::fir);
+  }
+
+  virtual void
+  EnableTransCC() {
+    if (!mTransCCEnabled) {
+      mTransCCEnabled = true;
+      mOtherFbTypes.push_back({ "", SdpRtcpFbAttributeList::kTransCC, "", ""});
+    }
   }
 
   virtual void
@@ -718,6 +727,17 @@ class JsepVideoCodecDescription : public JsepCodecDescription {
     return false;
   }
 
+  virtual bool
+  RtcpFbTransCCIsSet() const
+  {
+    for (const auto& fb : mOtherFbTypes) {
+      if (fb.type == SdpRtcpFbAttributeList::kTransCC) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   virtual void
   UpdateRedundantEncodings(std::vector<JsepCodecDescription*> codecs)
   {
@@ -743,6 +763,7 @@ class JsepVideoCodecDescription : public JsepCodecDescription {
   bool mTmmbrEnabled;
   bool mRembEnabled;
   bool mFECEnabled;
+  bool mTransCCEnabled;
   uint8_t mREDPayloadType;
   uint8_t mULPFECPayloadType;
   std::vector<uint8_t> mRedundantEncodings;
