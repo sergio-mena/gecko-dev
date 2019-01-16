@@ -15,6 +15,8 @@ typedef enum {
     SDP_RTCP_FB_TRR_INT,
     // from https://www.ietf.org/archive/id/draft-alvestrand-rmcat-remb-03.txt
     SDP_RTCP_FB_REMB,
+    // from draft-ietf-avtcore-cc-feedback-message-02
+    SDP_RTCP_FB_CCFB,
     SDP_MAX_RTCP_FB,
     SDP_RTCP_FB_UNKNOWN
 } sdp_rtcp_fb_type_e;
@@ -38,7 +40,6 @@ typedef enum {
     SDP_RTCP_FB_ACK_NOT_FOUND = -1,
     SDP_RTCP_FB_ACK_RPSI = 0,
     SDP_RTCP_FB_ACK_APP,
-    SDP_RTCP_FB_ACK_CCFB,
     SDP_MAX_RTCP_FB_ACK,
     SDP_RTCP_FB_ACK_UNKNOWN
 } sdp_rtcp_fb_ack_type_e;

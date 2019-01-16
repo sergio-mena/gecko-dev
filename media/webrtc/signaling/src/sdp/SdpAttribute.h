@@ -1079,13 +1079,12 @@ class SdpRtcpFbAttributeList : public SdpAttribute
 public:
   SdpRtcpFbAttributeList() : SdpAttribute(kRtcpFbAttribute) {}
 
-  enum Type { kAck, kApp, kCcm, kNack, kTrrInt, kRemb, kTransCC };
+  enum Type { kAck, kApp, kCcm, kNack, kTrrInt, kRemb, kTransCC, kCcfb };
 
   static const char* pli;
   static const char* sli;
   static const char* rpsi;
   static const char* app;
-  static const char* ccfb;
 
   static const char* fir;
   static const char* tmmbr;
@@ -1136,6 +1135,9 @@ inline std::ostream& operator<<(std::ostream& os,
       break;
     case SdpRtcpFbAttributeList::kTransCC:
       os << "transport-cc";
+      break;
+    case SdpRtcpFbAttributeList::kCcfb:
+      os << "ccfb";
       break;
     default:
       MOZ_ASSERT(false);

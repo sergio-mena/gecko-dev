@@ -156,6 +156,8 @@ void AddDefaultFeedbackParams(VideoCodec* codec) {
   codec->AddFeedbackParam(FeedbackParam(kRtcpFbParamRemb, kParamValueEmpty));
   codec->AddFeedbackParam(
       FeedbackParam(kRtcpFbParamTransportCc, kParamValueEmpty));
+  codec->AddFeedbackParam(
+      FeedbackParam(kRtcpFbParamCcfb, kParamValueEmpty));
 }
 
 static std::string CodecVectorToString(const std::vector<VideoCodec>& codecs) {
@@ -804,6 +806,7 @@ bool WebRtcVideoChannel2::SetSendParameters(const VideoSendParameters& params) {
         kv.second->SetFeedbackParameters(
             HasNack(send_codec_->codec), HasRemb(send_codec_->codec),
             HasTransportCc(send_codec_->codec),
+            HasCcfb(send_codec_->codec),
             params.rtcp.reduced_size ? webrtc::RtcpMode::kReducedSize
                                      : webrtc::RtcpMode::kCompound);
       }
@@ -1223,6 +1226,8 @@ void WebRtcVideoChannel2::ConfigureReceiverRtp(
   config->rtp.remb = send_codec_ ? HasRemb(send_codec_->codec) : false;
   config->rtp.transport_cc =
       send_codec_ ? HasTransportCc(send_codec_->codec) : false;
+  config->rtp.ccfb =
+      send_codec_ ? HasCcfb(send_codec_->codec) : false;
 
   // TODO(brandtr): Generalize when we add support for multistream protection.
   if (sp.GetFecFrSsrc(ssrc, &flexfec_config->remote_ssrc)) {
@@ -1230,6 +1235,7 @@ void WebRtcVideoChannel2::ConfigureReceiverRtp(
     flexfec_config->local_ssrc = config->rtp.local_ssrc;
     flexfec_config->rtcp_mode = config->rtp.rtcp_mode;
     flexfec_config->transport_cc = config->rtp.transport_cc;
+    flexfec_config->ccfb = config->rtp.ccfb;
     flexfec_config->rtp_header_extensions = config->rtp.extensions;
   }
 
@@ -2234,11 +2240,13 @@ void WebRtcVideoChannel2::WebRtcVideoReceiveStream::SetFeedbackParameters(
     bool nack_enabled,
     bool remb_enabled,
     bool transport_cc_enabled,
+    bool ccfb_enabled,
     webrtc::RtcpMode rtcp_mode) {
   int nack_history_ms = nack_enabled ? kNackHistoryMs : 0;
   if (config_.rtp.nack.rtp_history_ms == nack_history_ms &&
       config_.rtp.remb == remb_enabled &&
       config_.rtp.transport_cc == transport_cc_enabled &&
+      config_.rtp.ccfb == ccfb_enabled &&
       config_.rtp.rtcp_mode == rtcp_mode) {
     LOG(LS_INFO)
         << "Ignoring call to SetFeedbackParameters because parameters are "
@@ -2250,12 +2258,14 @@ void WebRtcVideoChannel2::WebRtcVideoReceiveStream::SetFeedbackParameters(
   config_.rtp.remb = remb_enabled;
   config_.rtp.nack.rtp_history_ms = nack_history_ms;
   config_.rtp.transport_cc = transport_cc_enabled;
+  config_.rtp.ccfb = ccfb_enabled;
   config_.rtp.rtcp_mode = rtcp_mode;
   flexfec_config_.rtcp_mode = rtcp_mode;
   LOG(LS_INFO)
       << "RecreateWebRtcStream (recv) because of SetFeedbackParameters; nack="
       << nack_enabled << ", remb=" << remb_enabled
-      << ", transport_cc=" << transport_cc_enabled;
+      << ", transport_cc=" << transport_cc_enabled
+      << ", ccfb=" << ccfb_enabled;
   RecreateWebRtcStream();
 }
 

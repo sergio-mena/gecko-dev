@@ -38,6 +38,10 @@
 namespace webrtc {
 
 static bool UseSendSideBwe(const VideoReceiveStream::Config& config) {
+  if (config.rtp.ccfb) {
+    printf("\t\t\t\tVideo receive stream detected ffcb when creating stream receiver");
+    return true;
+  }
   if (!config.rtp.transport_cc)
     return false;
   for (const auto& extension : config.rtp.extensions) {
@@ -98,6 +102,7 @@ std::string VideoReceiveStream::Config::Rtp::ToString() const {
   ss << '}';
   ss << ", remb: " << (remb ? "on" : "off");
   ss << ", transport_cc: " << (transport_cc ? "on" : "off");
+  ss << ", ccfb: " << (ccfb ? "on" : "off");
   ss << ", nack: {rtp_history_ms: " << nack.rtp_history_ms << '}';
   ss << ", ulpfec: " << ulpfec.ToString();
   ss << ", rtx: {";

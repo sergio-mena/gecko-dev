@@ -82,6 +82,9 @@ class AudioReceiveStream {
       // for details.
       bool transport_cc = false;
 
+      //TODO Implement audio or delete
+      bool ccfb = false;
+
       // See NackConfig for description.
       NackConfig nack;
 

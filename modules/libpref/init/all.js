@@ -423,6 +423,7 @@ pref("media.navigator.enabled", true);
 pref("media.navigator.video.enabled", true);
 pref("media.navigator.video.default_fps",30);
 pref("media.navigator.video.use_remb", true);
+pref("media.navigator.video.use_ccfb", true);
 pref("media.navigator.video.use_tmmbr", false);
 pref("media.navigator.audio.use_fec", true);
 pref("media.navigator.video.red_ulpfec_enabled", false);

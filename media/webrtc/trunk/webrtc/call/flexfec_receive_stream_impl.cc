@@ -42,6 +42,7 @@ std::string FlexfecReceiveStream::Config::ToString() const {
   if (!protected_media_ssrcs.empty())
     ss << protected_media_ssrcs[i];
   ss << "], transport_cc: " << (transport_cc ? "on" : "off");
+  ss << ", ccfb: " << (ccfb ? "on" : "off");
   ss << ", rtp_header_extensions: [";
   i = 0;
   for (; i + 1 < rtp_header_extensions.size(); ++i)

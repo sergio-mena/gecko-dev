@@ -710,7 +710,7 @@ class ConfigureCodec {
       // REMB is enabled by default, but can be disabled from about:config
       branch->GetBoolPref("media.navigator.video.use_remb", &mUseRemb);
 
-      branch->GetBoolPref("media.peerconnection.use_ccfb", &mUseCcfb);
+      branch->GetBoolPref("media.navigator.video.use_ccfb", &mUseCcfb);
 
       branch->GetBoolPref("media.navigator.audio.use_fec", &mUseAudioFec);
 

@@ -374,6 +374,7 @@ class WebRtcVideoChannel2 : public VideoMediaChannel, public webrtc::Transport {
     void SetFeedbackParameters(bool nack_enabled,
                                bool remb_enabled,
                                bool transport_cc_enabled,
+                               bool ccfb_enabled,
                                webrtc::RtcpMode rtcp_mode);
     void SetRecvParameters(const ChangedRecvParameters& recv_params);
 

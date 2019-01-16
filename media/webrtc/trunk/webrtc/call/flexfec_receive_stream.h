@@ -69,6 +69,8 @@ class FlexfecReceiveStream {
     // has been negotiated. This is a prerequisite for enabling send-side BWE.
     bool transport_cc = false;
 
+    bool ccfb = false;
+
     // RTP header extensions that have been negotiated for this track.
     std::vector<RtpExtension> rtp_header_extensions;
   };

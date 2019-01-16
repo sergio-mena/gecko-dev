@@ -57,6 +57,8 @@ InternalEncoderFactory::InternalEncoderFactory() {
         FeedbackParam(kRtcpFbParamTransportCc, kParamValueEmpty));
     flexfec_codec.AddFeedbackParam(
         FeedbackParam(kRtcpFbParamRemb, kParamValueEmpty));
+    flexfec_codec.AddFeedbackParam(
+        FeedbackParam(kRtcpFbParamCcfb, kParamValueEmpty));
     supported_codecs_.push_back(flexfec_codec);
   }
 }

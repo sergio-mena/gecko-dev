@@ -139,6 +139,9 @@ class VideoReceiveStream {
       // See draft-holmer-rmcat-transport-wide-cc-extensions for details.
       bool transport_cc = false;
 
+      // See draft-ietf-avtcore-cc-feedback-message for details.
+      bool ccfb = false;
+
       // TODO(jesup) - there should be a kKeyFrameReqNone
       KeyFrameRequestMethod keyframe_method = kKeyFrameReqPliRtcp;
 

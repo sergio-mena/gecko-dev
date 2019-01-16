@@ -37,6 +37,7 @@ std::string AudioReceiveStream::Config::Rtp::ToString() const {
   ss << "{remote_ssrc: " << remote_ssrc;
   ss << ", local_ssrc: " << local_ssrc;
   ss << ", transport_cc: " << (transport_cc ? "on" : "off");
+  ss << ", ccfb: " << (ccfb ? "on" : "off");
   ss << ", nack: " << nack.ToString();
   ss << ", extensions: [";
   for (size_t i = 0; i < extensions.size(); ++i) {
@@ -277,6 +278,13 @@ bool AudioReceiveStream::DeliverRtp(const uint8_t* packet,
     size_t payload_size = length - header.headerLength;
     remote_bitrate_estimator_->IncomingPacket(arrival_time_ms, payload_size,
                                               header);
+    //TODO Implement audio or delete
+    printf("\t\t\t\tHere, we get a packet (audio?) to feed to transport_cc remote estimator\n");
+  } else if (config_.rtp.ccfb) {
+    printf("\t\t\t\tHere, we get a packet (audio?) to feed to ccfb remote estimator\n");
+    //TODO forward the packet to the new remote estimator
+  } else {
+    printf("\t\t\t\tAudio packet received. ccfb not active\n");
   }
 
   return channel_proxy_->ReceivedRTPPacket(packet, length, packet_time);

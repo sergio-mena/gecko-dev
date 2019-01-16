@@ -269,7 +269,7 @@ BitrateController* CongestionController::GetBitrateController() const {
 RemoteBitrateEstimator* CongestionController::GetRemoteBitrateEstimator(
     bool send_side_bwe) {
   if (send_side_bwe) {
-    if (ietf_hackathon) {
+    if (ietf_hackathon) { //TODO Next step: turn bool into enum. Remove hack. Higher priority to ccfb.
       return &remote_estimator_proxy2_;
     }
     return &remote_estimator_proxy_;

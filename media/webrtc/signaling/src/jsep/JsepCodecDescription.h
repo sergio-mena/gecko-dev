@@ -252,7 +252,7 @@ class JsepVideoCodecDescription : public JsepCodecDescription {
   EnableCcfb() {
     if (!mCcfbEnabled) {
       mCcfbEnabled = true;
-      mAckFbTypes.push_back(SdpRtcpFbAttributeList::ccfb);
+      mOtherFbTypes.push_back({ "", SdpRtcpFbAttributeList::kCcfb, "", ""});
     }
   }
 
@@ -721,6 +721,17 @@ class JsepVideoCodecDescription : public JsepCodecDescription {
   {
     for (const auto& fb : mOtherFbTypes) {
       if (fb.type == SdpRtcpFbAttributeList::kRemb) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  virtual bool
+  RtcpFbCcfbIsSet() const
+  {
+    for (const auto& fb : mOtherFbTypes) {
+      if (fb.type == SdpRtcpFbAttributeList::kCcfb) {
         return true;
       }
     }
