@@ -38,9 +38,12 @@
 namespace webrtc {
 
 static bool UseSendSideBwe(const VideoReceiveStream::Config& config) {
+  printf("\t\t\tBeginning of UseSendSideBwe\n");
   if (!config.rtp.transport_cc)
     return false;
+  printf("\t\t\tUseSendSideBwe: transport_cc is true\n");
   for (const auto& extension : config.rtp.extensions) {
+    printf("\t\t\tChecking configured RTP URIs. Current: %s\n", extension.uri.c_str());
     if (extension.uri == RtpExtension::kTransportSequenceNumberUri)
       return true;
   }

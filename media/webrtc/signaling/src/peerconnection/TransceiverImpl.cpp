@@ -819,6 +819,7 @@ JsepCodecDescToVideoCodecConfig(const JsepCodecDescription& aCodec,
   configRaw->mAckFbTypes = desc.mAckFbTypes;
   configRaw->mNackFbTypes = desc.mNackFbTypes;
   configRaw->mCcmFbTypes = desc.mCcmFbTypes;
+  configRaw->mTransCCFbSet = desc.RtcpFbTransCCIsSet();
   configRaw->mRembFbSet = desc.RtcpFbRembIsSet();
   configRaw->mFECFbSet = desc.mFECEnabled;
   if (desc.mFECEnabled) {
