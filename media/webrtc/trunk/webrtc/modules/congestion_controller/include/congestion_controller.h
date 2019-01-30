@@ -55,6 +55,12 @@ class CongestionController : public CallStatsObserver, public Module {
    protected:
     virtual ~Observer() {}
   };
+
+  enum SendSideBwe {
+    kBweNone,
+    kBweTransportCC,
+    kBweCcfb,
+  };
   CongestionController(Clock* clock,
                        Observer* observer,
                        RemoteBitrateObserver* remote_bitrate_observer,
@@ -85,7 +91,7 @@ class CongestionController : public CallStatsObserver, public Module {
 
   virtual BitrateController* GetBitrateController() const;
   virtual RemoteBitrateEstimator* GetRemoteBitrateEstimator(
-      bool send_side_bwe);
+      SendSideBwe bwe_type);
   virtual int64_t GetPacerQueuingDelayMs() const;
   // TODO(nisse): Delete this accessor function. The pacer should be
   // internal to the congestion controller.
@@ -132,8 +138,7 @@ class CongestionController : public CallStatsObserver, public Module {
   const std::unique_ptr<BitrateController> bitrate_controller_;
   const std::unique_ptr<ProbeController> probe_controller_;
   const std::unique_ptr<RateLimiter> retransmission_rate_limiter_;
-  RemoteEstimatorProxy remote_estimator_proxy_;
-  RemoteEstimatorProxy2 remote_estimator_proxy2_;
+  std::unique_ptr<RemoteEstimatorProxy> remote_estimator_proxy_;
   TransportFeedbackAdapter transport_feedback_adapter_;
   int min_bitrate_bps_;
   int max_bitrate_bps_;

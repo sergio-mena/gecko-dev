@@ -327,7 +327,7 @@ Call::Call(const Call::Config& config)
   module_process_thread_->RegisterModule(congestion_controller_.get());
   pacer_thread_->RegisterModule(congestion_controller_->pacer());
   pacer_thread_->RegisterModule(
-      congestion_controller_->GetRemoteBitrateEstimator(true));
+      congestion_controller_->GetRemoteBitrateEstimator(CongestionController::kBweCcfb)); //TODO Check if audio is using transport
   pacer_thread_->Start();
 }
 
@@ -345,7 +345,7 @@ Call::~Call() {
   pacer_thread_->Stop();
   pacer_thread_->DeRegisterModule(congestion_controller_->pacer());
   pacer_thread_->DeRegisterModule(
-      congestion_controller_->GetRemoteBitrateEstimator(true));
+      congestion_controller_->GetRemoteBitrateEstimator(CongestionController::kBweCcfb)); //TODO Check if audio is using transport
   module_process_thread_->DeRegisterModule(congestion_controller_.get());
   module_process_thread_->DeRegisterModule(call_stats_.get());
   module_process_thread_->Stop();
@@ -524,7 +524,7 @@ webrtc::AudioReceiveStream* Call::CreateAudioReceiveStream(
   AudioReceiveStream* receive_stream = new AudioReceiveStream(
       &packet_router_,
       // TODO(nisse): Used only when UseSendSideBwe(config) is true.
-      congestion_controller_->GetRemoteBitrateEstimator(true), config,
+      congestion_controller_->GetRemoteBitrateEstimator(CongestionController::kBweCcfb), config, //TODO Check if audio is using transport
       config_.audio_state, event_log_);
   {
     WriteLockScoped write_lock(*receive_crit_);
@@ -780,7 +780,7 @@ Call::Stats Call::GetStats() const {
       &send_bandwidth);
   std::vector<unsigned int> ssrcs;
   uint32_t recv_bandwidth = 0;
-  congestion_controller_->GetRemoteBitrateEstimator(false)->LatestEstimate(
+  congestion_controller_->GetRemoteBitrateEstimator(CongestionController::kBweNone)->LatestEstimate(
       &ssrcs, &recv_bandwidth);
   stats.send_bandwidth_bps = send_bandwidth;
   stats.recv_bandwidth_bps = recv_bandwidth;

@@ -42,7 +42,7 @@ void FuzzOneInput(const uint8_t* data, size_t size) {
   PacketRouter packet_router;
   CongestionController cc(&clock, &observer, &observer, &event_log,
                           &packet_router);
-  RemoteBitrateEstimator* rbe = cc.GetRemoteBitrateEstimator(true);
+  RemoteBitrateEstimator* rbe = cc.GetRemoteBitrateEstimator(CongestionController::kBweTransportCC);
   RTPHeader header;
   header.ssrc = ByteReader<uint32_t>::ReadBigEndian(&data[i]);
   i += sizeof(uint32_t);

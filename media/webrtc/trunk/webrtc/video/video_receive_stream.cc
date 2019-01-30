@@ -37,18 +37,18 @@
 
 namespace webrtc {
 
-static bool UseSendSideBwe(const VideoReceiveStream::Config& config) {
+static CongestionController::SendSideBwe UseSendSideBwe(const VideoReceiveStream::Config& config) {
   if (config.rtp.ccfb) {
-    printf("\t\t\t\tVideo receive stream detected ffcb when creating stream receiver");
-    return true;
+    printf("\t\t\t\tVideo receive stream detected ffcb when creating stream receiver\n");
+    return CongestionController::kBweCcfb;
   }
   if (!config.rtp.transport_cc)
-    return false;
+    return CongestionController::kBweNone;
   for (const auto& extension : config.rtp.extensions) {
     if (extension.uri == RtpExtension::kTransportSequenceNumberUri)
-      return true;
+      return CongestionController::kBweTransportCC;
   }
-  return false;
+  return CongestionController::kBweNone;
 }
 
 std::string VideoReceiveStream::Decoder::ToString() const {

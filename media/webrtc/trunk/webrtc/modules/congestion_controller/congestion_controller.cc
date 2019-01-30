@@ -28,8 +28,6 @@
 namespace webrtc {
 namespace {
 
-constexpr bool ietf_hackathon = true;  //TODO: Make this configurable
-
 static const uint32_t kTimeOffsetSwitchThreshold = 30;
 static const int64_t kRetransmitWindowSizeMs = 500;
 
@@ -185,8 +183,7 @@ CongestionController::CongestionController(
       probe_controller_(new ProbeController(pacer_.get(), clock_)),
       retransmission_rate_limiter_(
           new RateLimiter(clock, kRetransmitWindowSizeMs)),
-      remote_estimator_proxy_(clock_, packet_router_),
-      remote_estimator_proxy2_(clock_, packet_router_),
+      remote_estimator_proxy_(),
       transport_feedback_adapter_(clock_, bitrate_controller_.get()),
       min_bitrate_bps_(congestion_controller::GetMinBitrateBps()),
       max_bitrate_bps_(0),
@@ -204,13 +201,8 @@ void CongestionController::OnReceivedPacket(int64_t arrival_time_ms,
                                             size_t payload_size,
                                             const RTPHeader& header) {
   // Send-side BWE.
-  if (ietf_hackathon) {
-    remote_estimator_proxy2_.IncomingPacket(arrival_time_ms, payload_size,
-                                            header);
-    return;
-  }
-  if (header.extension.hasTransportSequenceNumber) {
-    remote_estimator_proxy_.IncomingPacket(arrival_time_ms, payload_size,
+  if (remote_estimator_proxy_) {
+    remote_estimator_proxy_->IncomingPacket(arrival_time_ms, payload_size,
                                            header);
     return;
   }
@@ -267,15 +259,23 @@ BitrateController* CongestionController::GetBitrateController() const {
 }
 
 RemoteBitrateEstimator* CongestionController::GetRemoteBitrateEstimator(
-    bool send_side_bwe) {
-  if (send_side_bwe) {
-    if (ietf_hackathon) { //TODO Next step: turn bool into enum. Remove hack. Higher priority to ccfb.
-      return &remote_estimator_proxy2_;
-    }
-    return &remote_estimator_proxy_;
-  } else {
+    //TODO: This doesn't work. We need to create both
+    SendSideBwe bwe_type) {
+  if (remote_estimator_proxy_) {
+    return remote_estimator_proxy_.get();
+  }
+  switch (bwe_type) {
+  case kBweTransportCC:
+    remote_estimator_proxy_ = std::make_unique<RemoteEstimatorProxy>(clock_, packet_router_);
+    break;
+  case kBweCcfb:
+    remote_estimator_proxy_ = std::make_unique<RemoteEstimatorProxy2>(clock_, packet_router_);
+    break;
+  case kBweNone:
+  default:
     return remote_bitrate_estimator_.get();
   }
+  return remote_estimator_proxy_.get();
 }
 
 TransportFeedbackObserver*
@@ -373,11 +373,7 @@ void CongestionController::MaybeTriggerOnNetworkChanged() {
         bitrate_bps, fraction_loss, rtt,
         transport_feedback_adapter_.GetProbingIntervalMs());
 
-    if (ietf_hackathon) {
-      remote_estimator_proxy2_.OnBitrateChanged(bitrate_bps);
-    } else {
-      remote_estimator_proxy_.OnBitrateChanged(bitrate_bps);
-    }
+    remote_estimator_proxy_->OnBitrateChanged(bitrate_bps);
   }
 }
 
