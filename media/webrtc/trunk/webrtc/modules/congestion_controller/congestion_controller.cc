@@ -315,6 +315,9 @@ void CongestionController::SetTransportOverhead(
 void CongestionController::OnSentPacket(const rtc::SentPacket& sent_packet) {
   // We're not interested in packets without an id, which may be stun packets,
   // etc, sent on the same transport.
+  
+  printf("\t\t Inside CC:OnSentPacket: id = %d\n", sent_packet.packet_id);
+	
   if (sent_packet.packet_id == -1)
     return;
   transport_feedback_adapter_.OnSentPacket(sent_packet.packet_id,

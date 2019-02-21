@@ -331,7 +331,9 @@ void TransportFeedback::SetFeedbackSequenceNumber(uint8_t feedback_sequence) {
 
 bool TransportFeedback::AddReceivedPacket(uint16_t sequence_number,
                                           int64_t timestamp_us) {
-  printf("\t\t\tXXXXXX I've been asked to add a received packet to feedback\n");
+  
+    // printf("\t\t\tXXXXXX I've been asked to add a received packet to feedback\n");
+  
   // Convert to ticks and round.
   int64_t delta_full = (timestamp_us - last_timestamp_us_) % kTimeWrapPeriodUs;
   if (delta_full > kTimeWrapPeriodUs / 2)
@@ -412,6 +414,7 @@ bool TransportFeedback::Parse(const CommonHeader& packet) {
   RTC_DCHECK_EQ(packet.fmt(), kFeedbackMessageType);
 
   printf("\t\t\tXXXXXX I'm asked to parse a transport feedback!!!!\n");
+  
   if (packet.payload_size_bytes() < kMinPayloadSizeBytes) {
     LOG(LS_WARNING) << "Buffer too small (" << packet.payload_size_bytes()
                     << " bytes) to fit a "
@@ -430,6 +433,9 @@ bool TransportFeedback::Parse(const CommonHeader& packet) {
   Clear();
   size_t index = 16;
   const size_t end_index = packet.payload_size_bytes();
+
+  printf("\t\t\tXXXXXX receiving transport feedback for %6d packets\n", status_count);
+
 
   if (status_count == 0) {
     LOG(LS_WARNING) << "Empty feedback messages not allowed.";
@@ -498,6 +504,9 @@ bool TransportFeedback::Parse(const CommonHeader& packet) {
 std::unique_ptr<TransportFeedback> TransportFeedback::ParseFrom(
     const uint8_t* buffer,
     size_t length) {
+
+	
+  printf("\t\t\tXXXXXX Inside ParseFrom: received a transport feedback!!!!\n");
   CommonHeader header;
   if (!header.Parse(buffer, length))
     return nullptr;
@@ -506,6 +515,9 @@ std::unique_ptr<TransportFeedback> TransportFeedback::ParseFrom(
   std::unique_ptr<TransportFeedback> parsed(new TransportFeedback);
   if (!parsed->Parse(header))
     return nullptr;
+
+  printf("\t\t\tXXXXXX Inside ParseFrom: finished parsing a transport feedback!!!!\n");
+
   return parsed;
 }
 

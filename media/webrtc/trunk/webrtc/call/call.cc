@@ -952,6 +952,9 @@ void Call::UpdateAggregateNetworkState() {
 }
 
 void Call::OnSentPacket(const rtc::SentPacket& sent_packet) {
+
+    printf("\t\t XZXZXZ  Inside Call::OnSentPacket ...\n");
+
   if (first_packet_sent_ms_ == -1)
     first_packet_sent_ms_ = clock_->TimeInMilliseconds();
   video_send_delay_stats_->OnSentPacket(sent_packet.packet_id,

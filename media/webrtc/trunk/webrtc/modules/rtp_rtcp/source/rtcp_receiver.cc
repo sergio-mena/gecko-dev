@@ -136,6 +136,9 @@ RTCPReceiver::RTCPReceiver(
 RTCPReceiver::~RTCPReceiver() {}
 
 bool RTCPReceiver::IncomingPacket(const uint8_t* packet, size_t packet_size) {
+
+//    printf("\t\t XZXZXZXZXZ Inside IncomingPacket \n");
+
   if (packet_size == 0) {
     LOG(LS_WARNING) << "Incoming empty RTCP packet";
     return false;
@@ -349,6 +352,7 @@ bool RTCPReceiver::ParseCompoundPacket(const uint8_t* packet_begin,
             HandleSrReq(rtcp_block, packet_information);
             break;
           case rtcp::TransportFeedback::kFeedbackMessageType:
+	   // printf("\t\t  XZXZXZXZXZ  calling HandleTransportFeedback\n");
             HandleTransportFeedback(rtcp_block, packet_information);
             break;
           default:
@@ -940,6 +944,8 @@ void RTCPReceiver::HandleTransportFeedback(
 
   packet_information->packet_type_flags |= kRtcpTransportFeedback;
   packet_information->transport_feedback = std::move(transport_feedback);
+
+//  printf("\t\t XZXZXZXZXZ  inside HandleTransportFeedback, updated pkt_info\n");
 }
 
 void RTCPReceiver::UpdateTmmbr() {
@@ -972,7 +978,10 @@ RtcpStatisticsCallback* RTCPReceiver::GetRtcpStatisticsCallback() {
 // Holding no Critical section.
 void RTCPReceiver::TriggerCallbacksFromRtcpPacket(
     const PacketInformation& packet_information) {
-  // Process TMMBR and REMB first to avoid multiple callbacks
+
+    printf(" \t\t XZXZXZXZXZ Inside RTCPReceiver, TriggerCallbacksFromRtcpPacket \n");
+  
+   // Process TMMBR and REMB first to avoid multiple callbacks
   // to OnNetworkChanged.
   if (packet_information.packet_type_flags & kRtcpTmmbr) {
     // Might trigger a OnReceivedBandwidthEstimateUpdate.
@@ -1002,6 +1011,8 @@ void RTCPReceiver::TriggerCallbacksFromRtcpPacket(
   // report can generate several RTCP packets, based on number relayed/mixed
   // a send report block should go out to all receivers.
   if (rtcp_intra_frame_observer_) {
+
+    printf("\t\t XZXZXZXZXZXZ rtcp_intra_frame_observer_ exists | handle report blocks\n");
     RTC_DCHECK(!receiver_only_);
     if ((packet_information.packet_type_flags & kRtcpPli) ||
         (packet_information.packet_type_flags & kRtcpFir)) {
@@ -1024,6 +1035,9 @@ void RTCPReceiver::TriggerCallbacksFromRtcpPacket(
     }
   }
   if (rtcp_bandwidth_observer_) {
+
+    printf("\t\t XZXZXZXZXZXZ rtcp_bandwidth_observer_ exists | handle report blocks\n");
+
     RTC_DCHECK(!receiver_only_);
     if (packet_information.packet_type_flags & kRtcpRemb) {
       LOG(LS_VERBOSE) << "Incoming REMB: "
@@ -1038,13 +1052,19 @@ void RTCPReceiver::TriggerCallbacksFromRtcpPacket(
           packet_information.report_blocks, packet_information.rtt_ms, now_ms);
     }
   }
+
   if ((packet_information.packet_type_flags & kRtcpSr) ||
       (packet_information.packet_type_flags & kRtcpRr)) {
-    rtp_rtcp_->OnReceivedRtcpReportBlocks(packet_information.report_blocks);
+  
+    printf("\t\t XZXZXZXZXZ calling OnReceivedRtcpReportBlocks via rtp_rtcp_\n");
+
+	  rtp_rtcp_->OnReceivedRtcpReportBlocks(packet_information.report_blocks);
   }
 
   if (transport_feedback_observer_ &&
       (packet_information.packet_type_flags & kRtcpTransportFeedback)) {
+    
+    printf("\t\t XZXZXZXZXZXZ transport_feedback_observer_ exists | handle report blocks\n");
     uint32_t media_source_ssrc =
         packet_information.transport_feedback->media_ssrc();
     if (media_source_ssrc == local_ssrc ||
