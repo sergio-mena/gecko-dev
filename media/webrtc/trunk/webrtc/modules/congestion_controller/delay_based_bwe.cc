@@ -239,26 +239,48 @@ DelayBasedBwe::DelayBasedBwe(Clock* clock)
 
 DelayBasedBwe::Result DelayBasedBwe::IncomingPacketFeedbackVector(
     const std::vector<PacketInfo>& packet_feedback_vector) {
-  RTC_DCHECK(network_thread_.CalledOnValidThread());
-  if (!uma_recorded_) {
-    RTC_HISTOGRAM_ENUMERATION(kBweTypeHistogram,
+
+    // [XZ 2019-02-20  add time stamp info]
+    int64_t now_ms = clock_->TimeInMilliseconds();
+    printf("\t XZXZXZ Inside DelayBasedBwe::IncomingPacketFeedbackVector at %d ms\n", now_ms);
+    // [XZ 2019-02-20]
+
+
+    RTC_DCHECK(network_thread_.CalledOnValidThread());
+
+    printf("\t XZXZXZ Inside DelayBasedBwe::IncomingPacketFeedbackVector, still here\n");
+    if (!uma_recorded_) {
+        RTC_HISTOGRAM_ENUMERATION(kBweTypeHistogram,
                               BweNames::kSendSideTransportSeqNum,
                               BweNames::kBweNamesMax);
-    uma_recorded_ = true;
-  }
-  Result aggregated_result;
-  for (const auto& packet_info : packet_feedback_vector) {
-    Result result = IncomingPacketInfo(packet_info);
-    if (result.updated)
-      aggregated_result = result;
+        uma_recorded_ = true;
+    }
+
+    printf("\t XZXZXZ Inside DelayBasedBwe::IncomingPacketFeedbackVector, before the loop, fb size=%d\n",
+		    packet_feedback_vector.size());
+
+    Result aggregated_result;
+    for (const auto& packet_info : packet_feedback_vector) {
+
+       // printf("\t\t Inside DelayBasedBwe | calling IncomingPacketInfo\n");
+	Result result = IncomingPacketInfo(packet_info);
+       
+	printf("\t\t Inside DelayBasedBwe | update based on pkt %d, result = %d\n", 
+		packet_info.sequence_number, result.updated);
+
+        if (result.updated)
+    	    aggregated_result = result;
   }
   return aggregated_result;
 }
 
 DelayBasedBwe::Result DelayBasedBwe::IncomingPacketInfo(
     const PacketInfo& info) {
+ 
   int64_t now_ms = clock_->TimeInMilliseconds();
 
+  // printf("\t Inside DelayBasedBwe: now_ms=%ld\n", now_ms);
+  
   receiver_incoming_bitrate_.Update(info.arrival_time_ms, info.payload_size);
   Result result;
   // Reset if the stream has timed out.

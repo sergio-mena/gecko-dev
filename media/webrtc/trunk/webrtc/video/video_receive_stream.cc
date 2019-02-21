@@ -44,9 +44,14 @@ static bool UseSendSideBwe(const VideoReceiveStream::Config& config) {
   printf("\t\t\tUseSendSideBwe: transport_cc is true\n");
   for (const auto& extension : config.rtp.extensions) {
     printf("\t\t\tChecking configured RTP URIs. Current: %s\n", extension.uri.c_str());
+    printf("\t\t\tChecking configured RTP URIs. expected: %s\n",RtpExtension::kTransportSequenceNumberUri);
     if (extension.uri == RtpExtension::kTransportSequenceNumberUri)
-      return true;
+    {
+	    printf("\t\t\t Matching URI, returning true\n"); 
+	    return true;
+    }
   }
+  
   return false;
 }
 

@@ -97,6 +97,8 @@ NADABandwidthEstimation::NADABandwidthEstimation(RtcEventLog* event_log)
 	      
   RTC_DCHECK(event_log);
 
+  printf("Initializing the NADA BW Estimation Module\n");
+
   LOG(LS_INFO) << "Initializing the NADA BW Estimation Module" ;
   LOG(LS_INFO) << "NADA initial stats: delta = " << delta_ 
 	       << "ms, x_curr = " << nada_x_curr_ 
@@ -200,7 +202,8 @@ void NADABandwidthEstimation::UpdateDelayBasedEstimate(
   delay_based_bitrate_bps_ = bitrate_bps;
 //  bitrate_ = CapBitrateToThresholds(now_ms, bitrate_);
     
-  
+  printf("NADA UpdateDelayBasedEstimate: %.2f Kbps at %d ms\n", delay_based_bitrate_bps_/1000., now_ms-first_report_time_ms_);
+
   LOG(LS_INFO) << "NADA UpdateDelayBasedEstimate: now = " << now_ms-first_report_time_ms_ 
 	       << " ms, delay_based_rate_ = " << bitrate_bps/1000 
 	       << " Kbps" << std::endl; 
@@ -226,6 +229,8 @@ void NADABandwidthEstimation::UpdateReceiverBlock(uint8_t fraction_loss,
   }
 
 
+  printf("NADA UpdateReceiverBlock at %d ms...\n", now_ms-first_report_time_ms_);
+  
   LOG(LS_INFO) << "NADA UpdateReceiverBlock: now = " << now_ms-first_report_time_ms_
 	       << " ms, fb_interval = " << feedback_interval_ms_ 
 	       << " ms, loss = " << int(fraction_loss)
@@ -396,6 +401,9 @@ void NADABandwidthEstimation::GradualRateUpdate(const int64_t now_ms) {
 
 void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
     
+
+    printf("NADA invoking UpdateEstimate at %d ms...\n", now_ms-first_report_time_ms_);
+
     if (last_feedback_ms_ == -1) {
         
 	// no feedback message yet: staying with current rate

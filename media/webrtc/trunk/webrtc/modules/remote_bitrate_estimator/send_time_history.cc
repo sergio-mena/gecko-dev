@@ -28,11 +28,13 @@ void SendTimeHistory::Clear() {
 void SendTimeHistory::AddAndRemoveOld(uint16_t sequence_number,
                                       size_t payload_size,
                                       int probe_cluster_id) {
+
+
   int64_t now_ms = clock_->TimeInMilliseconds();
   // Remove old.
   while (!history_.empty() &&
          now_ms - history_.begin()->second.creation_time_ms >
-             packet_age_limit_ms_) {
+         packet_age_limit_ms_) {
     // TODO(sprang): Warn if erasing (too many) old items?
     history_.erase(history_.begin());
   }
@@ -42,9 +44,15 @@ void SendTimeHistory::AddAndRemoveOld(uint16_t sequence_number,
   int64_t creation_time_ms = now_ms;
   constexpr int64_t kNoArrivalTimeMs = -1;  // Arrival time is ignored.
   constexpr int64_t kNoSendTimeMs = -1;     // Send time is set by OnSentPacket.
+
+//  printf("\t\t XZXZXZ adding pkt (seqno = %d->%ld) to history, sendtime unassigned\n", 
+//	  sequence_number, unwrapped_seq_num);
+
+
   history_.insert(std::make_pair(
       unwrapped_seq_num,
-      PacketInfo(creation_time_ms, kNoArrivalTimeMs, kNoSendTimeMs,
+      // PacketInfo(creation_time_ms, kNoArrivalTimeMs, kNoSendTimeMs,
+      PacketInfo(creation_time_ms, kNoArrivalTimeMs, now_ms,		// [XZ 2019-02-20: sent time same as creation time
                  sequence_number, payload_size, probe_cluster_id)));
 }
 
@@ -62,9 +70,15 @@ bool SendTimeHistory::GetInfo(PacketInfo* packet_info, bool remove) {
   RTC_DCHECK(packet_info);
   int64_t unwrapped_seq_num =
       seq_num_unwrapper_.Unwrap(packet_info->sequence_number);
+
+  printf("\t\t XZXZXZ looking up packet (seqno = %ld -> %ld) in history\n", 
+	 packet_info->sequence_number, unwrapped_seq_num);
+
   auto it = history_.find(unwrapped_seq_num);
   if (it == history_.end())
     return false;
+
+  printf("\t\t still here ...\n");
 
   // Save arrival_time not to overwrite it.
   int64_t arrival_time_ms = packet_info->arrival_time_ms;
@@ -73,6 +87,9 @@ bool SendTimeHistory::GetInfo(PacketInfo* packet_info, bool remove) {
 
   if (remove)
     history_.erase(it);
+  
+  printf("\t\t still here ... returning true, send_time = %d, arrival_time = %d\n", 
+	  packet_info->send_time_ms, packet_info->arrival_time_ms);
   return true;
 }
 
