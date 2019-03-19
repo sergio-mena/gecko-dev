@@ -106,9 +106,9 @@ enum RTCPPacketType : uint32_t {
   kRtcpTransmissionTimeOffset = 0x20000,
   kRtcpXrReceiverReferenceTime = 0x40000,
   kRtcpXrDlrrReportBlock = 0x80000,
-  kRtcpTransportFeedback = 0x100000,
+  kRtcpTransportCCFeedback = 0x100000,
   kRtcpXrTargetBitrate = 0x200000,
-  kRtcpTransportFeedbackRTP = 0x400000,
+  kRtcpCcfbFeedback = 0x400000,
 };
 
 enum KeyFrameRequestMethod { kKeyFrameReqPliRtcp, kKeyFrameReqFirRtcp };

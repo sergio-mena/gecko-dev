@@ -83,7 +83,7 @@ int64_t RemoteEstimatorProxy::TimeUntilNextProcess() {
 }
 
 rtcp::TransportFeedback* RemoteEstimatorProxy::CreateTFPacket() {
-  return new rtcp::TransportFeedback;
+  return new rtcp::TransportCCFeedback;
 }
 
 void RemoteEstimatorProxy::Process() {
@@ -131,7 +131,6 @@ void RemoteEstimatorProxy::OnPacketArrival(uint16_t sequence_number,
   // SequenceNumberUnwrapper doesn't do this, so we should replace this with
   // calls to IsNewerSequenceNumber instead.
   int64_t seq = unwrapper_.Unwrap(sequence_number);
-  /*
   if (seq > window_start_seq_ + 0xFFFF / 2) {
     LOG(LS_WARNING) << "Skipping this sequence number (" << sequence_number
                     << ") since it likely is reordered, but the unwrapper"
@@ -139,7 +138,6 @@ void RemoteEstimatorProxy::OnPacketArrival(uint16_t sequence_number,
                     << window_start_seq_ << ".";
     return;
   }
-  */
 
   if (packet_arrival_times_.lower_bound(window_start_seq_) ==
       packet_arrival_times_.end()) {
@@ -168,7 +166,6 @@ void RemoteEstimatorProxy::OnPacketArrival(uint16_t sequence_number,
 
 bool RemoteEstimatorProxy::BuildFeedbackPacket(
     rtcp::TransportFeedback* feedback_packet) {
-
   // window_start_seq_ is the first sequence number to include in the current
   // feedback packet. Some older may still be in the map, in case a reordering
   // happens and we need to retransmit them.
@@ -238,7 +235,7 @@ void RemoteEstimatorProxy2::IncomingPacket(int64_t arrival_time_ms,
 }
 
 rtcp::TransportFeedback* RemoteEstimatorProxy2::CreateTFPacket() {
-  return new rtcp::TransportFeedbackRTP;
+  return new rtcp::CcfbFeedback;
 }
 
 }  // namespace webrtc

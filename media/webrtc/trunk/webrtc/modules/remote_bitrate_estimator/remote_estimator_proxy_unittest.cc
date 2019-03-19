@@ -24,7 +24,7 @@ namespace webrtc {
 
 class MockPacketRouter : public PacketRouter {
  public:
-  MOCK_METHOD1(SendFeedback, bool(rtcp::TransportFeedback* packet));
+  MOCK_METHOD1(SendFeedback, bool(rtcp::TransportCCFeedback* packet));
 };
 
 class RemoteEstimatorProxyTest : public ::testing::Test {
@@ -55,7 +55,7 @@ class RemoteEstimatorProxyTest : public ::testing::Test {
   const uint16_t kBaseSeq = 10;
   const int64_t kBaseTimeMs = 123;
   const int64_t kMaxSmallDeltaMs =
-      (rtcp::TransportFeedback::kDeltaScaleFactor * 0xFF) / 1000;
+      (rtcp::TransportCCFeedback::kDeltaScaleFactor * 0xFF) / 1000;
 };
 
 TEST_F(RemoteEstimatorProxyTest, SendsSinglePacketFeedback) {
@@ -63,15 +63,15 @@ TEST_F(RemoteEstimatorProxyTest, SendsSinglePacketFeedback) {
 
   EXPECT_CALL(router_, SendFeedback(_))
       .Times(1)
-      .WillOnce(Invoke([this](rtcp::TransportFeedback* packet) {
+      .WillOnce(Invoke([this](rtcp::TransportCCFeedback* packet) {
         packet->Build();
         EXPECT_EQ(kBaseSeq, packet->GetBaseSequence());
         EXPECT_EQ(kMediaSsrc, packet->media_ssrc());
 
-        std::vector<rtcp::TransportFeedback::StatusSymbol> status_vec =
+        std::vector<rtcp::TransportCCFeedback::StatusSymbol> status_vec =
             packet->GetStatusVector();
         EXPECT_EQ(1u, status_vec.size());
-        EXPECT_EQ(rtcp::TransportFeedback::StatusSymbol::kReceivedSmallDelta,
+        EXPECT_EQ(rtcp::TransportCCFeedback::StatusSymbol::kReceivedSmallDelta,
                   status_vec[0]);
         std::vector<int64_t> delta_vec = packet->GetReceiveDeltasUs();
         EXPECT_EQ(1u, delta_vec.size());
@@ -88,15 +88,15 @@ TEST_F(RemoteEstimatorProxyTest, DuplicatedPackets) {
 
   EXPECT_CALL(router_, SendFeedback(_))
       .Times(1)
-      .WillOnce(Invoke([this](rtcp::TransportFeedback* packet) {
+      .WillOnce(Invoke([this](rtcp::TransportCCFeedback* packet) {
         packet->Build();
         EXPECT_EQ(kBaseSeq, packet->GetBaseSequence());
         EXPECT_EQ(kMediaSsrc, packet->media_ssrc());
 
-        std::vector<rtcp::TransportFeedback::StatusSymbol> status_vec =
+        std::vector<rtcp::TransportCCFeedback::StatusSymbol> status_vec =
             packet->GetStatusVector();
         EXPECT_EQ(1u, status_vec.size());
-        EXPECT_EQ(rtcp::TransportFeedback::StatusSymbol::kReceivedSmallDelta,
+        EXPECT_EQ(rtcp::TransportCCFeedback::StatusSymbol::kReceivedSmallDelta,
                   status_vec[0]);
         std::vector<int64_t> delta_vec = packet->GetReceiveDeltasUs();
         EXPECT_EQ(1u, delta_vec.size());
@@ -119,17 +119,17 @@ TEST_F(RemoteEstimatorProxyTest, FeedbackWithMissingStart) {
 
   EXPECT_CALL(router_, SendFeedback(_))
       .Times(1)
-      .WillOnce(Invoke([this](rtcp::TransportFeedback* packet) {
+      .WillOnce(Invoke([this](rtcp::TransportCCFeedback* packet) {
         packet->Build();
         EXPECT_EQ(kBaseSeq + 2, packet->GetBaseSequence());
         EXPECT_EQ(kMediaSsrc, packet->media_ssrc());
 
-        std::vector<rtcp::TransportFeedback::StatusSymbol> status_vec =
+        std::vector<rtcp::TransportCCFeedback::StatusSymbol> status_vec =
             packet->GetStatusVector();
         EXPECT_EQ(2u, status_vec.size());
-        EXPECT_EQ(rtcp::TransportFeedback::StatusSymbol::kNotReceived,
+        EXPECT_EQ(rtcp::TransportCCFeedback::StatusSymbol::kNotReceived,
                   status_vec[0]);
-        EXPECT_EQ(rtcp::TransportFeedback::StatusSymbol::kReceivedSmallDelta,
+        EXPECT_EQ(rtcp::TransportCCFeedback::StatusSymbol::kReceivedSmallDelta,
                   status_vec[1]);
         std::vector<int64_t> delta_vec = packet->GetReceiveDeltasUs();
         EXPECT_EQ(1u, delta_vec.size());
@@ -148,19 +148,19 @@ TEST_F(RemoteEstimatorProxyTest, SendsFeedbackWithVaryingDeltas) {
 
   EXPECT_CALL(router_, SendFeedback(_))
       .Times(1)
-      .WillOnce(Invoke([this](rtcp::TransportFeedback* packet) {
+      .WillOnce(Invoke([this](rtcp::TransportCCFeedback* packet) {
         packet->Build();
         EXPECT_EQ(kBaseSeq, packet->GetBaseSequence());
         EXPECT_EQ(kMediaSsrc, packet->media_ssrc());
 
-        std::vector<rtcp::TransportFeedback::StatusSymbol> status_vec =
+        std::vector<rtcp::TransportCCFeedback::StatusSymbol> status_vec =
             packet->GetStatusVector();
         EXPECT_EQ(3u, status_vec.size());
-        EXPECT_EQ(rtcp::TransportFeedback::StatusSymbol::kReceivedSmallDelta,
+        EXPECT_EQ(rtcp::TransportCCFeedback::StatusSymbol::kReceivedSmallDelta,
                   status_vec[0]);
-        EXPECT_EQ(rtcp::TransportFeedback::StatusSymbol::kReceivedSmallDelta,
+        EXPECT_EQ(rtcp::TransportCCFeedback::StatusSymbol::kReceivedSmallDelta,
                   status_vec[1]);
-        EXPECT_EQ(rtcp::TransportFeedback::StatusSymbol::kReceivedLargeDelta,
+        EXPECT_EQ(rtcp::TransportCCFeedback::StatusSymbol::kReceivedLargeDelta,
                   status_vec[2]);
 
         std::vector<int64_t> delta_vec = packet->GetReceiveDeltasUs();
@@ -176,7 +176,7 @@ TEST_F(RemoteEstimatorProxyTest, SendsFeedbackWithVaryingDeltas) {
 
 TEST_F(RemoteEstimatorProxyTest, SendsFragmentedFeedback) {
   const int64_t kTooLargeDelta =
-      rtcp::TransportFeedback::kDeltaScaleFactor * (1 << 16);
+      rtcp::TransportCCFeedback::kDeltaScaleFactor * (1 << 16);
 
   IncomingPacket(kBaseSeq, kBaseTimeMs);
   IncomingPacket(kBaseSeq + 1, kBaseTimeMs + kTooLargeDelta);
@@ -184,15 +184,15 @@ TEST_F(RemoteEstimatorProxyTest, SendsFragmentedFeedback) {
   InSequence s;
   EXPECT_CALL(router_, SendFeedback(_))
       .Times(1)
-      .WillOnce(Invoke([kTooLargeDelta, this](rtcp::TransportFeedback* packet) {
+      .WillOnce(Invoke([kTooLargeDelta, this](rtcp::TransportCCFeedback* packet) {
         packet->Build();
         EXPECT_EQ(kBaseSeq, packet->GetBaseSequence());
         EXPECT_EQ(kMediaSsrc, packet->media_ssrc());
 
-        std::vector<rtcp::TransportFeedback::StatusSymbol> status_vec =
+        std::vector<rtcp::TransportCCFeedback::StatusSymbol> status_vec =
             packet->GetStatusVector();
         EXPECT_EQ(1u, status_vec.size());
-        EXPECT_EQ(rtcp::TransportFeedback::StatusSymbol::kReceivedSmallDelta,
+        EXPECT_EQ(rtcp::TransportCCFeedback::StatusSymbol::kReceivedSmallDelta,
                   status_vec[0]);
         std::vector<int64_t> delta_vec = packet->GetReceiveDeltasUs();
         EXPECT_EQ(1u, delta_vec.size());
@@ -203,15 +203,15 @@ TEST_F(RemoteEstimatorProxyTest, SendsFragmentedFeedback) {
 
   EXPECT_CALL(router_, SendFeedback(_))
       .Times(1)
-      .WillOnce(Invoke([kTooLargeDelta, this](rtcp::TransportFeedback* packet) {
+      .WillOnce(Invoke([kTooLargeDelta, this](rtcp::TransportCCFeedback* packet) {
         packet->Build();
         EXPECT_EQ(kBaseSeq + 1, packet->GetBaseSequence());
         EXPECT_EQ(kMediaSsrc, packet->media_ssrc());
 
-        std::vector<rtcp::TransportFeedback::StatusSymbol> status_vec =
+        std::vector<rtcp::TransportCCFeedback::StatusSymbol> status_vec =
             packet->GetStatusVector();
         EXPECT_EQ(1u, status_vec.size());
-        EXPECT_EQ(rtcp::TransportFeedback::StatusSymbol::kReceivedSmallDelta,
+        EXPECT_EQ(rtcp::TransportCCFeedback::StatusSymbol::kReceivedSmallDelta,
                   status_vec[0]);
         std::vector<int64_t> delta_vec = packet->GetReceiveDeltasUs();
         EXPECT_EQ(1u, delta_vec.size());
@@ -232,7 +232,7 @@ TEST_F(RemoteEstimatorProxyTest, GracefullyHandlesReorderingAndWrap) {
 
   EXPECT_CALL(router_, SendFeedback(_))
       .Times(1)
-      .WillOnce(Invoke([this](rtcp::TransportFeedback* packet) {
+      .WillOnce(Invoke([this](rtcp::TransportCCFeedback* packet) {
         packet->Build();
         EXPECT_EQ(kBaseSeq, packet->GetBaseSequence());
         EXPECT_EQ(kMediaSsrc, packet->media_ssrc());
@@ -252,7 +252,7 @@ TEST_F(RemoteEstimatorProxyTest, ResendsTimestampsOnReordering) {
 
   EXPECT_CALL(router_, SendFeedback(_))
       .Times(1)
-      .WillOnce(Invoke([this](rtcp::TransportFeedback* packet) {
+      .WillOnce(Invoke([this](rtcp::TransportCCFeedback* packet) {
         packet->Build();
         EXPECT_EQ(kBaseSeq, packet->GetBaseSequence());
         EXPECT_EQ(kMediaSsrc, packet->media_ssrc());
@@ -270,7 +270,7 @@ TEST_F(RemoteEstimatorProxyTest, ResendsTimestampsOnReordering) {
 
   EXPECT_CALL(router_, SendFeedback(_))
       .Times(1)
-      .WillOnce(Invoke([this](rtcp::TransportFeedback* packet) {
+      .WillOnce(Invoke([this](rtcp::TransportCCFeedback* packet) {
         packet->Build();
         EXPECT_EQ(kBaseSeq + 1, packet->GetBaseSequence());
         EXPECT_EQ(kMediaSsrc, packet->media_ssrc());
@@ -294,7 +294,7 @@ TEST_F(RemoteEstimatorProxyTest, RemovesTimestampsOutOfScope) {
 
   EXPECT_CALL(router_, SendFeedback(_))
       .Times(1)
-      .WillOnce(Invoke([kTimeoutTimeMs, this](rtcp::TransportFeedback* packet) {
+      .WillOnce(Invoke([kTimeoutTimeMs, this](rtcp::TransportCCFeedback* packet) {
         packet->Build();
         EXPECT_EQ(kBaseSeq + 2, packet->GetBaseSequence());
 
@@ -310,7 +310,7 @@ TEST_F(RemoteEstimatorProxyTest, RemovesTimestampsOutOfScope) {
 
   EXPECT_CALL(router_, SendFeedback(_))
       .Times(1)
-      .WillOnce(Invoke([kTimeoutTimeMs, this](rtcp::TransportFeedback* packet) {
+      .WillOnce(Invoke([kTimeoutTimeMs, this](rtcp::TransportCCFeedback* packet) {
         packet->Build();
         EXPECT_EQ(kBaseSeq + 3, packet->GetBaseSequence());
 
@@ -330,7 +330,7 @@ TEST_F(RemoteEstimatorProxyTest, RemovesTimestampsOutOfScope) {
 
   EXPECT_CALL(router_, SendFeedback(_))
       .Times(1)
-      .WillOnce(Invoke([kTimeoutTimeMs, this](rtcp::TransportFeedback* packet) {
+      .WillOnce(Invoke([kTimeoutTimeMs, this](rtcp::TransportCCFeedback* packet) {
         packet->Build();
         EXPECT_EQ(kBaseSeq, packet->GetBaseSequence());
 

@@ -348,11 +348,11 @@ bool RTCPReceiver::ParseCompoundPacket(const uint8_t* packet_begin,
           case rtcp::RapidResyncRequest::kFeedbackMessageType:
             HandleSrReq(rtcp_block, packet_information);
             break;
-          case rtcp::TransportFeedback::kFeedbackMessageType:
-            HandleTransportFeedback(rtcp_block, packet_information);
+          case rtcp::TransportCCFeedback::kFeedbackMessageType:
+            HandleTransportCCFeedback(rtcp_block, packet_information);
             break;
-          case rtcp::TransportFeedbackRTP::kFeedbackMessageType:
-            HandleTransportFeedbackRTP(rtcp_block, packet_information);
+          case rtcp::CcfbFeedback::kFeedbackMessageType:
+            HandleCcfbFeedback(rtcp_block, packet_information);
             break;
           default:
             ++num_skipped_packets_;
@@ -931,31 +931,31 @@ void RTCPReceiver::HandleFir(const CommonHeader& rtcp_block,
   }
 }
 
-void RTCPReceiver::HandleTransportFeedback(
+void RTCPReceiver::HandleTransportCCFeedback(
     const CommonHeader& rtcp_block,
     PacketInformation* packet_information) {
   std::unique_ptr<rtcp::TransportFeedback> transport_feedback(
-      new rtcp::TransportFeedback());
+      new rtcp::TransportCCFeedback());
   if (!transport_feedback->Parse(rtcp_block)) {
     ++num_skipped_packets_;
     return;
   }
 
-  packet_information->packet_type_flags |= kRtcpTransportFeedback;
+  packet_information->packet_type_flags |= kRtcpTransportCCFeedback;
   packet_information->transport_feedback = std::move(transport_feedback);
 }
 
-void RTCPReceiver::HandleTransportFeedbackRTP(
+void RTCPReceiver::HandleCcfbFeedback(
     const CommonHeader& rtcp_block,
     PacketInformation* packet_information) {
-  std::unique_ptr<rtcp::TransportFeedbackRTP> transport_feedback(
-      new rtcp::TransportFeedbackRTP());
+  std::unique_ptr<rtcp::TransportFeedback> transport_feedback(
+      new rtcp::CcfbFeedback());
   if (!transport_feedback->Parse(rtcp_block)) {
     ++num_skipped_packets_;
     return;
   }
 
-  packet_information->packet_type_flags |= kRtcpTransportFeedbackRTP;
+  packet_information->packet_type_flags |= kRtcpCcfbFeedback;
   packet_information->transport_feedback = std::move(transport_feedback);
 }
 
@@ -1061,7 +1061,7 @@ void RTCPReceiver::TriggerCallbacksFromRtcpPacket(
   }
 
   if (transport_feedback_observer_ &&
-      (packet_information.packet_type_flags & (kRtcpTransportFeedback | kRtcpTransportFeedbackRTP))) {
+      (packet_information.packet_type_flags & (kRtcpTransportCCFeedback | kRtcpCcfbFeedback))) {
     uint32_t media_source_ssrc =
         packet_information.transport_feedback->media_ssrc();
     if (media_source_ssrc == local_ssrc ||

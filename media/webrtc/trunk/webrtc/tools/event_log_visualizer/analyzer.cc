@@ -401,18 +401,18 @@ EventLogAnalyzer::EventLogAnalyzer(const ParsedRtcEventLog& log)
                   StreamId stream(ssrc, direction);
                   uint64_t timestamp = parsed_log_.GetTimestamp(i);
                   rtcp_packets_[stream].push_back(LoggedRtcpPacket(
-                      timestamp, kRtcpTransportFeedback, std::move(rtcp_packet)));
+                      timestamp, kRtcpTransportCCFeedback, std::move(rtcp_packet)));
                 }
               }
-              if (header.fmt() == rtcp::TransportFeedbackRTP::kFeedbackMessageType) {
-                std::unique_ptr<rtcp::TransportFeedbackRTP> rtcp_packet(
-                    new rtcp::TransportFeedbackRTP());
+              if (header.fmt() == rtcp::CcfbFeedback::kFeedbackMessageType) {
+                std::unique_ptr<rtcp::CcfbFeedback> rtcp_packet(
+                    new rtcp::CcfbFeedback());
                 if (rtcp_packet->Parse(header)) {
                   uint32_t ssrc = rtcp_packet->sender_ssrc();
                   StreamId stream(ssrc, direction);
                   uint64_t timestamp = parsed_log_.GetTimestamp(i);
                   rtcp_packets_[stream].push_back(LoggedRtcpPacket(
-                      timestamp, kRtcpTransportFeedbackRTP, std::move(rtcp_packet)));
+                      timestamp, kRtcpCcfbFeedback, std::move(rtcp_packet)));
                 }
               }
             }
@@ -1002,15 +1002,10 @@ void EventLogAnalyzer::CreateBweSimulationGraph(Plot* plot) {
     if (clock.TimeInMicroseconds() >= NextRtcpTime()) {
       RTC_DCHECK_EQ(clock.TimeInMicroseconds(), NextRtcpTime());
       const LoggedRtcpPacket& rtcp = *rtcp_iterator->second;
-      if (rtcp.type == kRtcpTransportFeedback || rtcp.type == kRtcpTransportFeedbackRTP) {
+      if (rtcp.type == kRtcpTransportCCFeedback || rtcp.type == kRtcpCcfbFeedback) {
         TransportFeedbackObserver* observer = cc.GetTransportFeedbackObserver();
-        if (rtcp.type == kRtcpTransportFeedback) {
-          observer->OnTransportFeedback(*static_cast<rtcp::TransportFeedback*>(
-              rtcp.packet.get()));
-        } else {
-          observer->OnTransportFeedback(*static_cast<rtcp::TransportFeedbackRTP*>(
-              rtcp.packet.get()));
-        }
+        observer->OnTransportFeedback(*static_cast<rtcp::TransportFeedback*>(
+            rtcp.packet.get()));
         std::vector<PacketInfo> feedback =
             observer->GetTransportFeedbackVector();
         rtc::Optional<uint32_t> bitrate_bps;
@@ -1143,14 +1138,9 @@ void EventLogAnalyzer::CreateNetworkDelayFeedbackGraph(Plot* plot) {
     if (clock.TimeInMicroseconds() >= NextRtcpTime()) {
       RTC_DCHECK_EQ(clock.TimeInMicroseconds(), NextRtcpTime());
       const LoggedRtcpPacket& rtcp = *rtcp_iterator->second;
-      if (rtcp.type == kRtcpTransportFeedback || rtcp.type == kRtcpTransportFeedbackRTP) {
-        if (rtcp.type == kRtcpTransportFeedback) {
-          feedback_adapter.OnTransportFeedback(
-              *static_cast<rtcp::TransportFeedback*>(rtcp.packet.get()));
-        } else {
-          feedback_adapter.OnTransportFeedback(
-              *static_cast<rtcp::TransportFeedbackRTP*>(rtcp.packet.get()));
-        }
+      if (rtcp.type == kRtcpTransportCCFeedback || rtcp.type == kRtcpCcfbFeedback) {
+        feedback_adapter.OnTransportFeedback(
+            *static_cast<rtcp::TransportFeedback*>(rtcp.packet.get()));
         std::vector<PacketInfo> feedback =
           feedback_adapter.GetTransportFeedbackVector();
         for (const PacketInfo& packet : feedback) {

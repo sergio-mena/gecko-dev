@@ -96,7 +96,7 @@ class RtcpPacketParser {
   PacketCounter<rtcp::Sli>* sli() { return &sli_; }
   PacketCounter<rtcp::Tmmbn>* tmmbn() { return &tmmbn_; }
   PacketCounter<rtcp::Tmmbr>* tmmbr() { return &tmmbr_; }
-  PacketCounter<rtcp::TransportFeedback>* transport_feedback() {
+  PacketCounter<rtcp::TransportCCFeedback>* transport_feedback() {
     return &transport_feedback_;
   }
   uint32_t sender_ssrc() const { return sender_ssrc_; }
@@ -118,7 +118,7 @@ class RtcpPacketParser {
   PacketCounter<rtcp::Sli> sli_;
   PacketCounter<rtcp::Tmmbn> tmmbn_;
   PacketCounter<rtcp::Tmmbr> tmmbr_;
-  PacketCounter<rtcp::TransportFeedback> transport_feedback_;
+  PacketCounter<rtcp::TransportCCFeedback> transport_feedback_;
   uint32_t sender_ssrc_ = 0;
 };
 

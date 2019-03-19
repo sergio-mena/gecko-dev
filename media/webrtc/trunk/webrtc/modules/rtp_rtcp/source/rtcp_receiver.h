@@ -214,11 +214,11 @@ class RTCPReceiver {
                  PacketInformation* packet_information)
       EXCLUSIVE_LOCKS_REQUIRED(rtcp_receiver_lock_);
 
-  void HandleTransportFeedback(const rtcp::CommonHeader& rtcp_block,
+  void HandleTransportCCFeedback(const rtcp::CommonHeader& rtcp_block,
                                PacketInformation* packet_information)
       EXCLUSIVE_LOCKS_REQUIRED(rtcp_receiver_lock_);
 
-  void HandleTransportFeedbackRTP(const rtcp::CommonHeader& rtcp_block,
+  void HandleCcfbFeedback(const rtcp::CommonHeader& rtcp_block,
                                   PacketInformation* packet_information)
       EXCLUSIVE_LOCKS_REQUIRED(rtcp_receiver_lock_);
 

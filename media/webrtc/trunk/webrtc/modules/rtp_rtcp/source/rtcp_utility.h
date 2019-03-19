@@ -300,7 +300,7 @@ enum class RTCPPacketTypes {
   // draft-holmer-rmcat-transport-wide-cc-extensions
   kTransportFeedback,
   // draft-ietf-avtcore-cc-feedback-message
-  kTransportFeedbackRTP,
+  kCcfbFeedback,
 };
 
 struct RTCPRawPacket {

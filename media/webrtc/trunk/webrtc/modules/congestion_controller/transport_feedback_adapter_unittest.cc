@@ -113,7 +113,7 @@ TEST_F(TransportFeedbackAdapterTest, AdaptsFeedbackAndPopulatesSendTimes) {
   for (const PacketInfo& packet : packets)
     OnSentPacket(packet);
 
-  rtcp::TransportFeedback feedback;
+  rtcp::TransportCCFeedback feedback;
   feedback.SetBase(packets[0].sequence_number,
                    packets[0].arrival_time_ms * 1000);
 
@@ -144,7 +144,7 @@ TEST_F(TransportFeedbackAdapterTest, HandlesDroppedPackets) {
       OnSentPacket(packet);
   }
 
-  rtcp::TransportFeedback feedback;
+  rtcp::TransportCCFeedback feedback;
   feedback.SetBase(packets[0].sequence_number,
                    packets[0].arrival_time_ms * 1000);
 
@@ -167,7 +167,7 @@ TEST_F(TransportFeedbackAdapterTest, HandlesDroppedPackets) {
 }
 
 TEST_F(TransportFeedbackAdapterTest, SendTimeWrapsBothWays) {
-  int64_t kHighArrivalTimeMs = rtcp::TransportFeedback::kDeltaScaleFactor *
+  int64_t kHighArrivalTimeMs = rtcp::TransportCCFeedback::kDeltaScaleFactor *
                                static_cast<int64_t>(1 << 8) *
                                static_cast<int64_t>((1 << 23) - 1) / 1000;
   std::vector<PacketInfo> packets;
@@ -183,7 +183,7 @@ TEST_F(TransportFeedbackAdapterTest, SendTimeWrapsBothWays) {
 
   for (size_t i = 0; i < packets.size(); ++i) {
     std::unique_ptr<rtcp::TransportFeedback> feedback(
-        new rtcp::TransportFeedback());
+        new rtcp::TransportCCFeedback());
     feedback->SetBase(packets[i].sequence_number,
                       packets[i].arrival_time_ms * 1000);
 
@@ -191,7 +191,7 @@ TEST_F(TransportFeedbackAdapterTest, SendTimeWrapsBothWays) {
                                             packets[i].arrival_time_ms * 1000));
 
     rtc::Buffer raw_packet = feedback->Build();
-    feedback = rtcp::TransportFeedback::ParseFrom(raw_packet.data(),
+    feedback = rtcp::TransportCCFeedback::ParseFrom(raw_packet.data(),
                                                   raw_packet.size());
 
     std::vector<PacketInfo> expected_packets;
@@ -216,7 +216,7 @@ TEST_F(TransportFeedbackAdapterTest, HandlesReordering) {
   for (const PacketInfo& packet : packets)
     OnSentPacket(packet);
 
-  rtcp::TransportFeedback feedback;
+  rtcp::TransportCCFeedback feedback;
   feedback.SetBase(packets[0].sequence_number,
                    packets[0].arrival_time_ms * 1000);
 
@@ -235,12 +235,12 @@ TEST_F(TransportFeedbackAdapterTest, HandlesReordering) {
 TEST_F(TransportFeedbackAdapterTest, TimestampDeltas) {
   std::vector<PacketInfo> sent_packets;
   const int64_t kSmallDeltaUs =
-      rtcp::TransportFeedback::kDeltaScaleFactor * ((1 << 8) - 1);
+      rtcp::TransportCCFeedback::kDeltaScaleFactor * ((1 << 8) - 1);
   const int64_t kLargePositiveDeltaUs =
-      rtcp::TransportFeedback::kDeltaScaleFactor *
+      rtcp::TransportCCFeedback::kDeltaScaleFactor *
       std::numeric_limits<int16_t>::max();
   const int64_t kLargeNegativeDeltaUs =
-      rtcp::TransportFeedback::kDeltaScaleFactor *
+      rtcp::TransportCCFeedback::kDeltaScaleFactor *
       std::numeric_limits<int16_t>::min();
 
   PacketInfo info(100, 200, 0, 1500, true, PacketInfo::kNotAProbe);
@@ -273,7 +273,7 @@ TEST_F(TransportFeedbackAdapterTest, TimestampDeltas) {
 
   // Create expected feedback and send into adapter.
   std::unique_ptr<rtcp::TransportFeedback> feedback(
-      new rtcp::TransportFeedback());
+      new rtcp::TransportCCFeedback());
   feedback->SetBase(sent_packets[0].sequence_number,
                     sent_packets[0].arrival_time_ms * 1000);
 
@@ -286,7 +286,7 @@ TEST_F(TransportFeedbackAdapterTest, TimestampDeltas) {
 
   rtc::Buffer raw_packet = feedback->Build();
   feedback =
-      rtcp::TransportFeedback::ParseFrom(raw_packet.data(), raw_packet.size());
+      rtcp::TransportCCFeedback::ParseFrom(raw_packet.data(), raw_packet.size());
 
   std::vector<PacketInfo> received_feedback;
 
@@ -305,13 +305,13 @@ TEST_F(TransportFeedbackAdapterTest, TimestampDeltas) {
   }
 
   // Create a new feedback message and add the trailing item.
-  feedback.reset(new rtcp::TransportFeedback());
+  feedback.reset(new rtcp::TransportCCFeedback());
   feedback->SetBase(info.sequence_number, info.arrival_time_ms * 1000);
   EXPECT_TRUE(feedback->AddReceivedPacket(info.sequence_number,
                                           info.arrival_time_ms * 1000));
   raw_packet = feedback->Build();
   feedback =
-      rtcp::TransportFeedback::ParseFrom(raw_packet.data(), raw_packet.size());
+      rtcp::TransportCCFeedback::ParseFrom(raw_packet.data(), raw_packet.size());
 
   EXPECT_TRUE(feedback.get() != nullptr);
   adapter_->OnTransportFeedback(*feedback.get());
@@ -336,12 +336,12 @@ TEST_F(TransportFeedbackAdapterTest, UpdatesDelayBasedEstimate) {
     OnSentPacket(packet);
     // Create expected feedback and send into adapter.
     std::unique_ptr<rtcp::TransportFeedback> feedback(
-        new rtcp::TransportFeedback());
+        new rtcp::TransportCCFeedback());
     feedback->SetBase(packet.sequence_number, packet.arrival_time_ms * 1000);
     EXPECT_TRUE(feedback->AddReceivedPacket(packet.sequence_number,
                                             packet.arrival_time_ms * 1000));
     rtc::Buffer raw_packet = feedback->Build();
-    feedback = rtcp::TransportFeedback::ParseFrom(raw_packet.data(),
+    feedback = rtcp::TransportCCFeedback::ParseFrom(raw_packet.data(),
                                                   raw_packet.size());
     EXPECT_TRUE(feedback.get() != nullptr);
     adapter_->OnTransportFeedback(*feedback.get());

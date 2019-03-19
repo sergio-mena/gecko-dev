@@ -21,11 +21,12 @@
 namespace webrtc {
 namespace rtcp {
 namespace {
+
 // Header size:
 // * 4 bytes Common RTCP Packet Header
 // * 8 bytes Common Packet Format for RTCP Feedback Messages
 // * 8 bytes FeedbackPacket header
-constexpr size_t kTransportFeedbackHeaderSizeBytes = 4 + 8 + 8;
+constexpr size_t kTransportCCFeedbackHeaderSizeBytes = 4 + 8 + 8;
 constexpr size_t kChunkSizeBytes = 2;
 // TODO(sprang): Add support for dynamic max size for easier fragmentation,
 // eg. set it to what's left in the buffer or IP_PACKET_SIZE.
@@ -38,8 +39,27 @@ constexpr size_t kMaxSizeBytes = (1 << 16) * 4;
 // * 2 bytes for one chunk.
 constexpr size_t kMinPayloadSizeBytes = 8 + 8 + 2;
 constexpr size_t kBaseScaleFactor =
-    TransportFeedback::kDeltaScaleFactor * (1 << 8);
+    TransportCCFeedback::kDeltaScaleFactor * (1 << 8);
 constexpr int64_t kTimeWrapPeriodUs = (1ll << 24) * kBaseScaleFactor;
+}  // namespace
+
+TransportFeedback::TransportFeedback(size_t size_bytes)
+    : Rtpfb(),
+      size_bytes_(size_bytes),
+      base_seq_no_(0),
+      last_timestamp_us_(0) {}
+
+TransportFeedback::~TransportFeedback() {}
+
+size_t TransportFeedback::BlockLength() const {
+  // Round size_bytes_ up to multiple of 32bits.
+  return (size_bytes_ + 3) & (~static_cast<size_t>(3));
+}
+
+uint16_t TransportFeedback::GetBaseSequence() const {
+  return base_seq_no_;
+}
+
 
 //    Message format
 //
@@ -68,14 +88,14 @@ constexpr int64_t kTimeWrapPeriodUs = (1ll << 24) * kBaseScaleFactor;
 //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //    |           recv delta          |  recv delta   | zero padding  |
 //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-}  // namespace
-constexpr uint8_t TransportFeedback::kFeedbackMessageType;
-constexpr size_t TransportFeedback::kMaxReportedPackets;
+
+constexpr uint8_t TransportCCFeedback::kFeedbackMessageType;
+constexpr size_t TransportCCFeedback::kMaxReportedPackets;
 
 // Keep delta_sizes that can be encoded into single chunk if it is last chunk.
-class TransportFeedback::LastChunk {
+class TransportCCFeedback::LastChunk {
  public:
-  using DeltaSize = TransportFeedback::DeltaSize;
+  using DeltaSize = TransportCCFeedback::DeltaSize;
 
   LastChunk();
 
@@ -119,26 +139,26 @@ class TransportFeedback::LastChunk {
   bool all_same_;
   bool has_large_delta_;
 };
-constexpr size_t TransportFeedback::LastChunk::kMaxRunLengthCapacity;
-constexpr size_t TransportFeedback::LastChunk::kMaxOneBitCapacity;
-constexpr size_t TransportFeedback::LastChunk::kMaxTwoBitCapacity;
-constexpr size_t TransportFeedback::LastChunk::kMaxVectorCapacity;
+constexpr size_t TransportCCFeedback::LastChunk::kMaxRunLengthCapacity;
+constexpr size_t TransportCCFeedback::LastChunk::kMaxOneBitCapacity;
+constexpr size_t TransportCCFeedback::LastChunk::kMaxTwoBitCapacity;
+constexpr size_t TransportCCFeedback::LastChunk::kMaxVectorCapacity;
 
-TransportFeedback::LastChunk::LastChunk() {
+TransportCCFeedback::LastChunk::LastChunk() {
   Clear();
 }
 
-bool TransportFeedback::LastChunk::Empty() const {
+bool TransportCCFeedback::LastChunk::Empty() const {
   return size_ == 0;
 }
 
-void TransportFeedback::LastChunk::Clear() {
+void TransportCCFeedback::LastChunk::Clear() {
   size_ = 0;
   all_same_ = true;
   has_large_delta_ = false;
 }
 
-bool TransportFeedback::LastChunk::CanAdd(DeltaSize delta_size) const {
+bool TransportCCFeedback::LastChunk::CanAdd(DeltaSize delta_size) const {
   RTC_DCHECK_LE(delta_size, 2);
   if (size_ < kMaxTwoBitCapacity)
     return true;
@@ -150,7 +170,7 @@ bool TransportFeedback::LastChunk::CanAdd(DeltaSize delta_size) const {
   return false;
 }
 
-void TransportFeedback::LastChunk::Add(DeltaSize delta_size) {
+void TransportCCFeedback::LastChunk::Add(DeltaSize delta_size) {
   RTC_DCHECK(CanAdd(delta_size));
   if (size_ < kMaxVectorCapacity)
     delta_sizes_[size_] = delta_size;
@@ -159,7 +179,7 @@ void TransportFeedback::LastChunk::Add(DeltaSize delta_size) {
   has_large_delta_ = has_large_delta_ || delta_size == kLarge;
 }
 
-uint16_t TransportFeedback::LastChunk::Emit() {
+uint16_t TransportCCFeedback::LastChunk::Emit() {
   RTC_DCHECK(!CanAdd(0) || !CanAdd(1) || !CanAdd(2));
   if (all_same_) {
     uint16_t chunk = EncodeRunLength();
@@ -188,7 +208,7 @@ uint16_t TransportFeedback::LastChunk::Emit() {
   return chunk;
 }
 
-uint16_t TransportFeedback::LastChunk::EncodeLast() const {
+uint16_t TransportCCFeedback::LastChunk::EncodeLast() const {
   RTC_DCHECK_GT(size_, 0);
   if (all_same_)
     return EncodeRunLength();
@@ -198,7 +218,7 @@ uint16_t TransportFeedback::LastChunk::EncodeLast() const {
 }
 
 // Appends content of the Lastchunk to |deltas|.
-void TransportFeedback::LastChunk::AppendTo(
+void TransportCCFeedback::LastChunk::AppendTo(
     std::vector<DeltaSize>* deltas) const {
   if (all_same_) {
     deltas->insert(deltas->end(), size_, delta_sizes_[0]);
@@ -207,7 +227,7 @@ void TransportFeedback::LastChunk::AppendTo(
   }
 }
 
-void TransportFeedback::LastChunk::Decode(uint16_t chunk, size_t max_size) {
+void TransportCCFeedback::LastChunk::Decode(uint16_t chunk, size_t max_size) {
   if ((chunk & 0x8000) == 0) {
     DecodeRunLength(chunk, max_size);
   } else if ((chunk & 0x4000) == 0) {
@@ -228,7 +248,7 @@ void TransportFeedback::LastChunk::Decode(uint16_t chunk, size_t max_size) {
 //  T = 1
 //  S = 0
 //  Symbol list = 14 entries where 0 = not received, 1 = received 1-byte delta.
-uint16_t TransportFeedback::LastChunk::EncodeOneBit() const {
+uint16_t TransportCCFeedback::LastChunk::EncodeOneBit() const {
   RTC_DCHECK(!has_large_delta_);
   RTC_DCHECK_LE(size_, kMaxOneBitCapacity);
   uint16_t chunk = 0x8000;
@@ -237,7 +257,7 @@ uint16_t TransportFeedback::LastChunk::EncodeOneBit() const {
   return chunk;
 }
 
-void TransportFeedback::LastChunk::DecodeOneBit(uint16_t chunk,
+void TransportCCFeedback::LastChunk::DecodeOneBit(uint16_t chunk,
                                                 size_t max_size) {
   RTC_DCHECK_EQ(chunk & 0xc000, 0x8000);
   size_ = std::min(kMaxOneBitCapacity, max_size);
@@ -258,7 +278,7 @@ void TransportFeedback::LastChunk::DecodeOneBit(uint16_t chunk,
 //  T = 1
 //  S = 1
 //  symbol list = 7 entries of two bits each.
-uint16_t TransportFeedback::LastChunk::EncodeTwoBit(size_t size) const {
+uint16_t TransportCCFeedback::LastChunk::EncodeTwoBit(size_t size) const {
   RTC_DCHECK_LE(size, size_);
   uint16_t chunk = 0xc000;
   for (size_t i = 0; i < size; ++i)
@@ -266,7 +286,7 @@ uint16_t TransportFeedback::LastChunk::EncodeTwoBit(size_t size) const {
   return chunk;
 }
 
-void TransportFeedback::LastChunk::DecodeTwoBit(uint16_t chunk,
+void TransportCCFeedback::LastChunk::DecodeTwoBit(uint16_t chunk,
                                                 size_t max_size) {
   RTC_DCHECK_EQ(chunk & 0xc000, 0xc000);
   size_ = std::min(kMaxTwoBitCapacity, max_size);
@@ -287,13 +307,13 @@ void TransportFeedback::LastChunk::DecodeTwoBit(uint16_t chunk,
 //  T = 0
 //  S = symbol
 //  Run Length = Unsigned integer denoting the run length of the symbol
-uint16_t TransportFeedback::LastChunk::EncodeRunLength() const {
+uint16_t TransportCCFeedback::LastChunk::EncodeRunLength() const {
   RTC_DCHECK(all_same_);
   RTC_DCHECK_LE(size_, kMaxRunLengthCapacity);
   return (delta_sizes_[0] << 13) | size_;
 }
 
-void TransportFeedback::LastChunk::DecodeRunLength(uint16_t chunk,
+void TransportCCFeedback::LastChunk::DecodeRunLength(uint16_t chunk,
                                                    size_t max_count) {
   RTC_DCHECK_EQ(chunk & 0x8000, 0);
   size_ = std::min<size_t>(chunk & 0x1fff, max_count);
@@ -305,19 +325,17 @@ void TransportFeedback::LastChunk::DecodeRunLength(uint16_t chunk,
     delta_sizes_[i] = delta_size;
 }
 
-TransportFeedback::TransportFeedback()
-    : size_bytes_(kTransportFeedbackHeaderSizeBytes),
-      base_time_ticks_(0),
-      last_timestamp_us_(0),
-      base_seq_no_(0),
+TransportCCFeedback::TransportCCFeedback()
+    : TransportFeedback(kTransportCCFeedbackHeaderSizeBytes),
       num_seq_no_(0),
+      base_time_ticks_(0),
       feedback_seq_(0),
       last_chunk_(new LastChunk()) {}
 
-TransportFeedback::~TransportFeedback() {}
+TransportCCFeedback::~TransportCCFeedback() {}
 
-void TransportFeedback::SetBase(uint16_t base_sequence,
-                                int64_t ref_timestamp_us) {
+void TransportCCFeedback::SetBase(uint16_t base_sequence,
+                                  int64_t ref_timestamp_us) {
   RTC_DCHECK_EQ(num_seq_no_, 0);
   RTC_DCHECK_GE(ref_timestamp_us, 0);
   base_seq_no_ = base_sequence;
@@ -325,11 +343,11 @@ void TransportFeedback::SetBase(uint16_t base_sequence,
   last_timestamp_us_ = GetBaseTimeUs();
 }
 
-void TransportFeedback::SetFeedbackSequenceNumber(uint8_t feedback_sequence) {
+void TransportCCFeedback::SetFeedbackSequenceNumber(uint8_t feedback_sequence) {
   feedback_seq_ = feedback_sequence;
 }
 
-bool TransportFeedback::AddReceivedPacket(uint16_t sequence_number,
+bool TransportCCFeedback::AddReceivedPacket(uint16_t sequence_number,
                                           int64_t timestamp_us) {
   // Convert to ticks and round.
   int64_t delta_full = (timestamp_us - last_timestamp_us_) % kTimeWrapPeriodUs;
@@ -366,13 +384,9 @@ bool TransportFeedback::AddReceivedPacket(uint16_t sequence_number,
   return true;
 }
 
-uint16_t TransportFeedback::GetBaseSequence() const {
-  return base_seq_no_;
-}
-
-std::vector<TransportFeedback::StatusSymbol>
-TransportFeedback::GetStatusVector() const {
-  std::vector<TransportFeedback::StatusSymbol> symbols;
+std::vector<TransportCCFeedback::StatusSymbol>
+TransportCCFeedback::GetStatusVector() const {
+  std::vector<TransportCCFeedback::StatusSymbol> symbols;
   uint16_t seq_no = GetBaseSequence();
   for (const auto& packet : packets_) {
     for (; seq_no != packet.sequence_number; ++seq_no)
@@ -387,18 +401,18 @@ TransportFeedback::GetStatusVector() const {
   return symbols;
 }
 
-std::vector<int16_t> TransportFeedback::GetReceiveDeltas() const {
+std::vector<int16_t> TransportCCFeedback::GetReceiveDeltas() const {
   std::vector<int16_t> deltas;
   for (const auto& packet : packets_)
     deltas.push_back(packet.delta_ticks);
   return deltas;
 }
 
-int64_t TransportFeedback::GetBaseTimeUs() const {
+int64_t TransportCCFeedback::GetBaseTimeUs() const {
   return static_cast<int64_t>(base_time_ticks_) * kBaseScaleFactor;
 }
 
-std::vector<int64_t> TransportFeedback::GetReceiveDeltasUs() const {
+std::vector<int64_t> TransportCCFeedback::GetReceiveDeltasUs() const {
   std::vector<int64_t> us_deltas;
   for (const auto& packet : packets_)
     us_deltas.push_back(packet.delta_ticks * kDeltaScaleFactor);
@@ -406,7 +420,7 @@ std::vector<int64_t> TransportFeedback::GetReceiveDeltasUs() const {
 }
 
 // De-serialize packet.
-bool TransportFeedback::Parse(const CommonHeader& packet) {
+bool TransportCCFeedback::Parse(const CommonHeader& packet) {
   RTC_DCHECK_EQ(packet.type(), kPacketType);
   RTC_DCHECK_EQ(packet.fmt(), kFeedbackMessageType);
 
@@ -493,7 +507,7 @@ bool TransportFeedback::Parse(const CommonHeader& packet) {
   return true;
 }
 
-std::unique_ptr<TransportFeedback> TransportFeedback::ParseFrom(
+std::unique_ptr<TransportCCFeedback> TransportCCFeedback::ParseFrom(
     const uint8_t* buffer,
     size_t length) {
   CommonHeader header;
@@ -501,14 +515,14 @@ std::unique_ptr<TransportFeedback> TransportFeedback::ParseFrom(
     return nullptr;
   if (header.type() != kPacketType || header.fmt() != kFeedbackMessageType)
     return nullptr;
-  std::unique_ptr<TransportFeedback> parsed(new TransportFeedback);
+  std::unique_ptr<TransportCCFeedback> parsed(new TransportCCFeedback);
   if (!parsed->Parse(header))
     return nullptr;
   return parsed;
 }
 
-bool TransportFeedback::IsConsistent() const {
-  size_t packet_size = kTransportFeedbackHeaderSizeBytes;
+bool TransportCCFeedback::IsConsistent() const {
+  size_t packet_size = kTransportCCFeedbackHeaderSizeBytes;
   std::vector<DeltaSize> delta_sizes;
   LastChunk chunk_decoder;
   for (uint16_t chunk : encoded_chunks_) {
@@ -569,8 +583,32 @@ bool TransportFeedback::IsConsistent() const {
   return true;
 }
 
+std::vector<PacketInfo> TransportCCFeedback::GetFeedbackVector(int64_t base_offset_ms) const {
+  std::vector<PacketInfo> packet_feedback_vector;
+  uint16_t sequence_number = GetBaseSequence();
+  std::vector<int64_t> delta_vec = GetReceiveDeltasUs();
+  auto delta_it = delta_vec.begin();
+  packet_feedback_vector.reserve(delta_vec.size());
+
+  int64_t offset_us = 0;
+  for (auto symbol : GetStatusVector()) {
+    // TODO: (semena) But then, if initial packet was lost, info is discarded
+    // This logic is taken from TransportFeedbackAdapter
+    if (symbol != StatusSymbol::kNotReceived) {
+      RTC_DCHECK(delta_it != delta_vec.end());
+      offset_us += *(delta_it++);
+      int64_t timestamp_ms = base_offset_ms + (offset_us / 1000);
+      PacketInfo info(timestamp_ms, sequence_number);
+      packet_feedback_vector.push_back(info);
+    }
+    ++sequence_number;
+  }
+  RTC_DCHECK(delta_it == delta_vec.end());
+  return packet_feedback_vector;
+}
+
 // Serialize packet.
-bool TransportFeedback::Create(uint8_t* packet,
+bool TransportCCFeedback::Create(uint8_t* packet,
                                size_t* position,
                                size_t max_length,
                                PacketReadyCallback* callback) const {
@@ -626,21 +664,16 @@ bool TransportFeedback::Create(uint8_t* packet,
   return true;
 }
 
-size_t TransportFeedback::BlockLength() const {
-  // Round size_bytes_ up to multiple of 32bits.
-  return (size_bytes_ + 3) & (~static_cast<size_t>(3));
-}
-
-void TransportFeedback::Clear() {
+void TransportCCFeedback::Clear() {
   num_seq_no_ = 0;
   last_timestamp_us_ = GetBaseTimeUs();
   packets_.clear();
   encoded_chunks_.clear();
   last_chunk_->Clear();
-  size_bytes_ = kTransportFeedbackHeaderSizeBytes;
+  size_bytes_ = kTransportCCFeedbackHeaderSizeBytes;
 }
 
-bool TransportFeedback::AddDeltaSize(DeltaSize delta_size) {
+bool TransportCCFeedback::AddDeltaSize(DeltaSize delta_size) {
   if (num_seq_no_ == kMaxReportedPackets)
     return false;
   size_t add_chunk_size = last_chunk_->Empty() ? kChunkSizeBytes : 0;
@@ -677,7 +710,7 @@ bool TransportFeedback::AddDeltaSize(DeltaSize delta_size) {
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //  |                   SSRC of 1st RTP Stream                      |
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//  |          begin_seq            |             end_seq           |
+//  |          begin_seq            |             end_seq + 1       |
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //  |L|ECN|  Arrival time offset    | ...                           .
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -687,7 +720,7 @@ bool TransportFeedback::AddDeltaSize(DeltaSize delta_size) {
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //  |                   SSRC of nth RTP Stream                      |
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//  |          begin_seq            |             end_seq           |
+//  |          begin_seq            |             end_seq + 1       |
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //  |L|ECN|  Arrival time offset    | ...                           |
 //  .                                                               .
@@ -696,15 +729,18 @@ bool TransportFeedback::AddDeltaSize(DeltaSize delta_size) {
 //  |                        Report Timestamp                       |
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-constexpr uint8_t TransportFeedbackRTP::kFeedbackMessageType;
-constexpr uint16_t TransportFeedbackRTP::MetricBlock::m_overrange;
-constexpr uint16_t TransportFeedbackRTP::MetricBlock::m_unavailable;
+constexpr uint8_t CcfbFeedback::kFeedbackMessageType;
+constexpr uint16_t CcfbFeedback::MetricBlock::m_overrange;
+constexpr uint16_t CcfbFeedback::MetricBlock::m_unavailable;
 
-TransportFeedbackRTP::TransportFeedbackRTP()
-    : TransportFeedback(),
+// RTCP common header + SSRC of packet sender + report timestamp
+static constexpr size_t kCcfbMinPayloadSizeBytes = 4 + 4 + 4;
+
+CcfbFeedback::CcfbFeedback()
+    : TransportFeedback(kCcfbMinPayloadSizeBytes),
       m_reportBlocks() {}
 
-TransportFeedbackRTP::~TransportFeedbackRTP() {}
+CcfbFeedback::~CcfbFeedback() {}
 
 template <typename T>
 T ReadSequential(const uint8_t* const payload, size_t* index) {
@@ -734,7 +770,7 @@ void RtpHdrSetBit (uint8_t& val, uint8_t pos, bool bit)
   }
 }
 
-bool TransportFeedbackRTP::UpdateLength()
+bool CcfbFeedback::UpdateLength()
 {
   if (m_reportBlocks.empty()) {
     return false;
@@ -758,8 +794,18 @@ bool TransportFeedbackRTP::UpdateLength()
   return true;
 }
 
-bool TransportFeedbackRTP::AddReceivedPacket(uint16_t sequence_number,
-                                             int64_t timestamp_us) {
+void CcfbFeedback::SetBase(uint16_t base_sequence,
+                           int64_t ref_timestamp_us) {
+  base_seq_no_ = base_sequence;
+  last_timestamp_us_ = ref_timestamp_us;
+}
+
+void CcfbFeedback::SetFeedbackSequenceNumber(uint8_t feedback_sequence) {
+  // CCFB format does not contain a sequence number for feedback packets
+}
+
+bool CcfbFeedback::AddReceivedPacket(uint16_t sequence_number,
+                                     int64_t timestamp_us) {
   //TODO: Another difference with NS3: Only one media SSRC supported (in the packet format)
   uint32_t ssrc = media_ssrc();
   //TODO: No ecn support at the moment
@@ -789,43 +835,12 @@ bool TransportFeedbackRTP::AddReceivedPacket(uint16_t sequence_number,
   return true;
 }
 
-std::vector<TransportFeedback::StatusSymbol>
-TransportFeedbackRTP::GetStatusVector() const {
-  std::vector<TransportFeedback::StatusSymbol> symbols;
-  RTC_DCHECK(IsConsistent()); // Exactly one SSRC
-  uint16_t seq_no = GetBaseSequence();
-
-  if (m_reportBlocks.empty()) {
-    return symbols;
-  }
-  const auto& rb_it = m_reportBlocks.find(media_ssrc());
-  if(rb_it == m_reportBlocks.end()) {
-    FATAL();
-  }
-  const auto& rb = rb_it->second;
-  const auto beginStop = CalculateBeginStopSeq(base_seq_no_, rb);
-  const uint16_t stopSeq = beginStop.second;
-  for (uint16_t i = seq_no; i != stopSeq; ++i) {
-    const auto& mb_it = rb.find(i);
-    const bool received = (mb_it != rb.end());
-    symbols.push_back(received ? StatusSymbol::kReceivedSmallDelta :
-                                 StatusSymbol::kNotReceived);
-  }
-  return symbols;
-}
-
-std::vector<int16_t> TransportFeedbackRTP::GetReceiveDeltas() const {
-  FATAL();
-  std::vector<int16_t> deltas;
-  return deltas;
-}
-
-std::vector<int64_t> TransportFeedbackRTP::GetReceiveDeltasUs() const {
-  std::vector<int64_t> us_deltas;
+std::vector<PacketInfo> CcfbFeedback::GetFeedbackVector(int64_t base_offset_ms) const {
+  std::vector<PacketInfo> packet_feedback_vector;
   RTC_DCHECK(IsConsistent()); // Exactly one SSRC
 
   if (m_reportBlocks.empty()) {
-    return us_deltas;
+    return packet_feedback_vector;
   }
   const auto& rb_it = m_reportBlocks.find(media_ssrc());
   if(rb_it == m_reportBlocks.end()) {
@@ -835,36 +850,35 @@ std::vector<int64_t> TransportFeedbackRTP::GetReceiveDeltasUs() const {
   const auto beginStop = CalculateBeginStopSeq(base_seq_no_, rb);
   const uint16_t beginSeq = beginStop.first;
   const uint16_t stopSeq = beginStop.second;
-  int64_t timestamp_us = base_time_ticks_ * kBaseScaleFactor;
   for (uint16_t i = beginSeq; i != stopSeq; ++i) {
     const auto& mb_it = rb.find(i);
     const bool received = (mb_it != rb.end());
     if (received) {
       const auto& mb = mb_it->second;
       const int64_t mb_timestampUs = int64_t(mb.m_timestampUs);
-      const int64_t delta = mb_timestampUs - timestamp_us;
-      RTC_DCHECK_GE(delta, 0);
-      us_deltas.push_back(delta);
-      timestamp_us = mb_timestampUs;
+      const int64_t timestamp_ms = base_offset_ms + (mb_timestampUs / 1000);
+      PacketInfo info(timestamp_ms, i);
+      packet_feedback_vector.push_back(info);
     }
   }
-
-  return us_deltas;
+  return packet_feedback_vector;
 }
 
-static constexpr size_t kRTPFBMinPayloadSizeBytes = 2 * 4; // RTCP common header
+int64_t CcfbFeedback::GetBaseTimeUs() const {
+  return last_timestamp_us_;
+}
 
 // De-serialize packet.
-bool TransportFeedbackRTP::Parse(const CommonHeader& packet) {
+bool CcfbFeedback::Parse(const CommonHeader& packet) {
   RTC_DCHECK_EQ(packet.type(), kPacketType);
   RTC_DCHECK_EQ(packet.fmt(), kFeedbackMessageType);
 
   const size_t total_length = packet.payload_size_bytes();
-  if (total_length < kRTPFBMinPayloadSizeBytes) {
+  if (total_length < kCcfbMinPayloadSizeBytes - 4 /* Common header */) {
     LOG(LS_WARNING) << "Buffer too small (" << total_length
                     << " bytes) to fit a "
                        "FeedbackPacket. Minimum size = "
-                    << kRTPFBMinPayloadSizeBytes;
+                    << (kCcfbMinPayloadSizeBytes - 4);
     return false;
   }
   if (total_length % 4 != 0) {
@@ -881,14 +895,19 @@ bool TransportFeedbackRTP::Parse(const CommonHeader& packet) {
 
   //length of all report blocks in 16-bit words (also including RTP timestamp)
   size_t len_left = (total_length - index) / 2;
-  uint16_t beginSeq = 0;
+  uint16_t base_seq = 0;
+  bool base_seq_set = false;
   // exit when the only the timestamp is left
   while (len_left > 2) {
     RTC_DCHECK_GE(len_left, 4); // SSRC + begin & end
     const auto ssrc = ReadSequential<uint32_t>(payload, &index);
     auto& rb = m_reportBlocks[ssrc];
-    beginSeq = ReadSequential<uint16_t>(payload, &index);
+    const uint16_t beginSeq = ReadSequential<uint16_t>(payload, &index);
     const uint16_t stopSeq = ReadSequential<uint16_t>(payload, &index);
+    if (!base_seq_set) {
+      base_seq_set = true;
+      base_seq = beginSeq;
+    }
     len_left -= 4;
     const uint16_t nMetricBlocks = stopSeq - beginSeq; //this wraps properly
     const uint16_t nPaddingBlocks = nMetricBlocks % 2;
@@ -924,39 +943,28 @@ bool TransportFeedbackRTP::Parse(const CommonHeader& packet) {
       mb.second.m_timestampUs = NtpToUs(ntp);
     }
   }
-  last_timestamp_us_ = NtpToUs(ntpRef);
-  if (m_reportBlocks.empty()) {
+
+  if (!base_seq_set || m_reportBlocks.empty()) {
     LOG(LS_WARNING) << "Empty reports currently not supported";
+    Clear();
     return false;
   }
 
-  //We need to set all fields, to be compatible with the other FB format
+  size_bytes_ = total_length + 4 /* Common header */;
+
   if (m_reportBlocks.size() > 1) {
     LOG(LS_WARNING) << "More than one SSRC (" << m_reportBlocks.size()
                     << ") not currently supported";
+    Clear();
     return false;
   }
-  // FIXME this needs to be a loop as soon as we support more then one SSRC
-  if (m_reportBlocks[0].empty()) {
-    LOG(LS_WARNING) << "Report with loss only currently not supported";
-    return false;
-  }
-  size_bytes_ = total_length + 4 /* Common header */;
 
-  const auto& rb = *m_reportBlocks.begin();
-  SetMediaSsrc(rb.first);
-  RTC_DCHECK(!rb.second.empty()); // at least one metric block
-  const auto& mb_it = rb.second.begin();
-  // FIXME This does not work in case the Seq has wrapped!!!
-  beginSeq = mb_it->first;
-  //RTC_DCHECK(mb_it != rb.second.end());
-  const auto& mb = mb_it->second;
-  SetBase(beginSeq, mb.m_timestampUs);
-
+  //TODO This "base data" should be per-SSRC!!
+  SetBase(base_seq, NtpToUs(ntpRef));
   return true;
 }
 
-std::unique_ptr<TransportFeedbackRTP> TransportFeedbackRTP::ParseFrom(
+std::unique_ptr<CcfbFeedback> CcfbFeedback::ParseFrom(
     const uint8_t* buffer,
     size_t length) {
   CommonHeader header;
@@ -964,14 +972,14 @@ std::unique_ptr<TransportFeedbackRTP> TransportFeedbackRTP::ParseFrom(
     return nullptr;
   if (header.type() != kPacketType || header.fmt() != kFeedbackMessageType)
     return nullptr;
-  std::unique_ptr<TransportFeedbackRTP> parsed(new TransportFeedbackRTP);
+  std::unique_ptr<CcfbFeedback> parsed(new CcfbFeedback);
   if (!parsed->Parse(header))
     return nullptr;
   return parsed;
 }
 
-bool TransportFeedbackRTP::IsConsistent() const {
-  return (size_bytes_ >= kRTPFBMinPayloadSizeBytes)
+bool CcfbFeedback::IsConsistent() const {
+  return (size_bytes_ >= kCcfbMinPayloadSizeBytes)
       && (size_bytes_% 4 == 0)
       && (m_reportBlocks.size() == 0 ||
             (m_reportBlocks.size() == 1 &&
@@ -979,7 +987,7 @@ bool TransportFeedbackRTP::IsConsistent() const {
 }
 
 // Serialize packet.
-bool TransportFeedbackRTP::Create(uint8_t* packet,
+bool CcfbFeedback::Create(uint8_t* packet,
                                   size_t* position,
                                   size_t max_length,
                                   PacketReadyCallback* callback) const {
@@ -988,10 +996,8 @@ bool TransportFeedbackRTP::Create(uint8_t* packet,
   /* TODO(drno): does this number need to grow like it does in the existing
    * code, because it doesn't right now and prevents feedback packets getting
    * send
-  */
-  if (size_bytes_ < 8) // TODO (authors): 0 report blocks should be allowed
-    return false;
-
+   */
+  RTC_DCHECK_GE(size_bytes_, kCcfbMinPayloadSizeBytes);
   RTC_DCHECK_EQ(0, size_bytes_ % 4);
   const size_t position_end = *position + size_bytes_;
   while (position_end > max_length) {
@@ -999,7 +1005,7 @@ bool TransportFeedbackRTP::Create(uint8_t* packet,
       return false;
   }
 
-  if (m_reportBlocks.empty()) { // Empty reports are not allowed
+  if (m_reportBlocks.empty()) { // TODO (authors): 0 report blocks should be allowed
     return false;
   }
 
@@ -1052,13 +1058,15 @@ bool TransportFeedbackRTP::Create(uint8_t* packet,
   return true;
 }
 
-void TransportFeedbackRTP::Clear() {
-  TransportFeedback::Clear();
+void CcfbFeedback::Clear() {
+  size_bytes_ = kCcfbMinPayloadSizeBytes;
+  base_seq_no_ = 0;
+  last_timestamp_us_ = 0;
   m_reportBlocks.clear();
 }
 
 std::pair<uint16_t, uint16_t>
-TransportFeedbackRTP::CalculateBeginStopSeq(uint16_t baseSeq, const ReportBlock_t& rb)
+CcfbFeedback::CalculateBeginStopSeq(uint16_t baseSeq, const ReportBlock_t& rb)
 {
   //TODO: This would be more efficient to maintain in AddReceivedPacket
   uint16_t endSeq = baseSeq - 1;
@@ -1075,7 +1083,7 @@ TransportFeedbackRTP::CalculateBeginStopSeq(uint16_t baseSeq, const ReportBlock_
   return std::make_pair(baseSeq, endSeq + 1);
 }
 
-uint16_t TransportFeedbackRTP::NtpToAto(uint32_t ntp, uint32_t ntpRef) {
+uint16_t CcfbFeedback::NtpToAto(uint32_t ntp, uint32_t ntpRef) {
   RTC_DCHECK_LE(ntp, ntpRef);
   // ato contains offset measured in 1/1024 seconds
   const uint32_t atoNtp = ntpRef - ntp;
@@ -1084,7 +1092,7 @@ uint16_t TransportFeedbackRTP::NtpToAto(uint32_t ntp, uint32_t ntpRef) {
   return std::min(ato, MetricBlock::m_overrange);
 }
 
-uint32_t TransportFeedbackRTP::AtoToNtp(uint16_t ato, uint32_t ntpRef) {
+uint32_t CcfbFeedback::AtoToNtp(uint16_t ato, uint32_t ntpRef) {
   RTC_DCHECK_LT(ato, MetricBlock::m_unavailable);
   // ato contains offset measured in 1/1024 seconds
   const uint32_t atoNtp = uint32_t(ato) << 6; // i.e., * 0x10000 / 0x400
@@ -1092,11 +1100,11 @@ uint32_t TransportFeedbackRTP::AtoToNtp(uint16_t ato, uint32_t ntpRef) {
   return ntpRef - atoNtp;
 }
 
-uint64_t TransportFeedbackRTP::NtpToUs(uint32_t ntp) {
+uint64_t CcfbFeedback::NtpToUs(uint32_t ntp) {
   const double tsSeconds = double(ntp) / double(0x10000);
   return uint64_t(tsSeconds * 1000. * 1000.);
 }
-uint32_t TransportFeedbackRTP::UsToNtp (uint64_t tsUs) {
+uint32_t CcfbFeedback::UsToNtp (uint64_t tsUs) {
   const double tsSeconds = double(tsUs) / 1000. / 1000.;
   return uint32_t(tsSeconds * double (0x10000));
 }

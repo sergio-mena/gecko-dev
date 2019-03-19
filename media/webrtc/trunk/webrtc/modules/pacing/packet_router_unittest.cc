@@ -199,7 +199,7 @@ TEST_F(PacketRouterTest, SendFeedback) {
   packet_router_->AddRtpModule(&rtp_1);
   packet_router_->AddRtpModule(&rtp_2);
 
-  rtcp::TransportFeedback feedback;
+  rtcp::TransportCCFeedback feedback;
   EXPECT_CALL(rtp_1, SendFeedbackPacket(_)).Times(1);
   packet_router_->SendFeedback(&feedback);
   packet_router_->RemoveRtpModule(&rtp_1);

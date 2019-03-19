@@ -1239,19 +1239,19 @@ bool RTCPUtility::RTCPParserV2::ParseFBCommon(const RtcpCommonHeader& header) {
         }
         case 14: {
           rtcp_packet_ =
-              rtcp::TransportFeedbackRTP::ParseFrom(_ptrRTCPData - 12, length);
+              rtcp::CcfbFeedback::ParseFrom(_ptrRTCPData - 12, length);
           // Since we parse the whole packet here, keep the TopLevel state and
           // just end the current block.
           EndCurrentBlock();
           if (rtcp_packet_.get()) {
-            _packetType = RTCPPacketTypes::kTransportFeedbackRTP;
+            _packetType = RTCPPacketTypes::kCcfbFeedback;
             return true;
           }
           break;
         }
         case 15: {
           rtcp_packet_ =
-              rtcp::TransportFeedback::ParseFrom(_ptrRTCPData - 12, length);
+              rtcp::TransportCCFeedback::ParseFrom(_ptrRTCPData - 12, length);
           // Since we parse the whole packet here, keep the TopLevel state and
           // just end the current block.
           EndCurrentBlock();

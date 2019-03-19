@@ -84,7 +84,7 @@ bool RtcpPacketParser::Parse(const void* data, size_t length) {
           case rtcp::Tmmbr::kFeedbackMessageType:
             tmmbr_.ParseH(header, &sender_ssrc_);
             break;
-          case rtcp::TransportFeedback::kFeedbackMessageType:
+          case rtcp::TransportCCFeedback::kFeedbackMessageType:
             transport_feedback_.ParseH(header, &sender_ssrc_);
             break;
           default:
