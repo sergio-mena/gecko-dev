@@ -39,12 +39,10 @@ namespace webrtc {
 
 static CongestionController::SendSideBwe UseSendSideBwe(const VideoReceiveStream::Config& config) {
   if (config.rtp.ccfb) {
-    printf("\t\t\t\tVideo receive stream detected ffcb when creating stream receiver\n");
     for (const auto& extension : config.rtp.extensions) {
       if (extension.uri == RtpExtension::kCCFBFlagUri)
         return CongestionController::kBweCcfb;
     }
-    printf("\t\t\t\tVideo receive stream missing kCCFBFlagUri in extensions\n");
     return CongestionController::kBweNone;
   }
   if (!config.rtp.transport_cc)
