@@ -180,6 +180,7 @@ std::vector<webrtc::RtpExtension> FilterRtpExtensions(
 
     // Keep just the highest priority extension of any in the following list.
     static const char* kBweExtensionPriorities[] = {
+        webrtc::RtpExtension::kCCFBFlagUri,
         webrtc::RtpExtension::kTransportSequenceNumberUri,
         webrtc::RtpExtension::kAbsSendTimeUri,
         webrtc::RtpExtension::kTimestampOffsetUri};

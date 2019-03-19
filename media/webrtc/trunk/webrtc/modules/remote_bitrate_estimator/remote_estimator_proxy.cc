@@ -226,9 +226,10 @@ void RemoteEstimatorProxy2::IncomingPacketFeedbackVector(
 void RemoteEstimatorProxy2::IncomingPacket(int64_t arrival_time_ms,
                                           size_t payload_size,
                                           const RTPHeader& header) {
-  if (header.extension.hasTransportSequenceNumber) {
-    LOG(LS_WARNING) << "RemoteEstimatorProxy: Incoming packet with transport "
-                       "sequence number extension. NOT USED, using RTP sequence instead!";
+  if (!header.extension.CCFBFlag) {
+    LOG(LS_WARNING) << "RemoteEstimatorProxy2: Incoming packet "
+                       "is missing the CCFB flag! Should not be routed to this estimator";
+    return;
   }
   rtc::CritScope cs(&lock_);
   media_ssrc_ = header.ssrc; //TODO do we need this member? Probably not

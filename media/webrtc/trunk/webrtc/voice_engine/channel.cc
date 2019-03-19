@@ -2640,6 +2640,8 @@ int Channel::SetReceiveAudioLevelIndicationStatus(bool enable,
 void Channel::EnableSendTransportSequenceNumber(int id) {
   int ret =
       SetSendRtpHeaderExtension(true, kRtpExtensionTransportSequenceNumber, id);
+  //TODO Is this audio only?
+  printf("\t\t\t\tEnableSendTransportSequenceNumber should be audio-only\n");
   RTC_DCHECK_EQ(0, ret);
 }
 
@@ -2648,6 +2650,8 @@ void Channel::EnableReceiveTransportSequenceNumber(int id) {
       kRtpExtensionTransportSequenceNumber);
   bool ret = rtp_header_parser_->RegisterRtpHeaderExtension(
       kRtpExtensionTransportSequenceNumber, id);
+  //TODO Is this audio only?
+  printf("\t\t\t\tEnableReceiveTransportSequenceNumber should be audio-only\n");
   RTC_DCHECK(ret);
 }
 

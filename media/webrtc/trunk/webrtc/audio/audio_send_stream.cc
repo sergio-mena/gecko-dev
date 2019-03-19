@@ -82,6 +82,7 @@ AudioSendStream::AudioSendStream(
       channel_proxy_->SetSendAudioLevelIndicationStatus(true, extension.id);
     } else if (extension.uri == RtpExtension::kTransportSequenceNumberUri) {
       channel_proxy_->EnableSendTransportSequenceNumber(extension.id);
+      //TODO Add CCFB registration when Audio implemented
     } else {
       RTC_NOTREACHED() << "Registering unsupported RTP extension.";
     }

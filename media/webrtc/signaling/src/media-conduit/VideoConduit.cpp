@@ -2280,6 +2280,7 @@ WebrtcVideoConduit::SendRtp(const uint8_t* packet, size_t length,
   // XXX(pkerr) - PacketOptions possibly containing RTP extensions are ignored.
   // The only field in it is the packet_id, which is used when the header
   // extension for TransportSequenceNumber is being used, which we don't.
+  //TODO Careful with this when using transportCC
   CSFLogVerbose(LOGTAG, "%s Sent RTP Packet seq %d, len %lu, SSRC %u (0x%x)",
                 __FUNCTION__,
                 (uint16_t) ntohs(*((uint16_t*) &packet[2])),

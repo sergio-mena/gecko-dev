@@ -112,6 +112,7 @@ AudioReceiveStream::AudioReceiveStream(
       channel_proxy_->EnableReceiveTransportSequenceNumber(extension.id);
       bool registered = rtp_header_parser_->RegisterRtpHeaderExtension(
           kRtpExtensionTransportSequenceNumber, extension.id);
+      //TODO Add CCFB registration when Audio implemented
       RTC_DCHECK(registered);
     } else {
       RTC_NOTREACHED() << "Unsupported RTP extension.";
@@ -279,12 +280,12 @@ bool AudioReceiveStream::DeliverRtp(const uint8_t* packet,
     remote_bitrate_estimator_->IncomingPacket(arrival_time_ms, payload_size,
                                               header);
     //TODO Implement audio or delete
-    printf("\t\t\t\tHere, we get a packet (audio?) to feed to transport_cc remote estimator\n");
+    printf("\t\t\t\tAudio packet received; to feed to transport_cc remote estimator\n");
   } else if (config_.rtp.ccfb) {
-    printf("\t\t\t\tHere, we get a packet (audio?) to feed to ccfb remote estimator\n");
-    //TODO forward the packet to the new remote estimator
+    printf("\t\t\t\tAudio packet received; to feed to ccfb remote estimator\n");
+    //TODO forward the packet to an added remote estimator
   } else {
-    printf("\t\t\t\tAudio packet received. ccfb not active\n");
+    printf("\t\t\t\tAudio packet received. Transport feedback (t-cc/ccfb) not active\n");
   }
 
   return channel_proxy_->ReceivedRTPPacket(packet, length, packet_time);

@@ -164,5 +164,17 @@ class CsrcAudioLevel {
   static bool Write(uint8_t* data, const CsrcAudioLevelList& csrcAudioLevels);
 };
 
+class CCFBFlag {
+ public:
+  static constexpr RTPExtensionType kId = kRtpExtensionCCFBFlag;
+  static constexpr uint8_t kValueSizeBytes = 1;
+  static constexpr const char* kUri =
+      "http://www.ietf.org/id/"
+      "draft-ietf-avtcore-cc-feedback-message-02";
+  static bool Parse(rtc::ArrayView<const uint8_t> data, bool* value);
+  static size_t ValueSize(bool value) { return kValueSizeBytes; }
+  static bool Write(uint8_t* data, bool value);
+};
+
 }  // namespace webrtc
 #endif  // WEBRTC_MODULES_RTP_RTCP_SOURCE_RTP_HEADER_EXTENSIONS_H_

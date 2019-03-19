@@ -48,6 +48,8 @@ RtpHeaderExtensionMap RegisterBweExtensions(
       map.Register<AbsoluteSendTime>(extension.id);
     } else if (extension.uri == TransmissionOffset::kUri) {
       map.Register<TransmissionOffset>(extension.id);
+    } else if (extension.uri == CCFBFlag::kUri) {
+      map.Register<CCFBFlag>(extension.id);
     } else {
       LOG(LS_INFO) << "FlexfecSender only supports RTP header extensions for "
                    << "BWE, so the extension " << extension.ToString()
@@ -128,6 +130,7 @@ std::vector<std::unique_ptr<RtpPacketToSend>> FlexfecSender::GetFecPackets() {
     fec_packet_to_send->ReserveExtension<AbsoluteSendTime>();
     fec_packet_to_send->ReserveExtension<TransmissionOffset>();
     fec_packet_to_send->ReserveExtension<TransportSequenceNumber>();
+    fec_packet_to_send->ReserveExtension<CCFBFlag>();
 
     // RTP payload.
     uint8_t* payload = fec_packet_to_send->AllocatePayload(fec_packet->length);

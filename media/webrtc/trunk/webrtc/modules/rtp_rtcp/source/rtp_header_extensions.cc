@@ -354,4 +354,31 @@ bool CsrcAudioLevel::Write(uint8_t* data,
   return csrcAudioLevels.numAudioLevels;
 }
 
+// Flag indicating whether feedback should be reported via CCFB
+//
+//  LSO denotes whether CCFB feedback is active on this packet
+//
+//    0                   1
+//    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |  ID   | len=0 |0 0 0 0 0 0 0 1|
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+constexpr RTPExtensionType CCFBFlag::kId;
+constexpr uint8_t CCFBFlag::kValueSizeBytes;
+constexpr const char* CCFBFlag::kUri;
+
+bool CCFBFlag::Parse(rtc::ArrayView<const uint8_t> data,
+                     bool* ccfb_flag) {
+  if (data.size() != 1)
+    return false;
+  *ccfb_flag = true;
+  return true;
+}
+
+bool CCFBFlag::Write(uint8_t* data, bool ccfb_flag) {
+  data[0] = true;
+  return true;
+}
+
 }  // namespace webrtc

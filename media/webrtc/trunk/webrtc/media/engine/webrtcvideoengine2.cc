@@ -509,6 +509,9 @@ RtpCapabilities WebRtcVideoEngine2::GetCapabilities() const {
   capabilities.header_extensions.push_back(
       webrtc::RtpExtension(webrtc::RtpExtension::kPlayoutDelayUri,
                            webrtc::RtpExtension::kPlayoutDelayDefaultId));
+  capabilities.header_extensions.push_back(
+      webrtc::RtpExtension(webrtc::RtpExtension::kCCFBFlagUri,
+                           webrtc::RtpExtension::kCCFBFlagDefaultId));
   return capabilities;
 }
 

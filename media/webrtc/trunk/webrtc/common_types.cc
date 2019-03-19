@@ -51,7 +51,8 @@ RTPHeaderExtension::RTPHeaderExtension()
       audioLevel(0),
       hasVideoRotation(false),
       videoRotation(kVideoRotation_0),
-      csrcAudioLevels() {
+      csrcAudioLevels(),
+      CCFBFlag(false) {
 }
 
 RTPHeaderExtension::RTPHeaderExtension(const RTPHeaderExtension& rhs) {
@@ -76,6 +77,8 @@ RTPHeaderExtension::operator=(const RTPHeaderExtension& rhs) {
 
   rtpStreamId = rhs.rtpStreamId;
   repairedRtpStreamId = rhs.repairedRtpStreamId;
+
+  CCFBFlag = rhs.CCFBFlag;
 
   mId = rhs.mId;
 

@@ -138,7 +138,8 @@ class CongestionController : public CallStatsObserver, public Module {
   const std::unique_ptr<BitrateController> bitrate_controller_;
   const std::unique_ptr<ProbeController> probe_controller_;
   const std::unique_ptr<RateLimiter> retransmission_rate_limiter_;
-  std::unique_ptr<RemoteEstimatorProxy> remote_estimator_proxy_;
+  RemoteEstimatorProxy remote_estimator_proxy_;
+  RemoteEstimatorProxy2 remote_estimator_proxy2_;
   TransportFeedbackAdapter transport_feedback_adapter_;
   int min_bitrate_bps_;
   int max_bitrate_bps_;

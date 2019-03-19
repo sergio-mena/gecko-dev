@@ -42,6 +42,7 @@ constexpr ExtensionInfo kExtensions[] = {
     CreateExtensionInfo<RepairedRtpStreamId>(),
     CreateExtensionInfo<MId>(),
     CreateExtensionInfo<CsrcAudioLevel>(),
+    CreateExtensionInfo<CCFBFlag>(),
 };
 
 // Because of kRtpExtensionNone, NumberOfExtension is 1 bigger than the actual

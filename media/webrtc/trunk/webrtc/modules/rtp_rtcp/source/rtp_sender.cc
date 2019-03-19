@@ -57,6 +57,7 @@ constexpr RtpExtensionSize kExtensionSizes[] = {
     CreateExtensionSize<TransmissionOffset>(),
     CreateExtensionSize<TransportSequenceNumber>(),
     CreateExtensionSize<PlayoutDelayLimits>(),
+    CreateExtensionSize<CCFBFlag>(),
 };
 
 const char* FrameTypeToString(FrameType frame_type) {
@@ -541,7 +542,8 @@ size_t RTPSender::SendPadData(size_t bytes, int probe_cluster_id) {
             !(rtp_header_extension_map_.IsRegistered(AbsoluteSendTime::kId) ||
               (rtp_header_extension_map_.IsRegistered(
                    TransportSequenceNumber::kId) &&
-               transport_sequence_number_allocator_))) {
+               transport_sequence_number_allocator_) ||
+              rtp_header_extension_map_.IsRegistered(CCFBFlag::kId))) {
           break;
         }
         // Only change change the timestamp of padding packets sent over RTX.
@@ -1013,6 +1015,7 @@ std::unique_ptr<RtpPacketToSend> RTPSender::AllocatePacket() const {
   packet->ReserveExtension<AbsoluteSendTime>();
   packet->ReserveExtension<TransmissionOffset>();
   packet->ReserveExtension<TransportSequenceNumber>();
+  packet->ReserveExtension<CCFBFlag>();
   if (playout_delay_oracle_.send_playout_delay()) {
     packet->SetExtension<PlayoutDelayLimits>(
         playout_delay_oracle_.playout_delay());

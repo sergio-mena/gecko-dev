@@ -1531,6 +1531,7 @@ class WebRtcVoiceMediaChannel::WebRtcAudioReceiveStream {
       int ch,
       uint32_t remote_ssrc,
       uint32_t local_ssrc,
+      // (not built) Decide what to do when implementing Audio
       bool use_transport_cc,
       bool use_nack,
       const std::string& sync_group,
