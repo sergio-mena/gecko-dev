@@ -130,11 +130,11 @@ public:
 
   class MetricBlock {
     public:
-      static constexpr uint16_t m_overrange = 0x1FFE;
-      static constexpr uint16_t m_unavailable = 0x1FFF;
-      uint8_t m_ecn;
-      uint64_t m_timestampUs;
-      uint16_t m_ato;
+      static constexpr uint16_t overrange_ = 0x1FFE;
+      static constexpr uint16_t unavailable_ = 0x1FFF;
+      uint8_t ecn_;
+      uint64_t timestamp_us_;
+      uint16_t ato_;
     };
 
   typedef std::map<uint16_t /* sequence */, MetricBlock> ReportBlock_t;
@@ -169,7 +169,7 @@ protected:
   static uint16_t NtpToAto(uint32_t ntp, uint32_t ntpRef);
   static uint32_t AtoToNtp(uint16_t ato, uint32_t ntpRef);
   bool UpdateLength();
-  std::map<uint32_t /* SSRC */, ReportBlock_t> m_reportBlocks;
+  std::map<uint32_t /* SSRC */, ReportBlock_t> report_blocks_;
 
   RTC_DISALLOW_COPY_AND_ASSIGN(CcfbFeedback);
 };

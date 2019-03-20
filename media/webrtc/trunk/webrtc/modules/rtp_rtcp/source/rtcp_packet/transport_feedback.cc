@@ -730,15 +730,15 @@ bool TransportCCFeedback::AddDeltaSize(DeltaSize delta_size) {
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 constexpr uint8_t CcfbFeedback::kFeedbackMessageType;
-constexpr uint16_t CcfbFeedback::MetricBlock::m_overrange;
-constexpr uint16_t CcfbFeedback::MetricBlock::m_unavailable;
+constexpr uint16_t CcfbFeedback::MetricBlock::overrange_;
+constexpr uint16_t CcfbFeedback::MetricBlock::unavailable_;
 
 // RTCP common header + SSRC of packet sender + report timestamp
 static constexpr size_t kCcfbMinPayloadSizeBytes = 4 + 4 + 4;
 
 CcfbFeedback::CcfbFeedback()
     : TransportFeedback(kCcfbMinPayloadSizeBytes),
-      m_reportBlocks() {}
+      report_blocks_() {}
 
 CcfbFeedback::~CcfbFeedback() {}
 
@@ -772,11 +772,11 @@ void RtpHdrSetBit (uint8_t& val, uint8_t pos, bool bit)
 
 bool CcfbFeedback::UpdateLength()
 {
-  if (m_reportBlocks.empty()) {
+  if (report_blocks_.empty()) {
     return false;
   }
   size_t len = 8; // common header + SSRC of packet sender
-  for (auto& rb : m_reportBlocks) {
+  for (auto& rb : report_blocks_) {
     len+=4; // SSRC
     len+=4; // begin & end seq
     const auto beginStop = CalculateBeginStopSeq(base_seq_no_, rb.second);
@@ -815,18 +815,18 @@ bool CcfbFeedback::AddReceivedPacket(uint16_t sequence_number,
       //log: bad ecn
       return false;
   }
-  auto& rb = m_reportBlocks[ssrc];
+  auto& rb = report_blocks_[ssrc];
   if (rb.find(sequence_number) != rb.end()) {
     //log: duplicate
     return false;
   }
   auto& mb = rb[sequence_number];
-  mb.m_timestampUs = timestamp_us;
-  mb.m_ecn = ecn;
+  mb.timestamp_us_ = timestamp_us;
+  mb.ecn_ = ecn;
   if (!UpdateLength()) {
       rb.erase(sequence_number);
       if (rb.empty()) {
-          m_reportBlocks.erase(ssrc);
+          report_blocks_.erase(ssrc);
       }
       //log: too long
       return false;
@@ -839,11 +839,11 @@ std::vector<PacketInfo> CcfbFeedback::GetFeedbackVector(int64_t base_offset_ms) 
   std::vector<PacketInfo> packet_feedback_vector;
   RTC_DCHECK(IsConsistent()); // Exactly one SSRC
 
-  if (m_reportBlocks.empty()) {
+  if (report_blocks_.empty()) {
     return packet_feedback_vector;
   }
-  const auto& rb_it = m_reportBlocks.find(media_ssrc());
-  if(rb_it == m_reportBlocks.end()) {
+  const auto& rb_it = report_blocks_.find(media_ssrc());
+  if(rb_it == report_blocks_.end()) {
     FATAL();
   }
   const auto& rb = rb_it->second;
@@ -855,7 +855,7 @@ std::vector<PacketInfo> CcfbFeedback::GetFeedbackVector(int64_t base_offset_ms) 
     const bool received = (mb_it != rb.end());
     if (received) {
       const auto& mb = mb_it->second;
-      const int64_t mb_timestampUs = int64_t(mb.m_timestampUs);
+      const int64_t mb_timestampUs = int64_t(mb.timestamp_us_);
       const int64_t timestamp_ms = base_offset_ms + (mb_timestampUs / 1000);
       PacketInfo info(timestamp_ms, i);
       packet_feedback_vector.push_back(info);
@@ -901,7 +901,7 @@ bool CcfbFeedback::Parse(const CommonHeader& packet) {
   while (len_left > 2) {
     RTC_DCHECK_GE(len_left, 4); // SSRC + begin & end
     const auto ssrc = ReadSequential<uint32_t>(payload, &index);
-    auto& rb = m_reportBlocks[ssrc];
+    auto& rb = report_blocks_[ssrc];
     const uint16_t beginSeq = ReadSequential<uint16_t>(payload, &index);
     const uint16_t stopSeq = ReadSequential<uint16_t>(payload, &index);
     if (!base_seq_set) {
@@ -920,10 +920,10 @@ bool CcfbFeedback::Parse(const CommonHeader& packet) {
         uint16_t ato = (uint16_t (octet1) << 8) & 0x1f00;
         ato |= uint16_t(octet2);
         // 'Unavailable' treated as a lost packet
-        if (ato != MetricBlock::m_unavailable) {
+        if (ato != MetricBlock::unavailable_) {
           auto &mb = rb[seq];
-          mb.m_ecn = (octet1 >> 5) & 0x03;
-          mb.m_ato = ato;
+          mb.ecn_ = (octet1 >> 5) & 0x03;
+          mb.ato_ = ato;
         }
       }
       ++seq;
@@ -937,14 +937,14 @@ bool CcfbFeedback::Parse(const CommonHeader& packet) {
   }
   const uint32_t ntpRef = ReadSequential<uint32_t>(payload, &index);
   // Populate all timestamps once Report Timestamp is known
-  for (auto& rb : m_reportBlocks) {
+  for (auto& rb : report_blocks_) {
     for (auto& mb : rb.second) {
-      const uint32_t ntp = AtoToNtp(mb.second.m_ato, ntpRef);
-      mb.second.m_timestampUs = NtpToUs(ntp);
+      const uint32_t ntp = AtoToNtp(mb.second.ato_, ntpRef);
+      mb.second.timestamp_us_ = NtpToUs(ntp);
     }
   }
 
-  if (!base_seq_set || m_reportBlocks.empty()) {
+  if (!base_seq_set || report_blocks_.empty()) {
     LOG(LS_WARNING) << "Empty reports currently not supported";
     Clear();
     return false;
@@ -952,8 +952,8 @@ bool CcfbFeedback::Parse(const CommonHeader& packet) {
 
   size_bytes_ = total_length + 4 /* Common header */;
 
-  if (m_reportBlocks.size() > 1) {
-    LOG(LS_WARNING) << "More than one SSRC (" << m_reportBlocks.size()
+  if (report_blocks_.size() > 1) {
+    LOG(LS_WARNING) << "More than one SSRC (" << report_blocks_.size()
                     << ") not currently supported";
     Clear();
     return false;
@@ -981,9 +981,9 @@ std::unique_ptr<CcfbFeedback> CcfbFeedback::ParseFrom(
 bool CcfbFeedback::IsConsistent() const {
   return (size_bytes_ >= kCcfbMinPayloadSizeBytes)
       && (size_bytes_% 4 == 0)
-      && (m_reportBlocks.size() == 0 ||
-            (m_reportBlocks.size() == 1 &&
-             m_reportBlocks.find(media_ssrc()) != m_reportBlocks.end()));
+      && (report_blocks_.size() == 0 ||
+            (report_blocks_.size() == 1 &&
+             report_blocks_.find(media_ssrc()) != report_blocks_.end()));
 }
 
 // Serialize packet.
@@ -991,7 +991,7 @@ bool CcfbFeedback::Create(uint8_t* packet,
                                   size_t* position,
                                   size_t max_length,
                                   PacketReadyCallback* callback) const {
-  RTC_DCHECK_EQ(1, m_reportBlocks.size()); // Only one SSRC supported
+  RTC_DCHECK_EQ(1, report_blocks_.size()); // Only one SSRC supported
 
   /* TODO(drno): does this number need to grow like it does in the existing
    * code, because it doesn't right now and prevents feedback packets getting
@@ -1005,7 +1005,7 @@ bool CcfbFeedback::Create(uint8_t* packet,
       return false;
   }
 
-  if (m_reportBlocks.empty()) { // TODO (authors): 0 report blocks should be allowed
+  if (report_blocks_.empty()) { // TODO (authors): 0 report blocks should be allowed
     return false;
   }
 
@@ -1013,7 +1013,7 @@ bool CcfbFeedback::Create(uint8_t* packet,
                position);
   WriteSequential<uint32_t>(packet, position, sender_ssrc());
 
-  for (const auto& rb : m_reportBlocks) {
+  for (const auto& rb : report_blocks_) {
     WriteSequential<uint32_t>(packet, position, rb.first);
     const auto beginStop = CalculateBeginStopSeq(base_seq_no_, rb.second);
     const uint16_t beginSeq = beginStop.first;
@@ -1033,9 +1033,9 @@ bool CcfbFeedback::Create(uint8_t* packet,
       RtpHdrSetBit(octet1, 7, received);
       if (received) {
         const auto& mb = mb_it->second;
-        RTC_DCHECK_LE(mb.m_ecn, 0x03);
-        octet1 |= uint8_t((mb.m_ecn & 0x03) << 5);
-        const uint32_t ntp = UsToNtp(mb.m_timestampUs);
+        RTC_DCHECK_LE(mb.ecn_, 0x03);
+        octet1 |= uint8_t((mb.ecn_ & 0x03) << 5);
+        const uint32_t ntp = UsToNtp(mb.timestamp_us_);
         const uint32_t ntpRef = UsToNtp(last_timestamp_us_);
         const uint16_t ato = NtpToAto(ntp, ntpRef);
         RTC_DCHECK_LE(ato, 0x1fff);
@@ -1062,7 +1062,7 @@ void CcfbFeedback::Clear() {
   size_bytes_ = kCcfbMinPayloadSizeBytes;
   base_seq_no_ = 0;
   last_timestamp_us_ = 0;
-  m_reportBlocks.clear();
+  report_blocks_.clear();
 }
 
 std::pair<uint16_t, uint16_t>
@@ -1089,11 +1089,11 @@ uint16_t CcfbFeedback::NtpToAto(uint32_t ntp, uint32_t ntpRef) {
   const uint32_t atoNtp = ntpRef - ntp;
   const uint32_t atoNtpRounded = atoNtp + (1 << 5);
   const uint16_t ato = uint16_t(atoNtpRounded >> 6); // i.e., * 0x400 / 0x10000
-  return std::min(ato, MetricBlock::m_overrange);
+  return std::min(ato, MetricBlock::overrange_);
 }
 
 uint32_t CcfbFeedback::AtoToNtp(uint16_t ato, uint32_t ntpRef) {
-  RTC_DCHECK_LT(ato, MetricBlock::m_unavailable);
+  RTC_DCHECK_LT(ato, MetricBlock::unavailable_);
   // ato contains offset measured in 1/1024 seconds
   const uint32_t atoNtp = uint32_t(ato) << 6; // i.e., * 0x10000 / 0x400
   RTC_DCHECK_LE(atoNtp, ntpRef);
