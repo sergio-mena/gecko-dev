@@ -48,7 +48,7 @@ class RemoteEstimatorProxyTest : public ::testing::Test {
 
   SimulatedClock clock_;
   ::testing::StrictMock<MockPacketRouter> router_;
-  RemoteEstimatorProxy proxy_;
+  TransportCCEstimator proxy_;
 
   const size_t kDefaultPacketSize = 100;
   const uint32_t kMediaSsrc = 456;

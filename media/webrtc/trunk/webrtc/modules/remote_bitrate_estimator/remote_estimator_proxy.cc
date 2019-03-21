@@ -35,36 +35,16 @@ static constexpr int64_t kMaxTimeMs =
 
 RemoteEstimatorProxy::RemoteEstimatorProxy(Clock* clock,
                                            PacketRouter* packet_router)
-    : clock_(clock),
+    : media_ssrc_(0),
+      clock_(clock),
       packet_router_(packet_router),
       last_process_time_ms_(-1),
-      media_ssrc_(0),
       feedback_sequence_(0),
       window_start_seq_(-1),
       send_interval_ms_(kDefaultSendIntervalMs) {}
 
 RemoteEstimatorProxy::~RemoteEstimatorProxy() {}
 
-void RemoteEstimatorProxy::IncomingPacketFeedbackVector(
-    const std::vector<PacketInfo>& packet_feedback_vector) {
-  rtc::CritScope cs(&lock_);
-  for (PacketInfo info : packet_feedback_vector)
-    OnPacketArrival(info.sequence_number, info.arrival_time_ms);
-}
-
-void RemoteEstimatorProxy::IncomingPacket(int64_t arrival_time_ms,
-                                          size_t payload_size,
-                                          const RTPHeader& header) {
-  if (!header.extension.hasTransportSequenceNumber) {
-    LOG(LS_WARNING) << "RemoteEstimatorProxy: Incoming packet "
-                       "is missing the transport sequence number extension!";
-    return;
-  }
-  rtc::CritScope cs(&lock_);
-  media_ssrc_ = header.ssrc;
-
-  OnPacketArrival(header.extension.transportSequenceNumber, arrival_time_ms);
-}
 
 bool RemoteEstimatorProxy::LatestEstimate(std::vector<unsigned int>* ssrcs,
                                           unsigned int* bitrate_bps) const {
@@ -82,16 +62,13 @@ int64_t RemoteEstimatorProxy::TimeUntilNextProcess() {
   return time_until_next;
 }
 
-rtcp::TransportFeedback* RemoteEstimatorProxy::CreateTFPacket() {
-  return new rtcp::TransportCCFeedback;
-}
 
 void RemoteEstimatorProxy::Process() {
   last_process_time_ms_ = clock_->TimeInMilliseconds();
 
   bool more_to_build = true;
   while (more_to_build) {
-    std::unique_ptr<rtcp::TransportFeedback> feedback_packet (CreateTFPacket());
+    std::unique_ptr<rtcp::TransportFeedback> feedback_packet(CreateFeedbackPacket());
     if (BuildFeedbackPacket(feedback_packet.get())) {
       RTC_DCHECK(packet_router_ != nullptr);
       packet_router_->SendFeedback(feedback_packet.get());
@@ -185,7 +162,7 @@ bool RemoteEstimatorProxy::BuildFeedbackPacket(
   // of the first received packet in the feedback.
   feedback_packet->SetBase(static_cast<uint16_t>(window_start_seq_ & 0xFFFF),
                            it->second * 1000);
-  //TODO: Interesting: CCFB doesn't have a seq no
+  //TODO: Interesting: CCFB format doesn't have a seq no
   feedback_packet->SetFeedbackSequenceNumber(feedback_sequence_++);
   for (; it != packet_arrival_times_.end(); ++it) {
     if (!feedback_packet->AddReceivedPacket(
@@ -208,33 +185,61 @@ bool RemoteEstimatorProxy::BuildFeedbackPacket(
   return true;
 }
 
-RemoteEstimatorProxy2::RemoteEstimatorProxy2(Clock* clock,
-                                             PacketRouter* packet_router)
+
+TransportCCEstimator::TransportCCEstimator(Clock* clock,
+                                               PacketRouter* packet_router)
     : RemoteEstimatorProxy(clock, packet_router) {}
 
-RemoteEstimatorProxy2::~RemoteEstimatorProxy2() {}
+TransportCCEstimator::~TransportCCEstimator() {}
 
-void RemoteEstimatorProxy2::IncomingPacketFeedbackVector(
+void TransportCCEstimator::IncomingPacketFeedbackVector(
     const std::vector<PacketInfo>& packet_feedback_vector) {
   rtc::CritScope cs(&lock_);
-  assert(false); //Where are the sequence numbers coming from when this API is called?
+  for (PacketInfo info : packet_feedback_vector)
+    OnPacketArrival(info.sequence_number, info.arrival_time_ms);
 }
 
-void RemoteEstimatorProxy2::IncomingPacket(int64_t arrival_time_ms,
-                                          size_t payload_size,
-                                          const RTPHeader& header) {
-  if (!header.extension.CCFBFlag) {
-    LOG(LS_WARNING) << "RemoteEstimatorProxy2: Incoming packet "
-                       "is missing the CCFB flag! Should not be routed to this estimator";
+void TransportCCEstimator::IncomingPacket(int64_t arrival_time_ms,
+                                            size_t payload_size,
+                                            const RTPHeader& header) {
+  if (!header.extension.hasTransportSequenceNumber) {
+    LOG(LS_WARNING) << "Incoming packet is missing the transport "
+                       "sequence number extension!";
     return;
   }
   rtc::CritScope cs(&lock_);
-  media_ssrc_ = header.ssrc; //TODO do we need this member? Probably not
+  media_ssrc_ = header.ssrc;
+
+  OnPacketArrival(header.extension.transportSequenceNumber, arrival_time_ms);
+}
+
+rtcp::TransportFeedback* TransportCCEstimator::CreateFeedbackPacket() {
+  return new rtcp::TransportCCFeedback;
+}
+
+
+
+CcfbEstimator::CcfbEstimator(Clock* clock,
+                                             PacketRouter* packet_router)
+    : RemoteEstimatorProxy(clock, packet_router) {}
+
+CcfbEstimator::~CcfbEstimator() {}
+
+void CcfbEstimator::IncomingPacket(int64_t arrival_time_ms,
+                                          size_t payload_size,
+                                          const RTPHeader& header) {
+  if (!header.extension.CCFBFlag) {
+    LOG(LS_WARNING) << "Incoming packet is missing the CCFB flag! "
+                       "It should not be routed to this estimator";
+    return;
+  }
+  rtc::CritScope cs(&lock_);
+  media_ssrc_ = header.ssrc;
 
   OnPacketArrival(header.sequenceNumber, arrival_time_ms);
 }
 
-rtcp::TransportFeedback* RemoteEstimatorProxy2::CreateTFPacket() {
+rtcp::TransportFeedback* CcfbEstimator::CreateFeedbackPacket() {
   return new rtcp::CcfbFeedback;
 }
 
