@@ -12,6 +12,7 @@
 
 #include <limits>
 #include <algorithm>
+#include <cinttypes>
 
 #include "webrtc/base/checks.h"
 #include "webrtc/base/logging.h"
@@ -98,6 +99,7 @@ void RemoteEstimatorProxy::OnBitrateChanged(int bitrate_bps) {
 
 void RemoteEstimatorProxy::OnPacketArrival(uint16_t sequence_number,
                                            int64_t arrival_time) {
+  printf("\t\t\t\t\t\t\t\t\t\t\t\tRXXXXXX packet %d %" PRId64 "\n", sequence_number, arrival_time);
   if (arrival_time < 0 || arrival_time > kMaxTimeMs) {
     LOG(LS_WARNING) << "Arrival time out of bounds: " << arrival_time;
     return;

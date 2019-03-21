@@ -11,6 +11,8 @@
 #include "webrtc/modules/rtp_rtcp/source/rtcp_packet/transport_feedback.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <cinttypes>
 
 #include "webrtc/base/checks.h"
 #include "webrtc/base/logging.h"
@@ -806,6 +808,7 @@ void CcfbFeedback::SetFeedbackSequenceNumber(uint8_t feedback_sequence) {
 
 bool CcfbFeedback::AddReceivedPacket(uint16_t sequence_number,
                                      int64_t timestamp_us) {
+  printf("\t\t\t\t\t\t\t\t\t\t\t\tReceived packet %d %" PRId64 "\n", sequence_number, timestamp_us);
   //TODO: Another difference with NS3: Only one media SSRC supported (in the packet format)
   uint32_t ssrc = media_ssrc();
   //TODO: No ecn support at the moment
@@ -870,6 +873,7 @@ int64_t CcfbFeedback::GetBaseTimeUs() const {
 
 // De-serialize packet.
 bool CcfbFeedback::Parse(const CommonHeader& packet) {
+  printf("\t\t\t\t\t\t+Begin deserialize CCFB packet\n");
   RTC_DCHECK_EQ(packet.type(), kPacketType);
   RTC_DCHECK_EQ(packet.fmt(), kFeedbackMessageType);
 
@@ -913,6 +917,7 @@ bool CcfbFeedback::Parse(const CommonHeader& packet) {
     const uint16_t nPaddingBlocks = nMetricBlocks % 2;
     RTC_DCHECK_GE(len_left, nMetricBlocks + nPaddingBlocks);
     uint16_t seq = beginSeq;
+    printf("\t\t\t\t\t\tB %d, S %d\n", beginSeq, stopSeq);
     for (auto i = 0u; i < nMetricBlocks; ++i) {
       const auto octet1 = payload[index++];
       const auto octet2 = payload[index++];
@@ -924,7 +929,12 @@ bool CcfbFeedback::Parse(const CommonHeader& packet) {
           auto &mb = rb[seq];
           mb.ecn_ = (octet1 >> 5) & 0x03;
           mb.ato_ = ato;
+          printf("\t\t\t\t\t\t    ecn %d, ato %d\n", mb.ecn_, mb.ato_);
+        } else {
+          printf("\t\t\t\t\t\t    LOST2\n");
         }
+      } else {
+        printf("\t\t\t\t\t\t    LOST\n");
       }
       ++seq;
     }
@@ -936,11 +946,13 @@ bool CcfbFeedback::Parse(const CommonHeader& packet) {
     RTC_DCHECK_EQ(2, len_left); // Only one SSRC supported at the moment
   }
   const uint32_t ntpRef = ReadSequential<uint32_t>(payload, &index);
+  printf("\t\t\t\t\t\t    ntpRef %u us %" PRIu64 "\n", ntpRef, NtpToUs(ntpRef));
   // Populate all timestamps once Report Timestamp is known
   for (auto& rb : report_blocks_) {
     for (auto& mb : rb.second) {
       const uint32_t ntp = AtoToNtp(mb.second.ato_, ntpRef);
       mb.second.timestamp_us_ = NtpToUs(ntp);
+      printf("\t\t\t\t\t\t    timestamp %" PRIu64 "\n", mb.second.timestamp_us_);
     }
   }
 
@@ -961,6 +973,7 @@ bool CcfbFeedback::Parse(const CommonHeader& packet) {
 
   //TODO This "base data" should be per-SSRC!!
   SetBase(base_seq, NtpToUs(ntpRef));
+  printf("\t\t\t\t\t\t-Deserialized CCFB packet with %zu bytes\n", size_bytes_);
   return true;
 }
 
@@ -991,6 +1004,7 @@ bool CcfbFeedback::Create(uint8_t* packet,
                                   size_t* position,
                                   size_t max_length,
                                   PacketReadyCallback* callback) const {
+  printf("+Begin serialize CCFB packet\n");
   RTC_DCHECK_EQ(1, report_blocks_.size()); // Only one SSRC supported
 
   /* TODO(drno): does this number need to grow like it does in the existing
@@ -1025,6 +1039,7 @@ bool CcfbFeedback::Create(uint8_t* packet,
     // In version -02, if both fields are equal, it means no metrics (i.e., empty report for that SSRC)
     WriteSequential<uint16_t>(packet, position, stopSeq);
     RTC_DCHECK(!rb.second.empty()); // at least one metric block
+    printf("B %d, S %d\n", beginSeq, stopSeq);
     for (uint16_t i = beginSeq; i != stopSeq; ++i) {
       const auto& mb_it = rb.second.find(i);
       uint8_t octet1 = 0;
@@ -1041,6 +1056,9 @@ bool CcfbFeedback::Create(uint8_t* packet,
         RTC_DCHECK_LE(ato, 0x1fff);
         octet1 |= uint8_t(ato >> 8);
         octet2 |= uint8_t(ato & 0xff);
+        printf("    ecn %d, ts %" PRIu64 "\n", mb.ecn_, mb.timestamp_us_);
+      } else {
+        printf("    LOST\n");
       }
       WriteSequential<uint8_t>(packet, position, octet1);
       WriteSequential<uint8_t>(packet, position, octet2);
@@ -1050,10 +1068,13 @@ bool CcfbFeedback::Create(uint8_t* packet,
     }
   }
   const uint32_t ntpTs = UsToNtp(last_timestamp_us_);
+  printf(" ntpRef %u us %" PRId64 " usu %" PRIu64 "\n", ntpTs, last_timestamp_us_,  last_timestamp_us_);
+  printf(" back and forth us %" PRId64 "\n", NtpToUs(ntpTs));
   WriteSequential<uint32_t>(packet, position, ntpTs);
 
   /* TODO(drno): see above
   */
+  printf("-Serialized CCFB packet with %zu bytes\n", size_bytes_);
   RTC_DCHECK_EQ(*position, position_end);
   return true;
 }
