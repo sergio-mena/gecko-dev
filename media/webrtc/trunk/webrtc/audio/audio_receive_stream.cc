@@ -280,8 +280,12 @@ bool AudioReceiveStream::DeliverRtp(const uint8_t* packet,
     remote_bitrate_estimator_->IncomingPacket(arrival_time_ms, payload_size,
                                               header);
     //TODO Implement audio or delete
+    printf("\t\t\t\tAudio packet received; to feed to transport_cc remote estimator\n");
   } else if (config_.rtp.ccfb) {
+    printf("\t\t\t\tAudio packet received; to feed to ccfb remote estimator\n");
     //TODO forward the packet to an added remote estimator
+  } else {
+    printf("\t\t\t\tAudio packet received. Transport feedback (t-cc/ccfb) not active\n");
   }
 
   return channel_proxy_->ReceivedRTPPacket(packet, length, packet_time);
