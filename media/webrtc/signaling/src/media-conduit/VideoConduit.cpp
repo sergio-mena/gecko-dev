@@ -1587,7 +1587,7 @@ WebrtcVideoConduit::ConfigureRecvMediaCodecs(
     use_nack_basic |= codec_config->RtcpFbNackIsSet("");
     use_tmmbr |= codec_config->RtcpFbCcmIsSet("tmmbr");
     use_remb |= codec_config->RtcpFbRembIsSet();
-    use_ccfb |= codec_config->RtcpFbCcfbIsSet();
+    use_ccfb |= codec_config->RtcpFbAckIsSet("ccfb");
     use_fec |= codec_config->RtcpFbFECIsSet();
 
     recv_codecs.AppendElement(new VideoCodecConfig(*codec_config));

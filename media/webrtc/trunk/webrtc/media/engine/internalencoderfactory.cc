@@ -54,11 +54,11 @@ InternalEncoderFactory::InternalEncoderFactory() {
     // TODO(brandtr): Consider honouring this value in the sender and receiver.
     flexfec_codec.SetParam(kFlexfecFmtpRepairWindow, "10000000");
     flexfec_codec.AddFeedbackParam(
+        FeedbackParam(kRtcpFbParamAck, kRtcpFbParamCcfb));
+    flexfec_codec.AddFeedbackParam(
         FeedbackParam(kRtcpFbParamTransportCc, kParamValueEmpty));
     flexfec_codec.AddFeedbackParam(
         FeedbackParam(kRtcpFbParamRemb, kParamValueEmpty));
-    flexfec_codec.AddFeedbackParam(
-        FeedbackParam(kRtcpFbParamCcfb, kParamValueEmpty));
     supported_codecs_.push_back(flexfec_codec);
   }
 }

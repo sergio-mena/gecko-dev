@@ -88,6 +88,7 @@ extern const int kPreferredStereo;
 extern const int kPreferredUseInbandFec;
 
 // rtcp-fb messages according to RFC 4585
+extern const char kRtcpFbParamAck[];
 extern const char kRtcpFbParamNack[];
 extern const char kRtcpFbNackParamPli[];
 // rtcp-fb messages according to
@@ -96,6 +97,7 @@ extern const char kRtcpFbParamRemb[];
 // rtcp-fb messages according to
 // https://tools.ietf.org/html/draft-holmer-rmcat-transport-wide-cc-extensions-01
 extern const char kRtcpFbParamTransportCc[];
+extern const char kRtcpFbParamCcfb[];
 // ccm submessages according to RFC 5104
 extern const char kRtcpFbParamCcm[];
 extern const char kRtcpFbCcmParamFir[];

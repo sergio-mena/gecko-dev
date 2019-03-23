@@ -88,7 +88,6 @@ public:
   // Don't pass mOtherFbTypes from JsepVideoCodecDescription because we'd have
   // to drag SdpRtcpFbAttributeList::Feedback along too.
   bool mRembFbSet;
-  bool mCcfbFbSet;
   bool mFECFbSet;
 
   int mULPFECPayloadType;
@@ -120,7 +119,6 @@ public:
         mNackFbTypes != aRhs.mNackFbTypes ||
         mCcmFbTypes != aRhs.mCcmFbTypes ||
         mRembFbSet != aRhs.mRembFbSet ||
-        mCcfbFbSet != aRhs.mCcfbFbSet ||
         mFECFbSet != aRhs.mFECFbSet ||
         mULPFECPayloadType != aRhs.mULPFECPayloadType ||
         mREDPayloadType != aRhs.mREDPayloadType ||
@@ -146,7 +144,6 @@ public:
     mType(type),
     mName(name),
     mRembFbSet(false),
-    mCcfbFbSet(false),
     mFECFbSet(false),
     mULPFECPayloadType(123),
     mREDPayloadType(122),
@@ -212,8 +209,6 @@ public:
     }
     return false;
   }
-
-  bool RtcpFbCcfbIsSet() const { return mCcfbFbSet; }
 
   bool RtcpFbRembIsSet() const { return mRembFbSet; }
 
