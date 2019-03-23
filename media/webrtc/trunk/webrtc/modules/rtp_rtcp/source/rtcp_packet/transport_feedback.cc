@@ -710,7 +710,7 @@ bool TransportCCFeedback::AddDeltaSize(DeltaSize delta_size) {
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //  |                   SSRC of 1st RTP Stream                      |
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//  |          begin_seq            |             end_seq + 1       |
+//  |          begin_seq            |             num_reports       |
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //  |L|ECN|  Arrival time offset    | ...                           .
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -720,7 +720,7 @@ bool TransportCCFeedback::AddDeltaSize(DeltaSize delta_size) {
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //  |                   SSRC of nth RTP Stream                      |
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//  |          begin_seq            |             end_seq + 1       |
+//  |          begin_seq            |             num_reports       |
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //  |L|ECN|  Arrival time offset    | ...                           |
 //  .                                                               .
@@ -778,7 +778,7 @@ bool CcfbFeedback::UpdateLength()
   size_t len = 8; // common header + SSRC of packet sender
   for (auto& rb : report_blocks_) {
     len+=4; // SSRC
-    len+=4; // begin & end seq
+    len+=4; // begin_seq & num_reports
     const auto beginStop = CalculateBeginStopSeq(base_seq_no_, rb.second);
     const uint16_t beginSeq = beginStop.first;
     const uint16_t stopSeq = beginStop.second;
@@ -903,7 +903,9 @@ bool CcfbFeedback::Parse(const CommonHeader& packet) {
     const auto ssrc = ReadSequential<uint32_t>(payload, &index);
     auto& rb = report_blocks_[ssrc];
     const uint16_t beginSeq = ReadSequential<uint16_t>(payload, &index);
-    const uint16_t stopSeq = ReadSequential<uint16_t>(payload, &index);
+    const uint16_t num_reports = ReadSequential<uint16_t>(payload, &index);
+    const uint16_t stopSeq = uint16_t(beginSeq + num_reports); // Wraps properly
+
     if (!base_seq_set) {
       base_seq_set = true;
       base_seq = beginSeq;
@@ -1023,7 +1025,8 @@ bool CcfbFeedback::Create(uint8_t* packet,
     // block we write the same number as stopSeq and the beginSeq?
     // (Sergio): this is the main difference between versions -01 and -02. I just corrected it
     // In version -02, if both fields are equal, it means no metrics (i.e., empty report for that SSRC)
-    WriteSequential<uint16_t>(packet, position, stopSeq);
+    const uint16_t num_reports = uint16_t(stopSeq - beginSeq);
+    WriteSequential<uint16_t>(packet, position, num_reports); // Wraps properly
     RTC_DCHECK(!rb.second.empty()); // at least one metric block
     for (uint16_t i = beginSeq; i != stopSeq; ++i) {
       const auto& mb_it = rb.second.find(i);
