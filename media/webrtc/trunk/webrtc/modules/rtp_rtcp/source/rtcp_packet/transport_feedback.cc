@@ -954,13 +954,6 @@ bool CcfbFeedback::Parse(const CommonHeader& packet) {
 
   size_bytes_ = total_length + 4 /* Common header */;
 
-  if (report_blocks_.size() > 1) {
-    LOG(LS_WARNING) << "More than one SSRC (" << report_blocks_.size()
-                    << ") not currently supported";
-    Clear();
-    return false;
-  }
-
   //TODO This "base data" should be per-SSRC!!
   SetBase(base_seq, NtpToUs(ntpRef));
   return true;
@@ -993,7 +986,6 @@ bool CcfbFeedback::Create(uint8_t* packet,
                                   size_t* position,
                                   size_t max_length,
                                   PacketReadyCallback* callback) const {
-  RTC_DCHECK_EQ(1, report_blocks_.size()); // Only one SSRC supported
 
   /* TODO(drno): does this number need to grow like it does in the existing
    * code, because it doesn't right now and prevents feedback packets getting
