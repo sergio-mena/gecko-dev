@@ -310,7 +310,8 @@ class TransportFeedbackObserver {
 
   // Note: Transport-wide sequence number as sequence number. Arrival time
   // must be set to 0.
-  virtual void AddPacket(uint16_t sequence_number,
+  virtual void AddPacket(uint32_t ssrc,
+                         uint16_t sequence_number,
                          size_t length,
                          int probe_cluster_id) = 0;
 

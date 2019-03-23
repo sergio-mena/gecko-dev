@@ -27,22 +27,22 @@ class TransportFeedback : public Rtpfb {
 public:
   ~TransportFeedback() override;
 
-  virtual void SetBase(uint16_t base_sequence,         // Seq# of first packet in this msg.
+  virtual void SetBase(uint32_t ssrc,
+                       uint16_t base_sequence,         // Seq# of first packet in this msg.
                        int64_t ref_timestamp_us) = 0;  // Reference timestamp for this msg.
   virtual void SetFeedbackSequenceNumber(uint8_t feedback_sequence) = 0;
   virtual int64_t GetBaseTimeUs() const = 0;
-  virtual bool AddReceivedPacket(uint16_t sequence_number, int64_t timestamp_us) = 0;
+  virtual bool AddReceivedPacket(uint32_t ssrc, uint16_t sequence_number, int64_t timestamp_us) = 0;
   virtual bool IsConsistent() const = 0;
   virtual bool Parse(const CommonHeader& packet) = 0;
-  virtual std::vector<PacketInfo> GetFeedbackVector(int64_t base_offset_ms) const = 0;
-  virtual uint16_t GetBaseSequence() const;
+  virtual std::vector<uint32_t> GetSsrcs() const = 0;
+  virtual std::vector<PacketInfo> GetFeedbackVector(uint32_t ssrc, int64_t base_offset_ms) const = 0;
 
 protected:
   TransportFeedback(size_t site_bytes);
   size_t BlockLength() const override;
 
   size_t size_bytes_;
-  uint16_t base_seq_no_;
   int64_t last_timestamp_us_;
 };
 
@@ -58,11 +58,12 @@ class TransportCCFeedback : public TransportFeedback {
   TransportCCFeedback();
   ~TransportCCFeedback() override;
 
-  void SetBase(uint16_t base_sequence,              // Seq# of first packet in this msg.
+  void SetBase(uint32_t ssrc,
+               uint16_t base_sequence,              // Seq# of first packet in this msg.
                int64_t ref_timestamp_us) override;  // Reference timestamp for this msg.
   void SetFeedbackSequenceNumber(uint8_t feedback_sequence) override;
   // NOTE: This method requires increasing sequence numbers (excepting wraps).
-  bool AddReceivedPacket(uint16_t sequence_number, int64_t timestamp_us) override;
+  bool AddReceivedPacket(uint32_t ssrc, uint16_t sequence_number, int64_t timestamp_us) override;
 
   enum class StatusSymbol {
     kNotReceived,
@@ -70,6 +71,7 @@ class TransportCCFeedback : public TransportFeedback {
     kReceivedLargeDelta,
   };
 
+  uint16_t GetBaseSequence() const;
   std::vector<TransportCCFeedback::StatusSymbol> GetStatusVector() const;
   std::vector<int16_t> GetReceiveDeltas() const;
 
@@ -85,7 +87,8 @@ class TransportCCFeedback : public TransportFeedback {
   // Pre and postcondition for all public methods. Should always return true.
   // This function is for tests.
   bool IsConsistent() const override;
-  std::vector<PacketInfo> GetFeedbackVector(int64_t base_offset_ms) const override;
+  std::vector<uint32_t> GetSsrcs() const override;
+  std::vector<PacketInfo> GetFeedbackVector(uint32_t ssrc, int64_t base_offset_ms) const override;
 
  protected:
   bool Create(uint8_t* packet,
@@ -111,6 +114,7 @@ class TransportCCFeedback : public TransportFeedback {
 
   bool AddDeltaSize(DeltaSize delta_size);
 
+  uint16_t base_seq_no_;
   uint16_t num_seq_no_;
   int32_t base_time_ticks_;
   uint8_t feedback_seq_;
@@ -137,15 +141,17 @@ public:
       uint16_t ato_;
     };
 
-  typedef std::map<uint16_t /* sequence */, MetricBlock> ReportBlock_t;
+  typedef std::pair<uint16_t /* base sequence */,
+            std::map<uint16_t /* sequence */, MetricBlock> > ReportBlock_t;
 
   CcfbFeedback();
   ~CcfbFeedback() override;
 
-  void SetBase(uint16_t base_sequence,              // Seq# of first packet in this msg.
+  void SetBase(uint32_t ssrc,
+               uint16_t base_sequence,              // Seq# of first packet in this msg.
                int64_t ref_timestamp_us) override;  // Reference timestamp for this msg.
   void SetFeedbackSequenceNumber(uint8_t feedback_sequence) override;
-  bool AddReceivedPacket(uint16_t sequence_number, int64_t timestamp_us) override;
+  bool AddReceivedPacket(uint32_t ssrc, uint16_t sequence_number, int64_t timestamp_us) override;
 
   int64_t GetBaseTimeUs() const override;
 
@@ -153,7 +159,8 @@ public:
   static std::unique_ptr<CcfbFeedback> ParseFrom(const uint8_t* buffer,
                                                          size_t length);
   bool IsConsistent() const override;
-  std::vector<PacketInfo> GetFeedbackVector(int64_t base_offset_ms) const override;
+  std::vector<uint32_t> GetSsrcs() const override;
+  std::vector<PacketInfo> GetFeedbackVector(uint32_t ssrc, int64_t base_offset_ms) const override;
 
 protected:
   bool Create(uint8_t* packet,
@@ -163,7 +170,7 @@ protected:
 
  private:
   void Clear();
-  static std::pair<uint16_t, uint16_t> CalculateBeginStopSeq(uint16_t baseSeq, const ReportBlock_t& rb);
+  static std::pair<uint16_t, uint16_t> CalculateBeginStopSeq(const ReportBlock_t& rb);
   static uint64_t NtpToUs(uint32_t ntp);
   static uint32_t UsToNtp(uint64_t tsUs);
   static uint16_t NtpToAto(uint32_t ntp, uint32_t ntpRef);

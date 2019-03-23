@@ -48,7 +48,6 @@ constexpr int64_t kTimeWrapPeriodUs = (1ll << 24) * kBaseScaleFactor;
 TransportFeedback::TransportFeedback(size_t size_bytes)
     : Rtpfb(),
       size_bytes_(size_bytes),
-      base_seq_no_(0),
       last_timestamp_us_(0) {}
 
 TransportFeedback::~TransportFeedback() {}
@@ -56,10 +55,6 @@ TransportFeedback::~TransportFeedback() {}
 size_t TransportFeedback::BlockLength() const {
   // Round size_bytes_ up to multiple of 32bits.
   return (size_bytes_ + 3) & (~static_cast<size_t>(3));
-}
-
-uint16_t TransportFeedback::GetBaseSequence() const {
-  return base_seq_no_;
 }
 
 
@@ -329,6 +324,7 @@ void TransportCCFeedback::LastChunk::DecodeRunLength(uint16_t chunk,
 
 TransportCCFeedback::TransportCCFeedback()
     : TransportFeedback(kTransportCCFeedbackHeaderSizeBytes),
+      base_seq_no_(0),
       num_seq_no_(0),
       base_time_ticks_(0),
       feedback_seq_(0),
@@ -336,8 +332,10 @@ TransportCCFeedback::TransportCCFeedback()
 
 TransportCCFeedback::~TransportCCFeedback() {}
 
-void TransportCCFeedback::SetBase(uint16_t base_sequence,
+void TransportCCFeedback::SetBase(uint32_t ssrc,
+                                  uint16_t base_sequence,
                                   int64_t ref_timestamp_us) {
+  RTC_DCHECK_EQ(ssrc, 0);
   RTC_DCHECK_EQ(num_seq_no_, 0);
   RTC_DCHECK_GE(ref_timestamp_us, 0);
   base_seq_no_ = base_sequence;
@@ -349,8 +347,10 @@ void TransportCCFeedback::SetFeedbackSequenceNumber(uint8_t feedback_sequence) {
   feedback_seq_ = feedback_sequence;
 }
 
-bool TransportCCFeedback::AddReceivedPacket(uint16_t sequence_number,
-                                          int64_t timestamp_us) {
+bool TransportCCFeedback::AddReceivedPacket(uint32_t ssrc,
+                                            uint16_t sequence_number,
+                                            int64_t timestamp_us) {
+  RTC_DCHECK_EQ(ssrc, 0);
   // Convert to ticks and round.
   int64_t delta_full = (timestamp_us - last_timestamp_us_) % kTimeWrapPeriodUs;
   if (delta_full > kTimeWrapPeriodUs / 2)
@@ -384,6 +384,10 @@ bool TransportCCFeedback::AddReceivedPacket(uint16_t sequence_number,
   last_timestamp_us_ += delta * kDeltaScaleFactor;
   size_bytes_ += delta_size;
   return true;
+}
+
+uint16_t TransportCCFeedback::GetBaseSequence() const {
+  return base_seq_no_;
 }
 
 std::vector<TransportCCFeedback::StatusSymbol>
@@ -585,7 +589,14 @@ bool TransportCCFeedback::IsConsistent() const {
   return true;
 }
 
-std::vector<PacketInfo> TransportCCFeedback::GetFeedbackVector(int64_t base_offset_ms) const {
+std::vector<uint32_t> TransportCCFeedback::GetSsrcs() const {
+  std::vector<uint32_t> v;
+  v.push_back(0);
+  return v;
+}
+
+std::vector<PacketInfo> TransportCCFeedback::GetFeedbackVector(uint32_t ssrc, int64_t base_offset_ms) const {
+  RTC_DCHECK_EQ(ssrc, 0);
   std::vector<PacketInfo> packet_feedback_vector;
   uint16_t sequence_number = GetBaseSequence();
   std::vector<int64_t> delta_vec = GetReceiveDeltasUs();
@@ -781,7 +792,7 @@ bool CcfbFeedback::UpdateLength()
   for (auto& rb : report_blocks_) {
     len+=4; // SSRC
     len+=4; // begin & end seq
-    const auto beginStop = CalculateBeginStopSeq(base_seq_no_, rb.second);
+    const auto beginStop = CalculateBeginStopSeq(rb.second);
     const uint16_t beginSeq = beginStop.first;
     const uint16_t stopSeq = beginStop.second;
     const uint16_t nMetricBlocks = stopSeq - beginSeq; //this wraps properly
@@ -796,66 +807,85 @@ bool CcfbFeedback::UpdateLength()
   return true;
 }
 
-void CcfbFeedback::SetBase(uint16_t base_sequence,
+void CcfbFeedback::SetBase(uint32_t ssrc,
+                           uint16_t base_sequence,
                            int64_t ref_timestamp_us) {
-  base_seq_no_ = base_sequence;
-  last_timestamp_us_ = ref_timestamp_us;
+
+
+  if (report_blocks_.find(ssrc) != report_blocks_.end()) {
+    //log: "you shouldn't set the base sequence more than once per SSRC
+    return;
+  }
+  auto& rb = report_blocks_[ssrc];
+  rb.first = base_sequence;
+  if (last_timestamp_us_ == 0) {
+    last_timestamp_us_ = ref_timestamp_us;
+  }
 }
 
 void CcfbFeedback::SetFeedbackSequenceNumber(uint8_t feedback_sequence) {
   // CCFB format does not contain a sequence number for feedback packets
 }
 
-bool CcfbFeedback::AddReceivedPacket(uint16_t sequence_number,
+bool CcfbFeedback::AddReceivedPacket(uint32_t ssrc,
+                                     uint16_t sequence_number,
                                      int64_t timestamp_us) {
   printf("\t\t\t\t\t\t\t\t\t\t\t\tReceived packet %d %" PRId64 "\n", sequence_number, timestamp_us);
-  //TODO: Another difference with NS3: Only one media SSRC supported (in the packet format)
-  uint32_t ssrc = media_ssrc();
   //TODO: No ecn support at the moment
+  RTC_DCHECK(IsConsistent());
   uint8_t ecn = 0;
   RTC_DCHECK_GE(timestamp_us, 0); //TODO Remove this and check type all over
   if (ecn > 0x03) {
       //log: bad ecn
       return false;
   }
+  if (report_blocks_.find(ssrc) == report_blocks_.end()) {
+    //log: "you must first set the base sequence
+    return false;
+  }
   auto& rb = report_blocks_[ssrc];
-  if (rb.find(sequence_number) != rb.end()) {
+  if (rb.second.find(sequence_number) != rb.second.end()) {
     //log: duplicate
     return false;
   }
-  auto& mb = rb[sequence_number];
+  auto& mb = rb.second[sequence_number];
   mb.timestamp_us_ = timestamp_us;
   mb.ecn_ = ecn;
   if (!UpdateLength()) {
-      rb.erase(sequence_number);
-      if (rb.empty()) {
-          report_blocks_.erase(ssrc);
-      }
+      rb.second.erase(sequence_number);
       //log: too long
       return false;
   }
+  SetMediaSsrc(report_blocks_.begin()->first);
   last_timestamp_us_ = std::max(last_timestamp_us_, timestamp_us);
   return true;
 }
 
-std::vector<PacketInfo> CcfbFeedback::GetFeedbackVector(int64_t base_offset_ms) const {
-  std::vector<PacketInfo> packet_feedback_vector;
-  RTC_DCHECK(IsConsistent()); // Exactly one SSRC
+std::vector<uint32_t> CcfbFeedback::GetSsrcs() const {
+  std::vector<uint32_t> ssrcs;
+  ssrcs.reserve(report_blocks_.size());
+  for(auto const& ssrc: report_blocks_) {
+      ssrcs.push_back(ssrc.first);
+  }
+  return ssrcs;
+}
 
-  if (report_blocks_.empty()) {
+std::vector<PacketInfo> CcfbFeedback::GetFeedbackVector(uint32_t ssrc, int64_t base_offset_ms) const {
+  std::vector<PacketInfo> packet_feedback_vector;
+  RTC_DCHECK(IsConsistent());
+
+  const auto& rb_it = report_blocks_.find(ssrc);
+  if(rb_it == report_blocks_.end()) {
+    //log error
     return packet_feedback_vector;
   }
-  const auto& rb_it = report_blocks_.find(media_ssrc());
-  if(rb_it == report_blocks_.end()) {
-    FATAL();
-  }
   const auto& rb = rb_it->second;
-  const auto beginStop = CalculateBeginStopSeq(base_seq_no_, rb);
+  const auto beginStop = CalculateBeginStopSeq(rb);
   const uint16_t beginSeq = beginStop.first;
   const uint16_t stopSeq = beginStop.second;
   for (uint16_t i = beginSeq; i != stopSeq; ++i) {
-    const auto& mb_it = rb.find(i);
-    const bool received = (mb_it != rb.end());
+    const auto& mb_it = rb.second.find(i);
+    const bool received = (mb_it != rb.second.end());
     if (received) {
       const auto& mb = mb_it->second;
       const int64_t mb_timestampUs = int64_t(mb.timestamp_us_);
@@ -899,8 +929,6 @@ bool CcfbFeedback::Parse(const CommonHeader& packet) {
 
   //length of all report blocks in 16-bit words (also including RTP timestamp)
   size_t len_left = (total_length - index) / 2;
-  uint16_t base_seq = 0;
-  bool base_seq_set = false;
   // exit when the only the timestamp is left
   while (len_left > 2) {
     RTC_DCHECK_GE(len_left, 4); // SSRC + begin & end
@@ -908,10 +936,7 @@ bool CcfbFeedback::Parse(const CommonHeader& packet) {
     auto& rb = report_blocks_[ssrc];
     const uint16_t beginSeq = ReadSequential<uint16_t>(payload, &index);
     const uint16_t stopSeq = ReadSequential<uint16_t>(payload, &index);
-    if (!base_seq_set) {
-      base_seq_set = true;
-      base_seq = beginSeq;
-    }
+    rb.first = beginSeq; // Set base sequence
     len_left -= 4;
     const uint16_t nMetricBlocks = stopSeq - beginSeq; //this wraps properly
     const uint16_t nPaddingBlocks = nMetricBlocks % 2;
@@ -926,7 +951,7 @@ bool CcfbFeedback::Parse(const CommonHeader& packet) {
         ato |= uint16_t(octet2);
         // 'Unavailable' treated as a lost packet
         if (ato != MetricBlock::unavailable_) {
-          auto &mb = rb[seq];
+          auto &mb = rb.second[seq];
           mb.ecn_ = (octet1 >> 5) & 0x03;
           mb.ato_ = ato;
           printf("\t\t\t\t\t\t    ecn %d, ato %d\n", mb.ecn_, mb.ato_);
@@ -949,30 +974,22 @@ bool CcfbFeedback::Parse(const CommonHeader& packet) {
   printf("\t\t\t\t\t\t    ntpRef %u us %" PRIu64 "\n", ntpRef, NtpToUs(ntpRef));
   // Populate all timestamps once Report Timestamp is known
   for (auto& rb : report_blocks_) {
-    for (auto& mb : rb.second) {
+    for (auto& mb : rb.second.second) {
       const uint32_t ntp = AtoToNtp(mb.second.ato_, ntpRef);
       mb.second.timestamp_us_ = NtpToUs(ntp);
       printf("\t\t\t\t\t\t    timestamp %" PRIu64 "\n", mb.second.timestamp_us_);
     }
   }
 
-  if (!base_seq_set || report_blocks_.empty()) {
+  if (report_blocks_.empty()) {
     LOG(LS_WARNING) << "Empty reports currently not supported";
     Clear();
     return false;
   }
 
   size_bytes_ = total_length + 4 /* Common header */;
-
-  if (report_blocks_.size() > 1) {
-    LOG(LS_WARNING) << "More than one SSRC (" << report_blocks_.size()
-                    << ") not currently supported";
-    Clear();
-    return false;
-  }
-
-  //TODO This "base data" should be per-SSRC!!
-  SetBase(base_seq, NtpToUs(ntpRef));
+  SetMediaSsrc(report_blocks_.begin()->first); /* To keep internal consistency */
+  last_timestamp_us_ = NtpToUs(ntpRef);
   printf("\t\t\t\t\t\t-Deserialized CCFB packet with %zu bytes\n", size_bytes_);
   return true;
 }
@@ -995,8 +1012,7 @@ bool CcfbFeedback::IsConsistent() const {
   return (size_bytes_ >= kCcfbMinPayloadSizeBytes)
       && (size_bytes_% 4 == 0)
       && (report_blocks_.size() == 0 ||
-            (report_blocks_.size() == 1 &&
-             report_blocks_.find(media_ssrc()) != report_blocks_.end()));
+            (media_ssrc() == report_blocks_.begin()->first));
 }
 
 // Serialize packet.
@@ -1005,14 +1021,12 @@ bool CcfbFeedback::Create(uint8_t* packet,
                                   size_t max_length,
                                   PacketReadyCallback* callback) const {
   printf("+Begin serialize CCFB packet\n");
-  RTC_DCHECK_EQ(1, report_blocks_.size()); // Only one SSRC supported
 
   /* TODO(drno): does this number need to grow like it does in the existing
    * code, because it doesn't right now and prevents feedback packets getting
    * send
    */
-  RTC_DCHECK_GE(size_bytes_, kCcfbMinPayloadSizeBytes);
-  RTC_DCHECK_EQ(0, size_bytes_ % 4);
+  RTC_DCHECK(IsConsistent());
   const size_t position_end = *position + size_bytes_;
   while (position_end > max_length) {
     if (!OnBufferFull(packet, position, callback))
@@ -1029,7 +1043,7 @@ bool CcfbFeedback::Create(uint8_t* packet,
 
   for (const auto& rb : report_blocks_) {
     WriteSequential<uint32_t>(packet, position, rb.first);
-    const auto beginStop = CalculateBeginStopSeq(base_seq_no_, rb.second);
+    const auto beginStop = CalculateBeginStopSeq(rb.second);
     const uint16_t beginSeq = beginStop.first;
     const uint16_t stopSeq = beginStop.second;
     WriteSequential<uint16_t>(packet, position, beginSeq);
@@ -1038,13 +1052,13 @@ bool CcfbFeedback::Create(uint8_t* packet,
     // (Sergio): this is the main difference between versions -01 and -02. I just corrected it
     // In version -02, if both fields are equal, it means no metrics (i.e., empty report for that SSRC)
     WriteSequential<uint16_t>(packet, position, stopSeq);
-    RTC_DCHECK(!rb.second.empty()); // at least one metric block
+    RTC_DCHECK(!rb.second.second.empty()); // at least one metric block
     printf("B %d, S %d\n", beginSeq, stopSeq);
     for (uint16_t i = beginSeq; i != stopSeq; ++i) {
-      const auto& mb_it = rb.second.find(i);
+      const auto& mb_it = rb.second.second.find(i);
       uint8_t octet1 = 0;
       uint8_t octet2 = 0;
-      const bool received = (mb_it != rb.second.end());
+      const bool received = (mb_it != rb.second.second.end());
       RtpHdrSetBit(octet1, 7, received);
       if (received) {
         const auto& mb = mb_it->second;
@@ -1081,17 +1095,18 @@ bool CcfbFeedback::Create(uint8_t* packet,
 
 void CcfbFeedback::Clear() {
   size_bytes_ = kCcfbMinPayloadSizeBytes;
-  base_seq_no_ = 0;
   last_timestamp_us_ = 0;
   report_blocks_.clear();
+  RTC_DCHECK(IsConsistent());
 }
 
 std::pair<uint16_t, uint16_t>
-CcfbFeedback::CalculateBeginStopSeq(uint16_t baseSeq, const ReportBlock_t& rb)
+CcfbFeedback::CalculateBeginStopSeq(const ReportBlock_t& rb)
 {
   //TODO: This would be more efficient to maintain in AddReceivedPacket
+  const uint16_t baseSeq = rb.first;
   uint16_t endSeq = baseSeq - 1;
-  for (auto& mb : rb) {
+  for (auto& mb : rb.second) {
     uint16_t currSeq = mb.first;
     if (uint16_t(baseSeq - currSeq) >= 16384 && uint16_t(currSeq - baseSeq) >= 16384) {
       // This discards all sequences more than 16k away from base sequence

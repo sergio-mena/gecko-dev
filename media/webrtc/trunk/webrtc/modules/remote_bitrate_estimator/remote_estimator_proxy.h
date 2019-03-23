@@ -51,7 +51,9 @@ class RemoteEstimatorProxy : public RemoteBitrateEstimator {
 
  protected:
   RemoteEstimatorProxy(Clock* clock, PacketRouter* packet_router);
-  virtual void OnPacketArrival(uint16_t sequence_number, int64_t arrival_time)
+  virtual void OnPacketArrival(uint32_t ssrc,
+                               uint16_t sequence_number,
+                               int64_t arrival_time)
       EXCLUSIVE_LOCKS_REQUIRED(&lock_);
 
   rtc::CriticalSection lock_;
@@ -66,10 +68,21 @@ class RemoteEstimatorProxy : public RemoteBitrateEstimator {
 
 
   uint8_t feedback_sequence_ GUARDED_BY(&lock_);
-  SequenceNumberUnwrapper unwrapper_ GUARDED_BY(&lock_);
-  int64_t window_start_seq_ GUARDED_BY(&lock_);
-  // Map unwrapped seq -> time.
-  std::map<int64_t, int64_t> packet_arrival_times_ GUARDED_BY(&lock_);
+
+  class SsrcData {
+  public:
+    SsrcData() :
+      window_start_seq_(-1) {}
+
+    SequenceNumberUnwrapper unwrapper_;
+    int64_t window_start_seq_;
+    // Map unwrapped seq -> time.
+    std::map<int64_t, int64_t> packet_arrival_times_;
+
+  };
+
+  // Map ssrc -> data.
+  std::map<uint32_t, SsrcData> ssrc_data_ GUARDED_BY(&lock_);
   int64_t send_interval_ms_ GUARDED_BY(&lock_);
 };
 
