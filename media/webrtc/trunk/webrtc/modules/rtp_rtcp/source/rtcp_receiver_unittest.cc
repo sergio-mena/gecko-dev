@@ -1155,7 +1155,7 @@ TEST_F(RtcpReceiverTest, ReceivesTransportFeedback) {
   packet.SetMediaSsrc(kReceiverMainSsrc);
   packet.SetSenderSsrc(kSenderSsrc);
   packet.SetBase(1, 1000);
-  packet.AddReceivedPacket(1, 1000);
+  packet.AddReceivedPacket(0, 1, 1000);
 
   EXPECT_CALL(
       transport_feedback_observer_,
@@ -1181,7 +1181,7 @@ TEST_F(RtcpReceiverTest, HandlesInvalidTransportFeedback) {
   packet.SetMediaSsrc(kReceiverMainSsrc);
   packet.SetSenderSsrc(kSenderSsrc);
   packet.SetBase(1, 1000);
-  packet.AddReceivedPacket(1, 1000);
+  packet.AddReceivedPacket(0, 1, 1000);
 
   static uint32_t kBitrateBps = 50000;
   rtcp::Remb remb;

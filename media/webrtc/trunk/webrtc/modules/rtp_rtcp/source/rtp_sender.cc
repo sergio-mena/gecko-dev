@@ -580,9 +580,14 @@ size_t RTPSender::SendPadData(size_t bytes, int probe_cluster_id) {
       UpdateTransportSequenceNumber(padding_packet.get(), &options.packet_id);
     padding_packet->SetPadding(padding_bytes_in_packet, &random_);
 
+    //TODO Make sure this is false when using CCFB
     if (has_transport_seq_num) {
-      AddPacketToTransportFeedback(options.packet_id, *padding_packet,
+      FATAL(); //TODO just to make sure...
+      AddPacketToTransportFeedback(0, options.packet_id, *padding_packet,
                                    probe_cluster_id);
+    } else if (rtp_header_extension_map_.IsRegistered(TransportSequenceNumber::kId)) {
+      AddPacketToTransportFeedback(padding_packet->Ssrc(), padding_packet->SequenceNumber(),
+                                   *padding_packet, probe_cluster_id);
     }
 
     if (!SendPacketToNetwork(*padding_packet, options))
@@ -762,9 +767,14 @@ bool RTPSender::PrepareAndSendPacket(std::unique_ptr<RtpPacketToSend> packet,
       AbsoluteSendTime::MsTo24Bits(now_ms));
 
   PacketOptions options;
+  //TODO Make sure this returns false when using CCFB
   if (UpdateTransportSequenceNumber(packet_to_send, &options.packet_id)) {
-    AddPacketToTransportFeedback(options.packet_id, *packet_to_send,
+    FATAL(); //TODO just to make sure...
+    AddPacketToTransportFeedback(0, options.packet_id, *packet_to_send,
                                  probe_cluster_id);
+  } else if (rtp_header_extension_map_.IsRegistered(TransportSequenceNumber::kId)) {
+    AddPacketToTransportFeedback(packet_to_send->Ssrc(), packet_to_send->SequenceNumber(),
+                                 *packet_to_send, probe_cluster_id);
   }
 
   if (!is_retransmit && !send_over_rtx) {
@@ -893,9 +903,14 @@ bool RTPSender::SendToNetwork(std::unique_ptr<RtpPacketToSend> packet,
   }
 
   PacketOptions options;
+  //TODO Make sure this returns false when using CCFB
   if (UpdateTransportSequenceNumber(packet.get(), &options.packet_id)) {
-    AddPacketToTransportFeedback(options.packet_id, *packet.get(),
+    FATAL(); //TODO just to make sure...
+    AddPacketToTransportFeedback(0, options.packet_id, *packet,
                                  PacketInfo::kNotAProbe);
+  } else if (rtp_header_extension_map_.IsRegistered(TransportSequenceNumber::kId)) {
+    AddPacketToTransportFeedback(packet->Ssrc(), packet->SequenceNumber(),
+                                 *packet, PacketInfo::kNotAProbe);
   }
 
   UpdateDelayStatistics(packet->capture_time_ms(), now_ms);
@@ -1288,7 +1303,8 @@ RtpState RTPSender::GetRtxRtpState() const {
   return state;
 }
 
-void RTPSender::AddPacketToTransportFeedback(uint16_t packet_id,
+void RTPSender::AddPacketToTransportFeedback(uint32_t ssrc,
+                                             uint16_t packet_id,
                                              const RtpPacketToSend& packet,
                                              int probe_cluster_id) {
   size_t packet_size = packet.payload_size() + packet.padding_size();
@@ -1298,7 +1314,7 @@ void RTPSender::AddPacketToTransportFeedback(uint16_t packet_id,
   }
 
   if (transport_feedback_observer_) {
-    transport_feedback_observer_->AddPacket(packet_id, packet_size,
+    transport_feedback_observer_->AddPacket(ssrc, packet_id, packet_size,
                                             probe_cluster_id);
   }
 }

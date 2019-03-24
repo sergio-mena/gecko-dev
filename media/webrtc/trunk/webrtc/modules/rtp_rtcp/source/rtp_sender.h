@@ -256,7 +256,8 @@ class RTPSender {
                       bool is_retransmit);
   bool IsFecPacket(const RtpPacketToSend& packet) const;
 
-  void AddPacketToTransportFeedback(uint16_t packet_id,
+  void AddPacketToTransportFeedback(uint32_t ssrc,
+                                    uint16_t packet_id,
                                     const RtpPacketToSend& packet,
                                     int probe_cluster_id);
 

@@ -34,7 +34,8 @@ class TransportFeedbackAdapter : public TransportFeedbackObserver,
 
   void InitBwe();
   // Implements TransportFeedbackObserver.
-  void AddPacket(uint16_t sequence_number,
+  void AddPacket(uint32_t ssrc,
+                 uint16_t sequence_number,
                  size_t length,
                  int probe_cluster_id) override;
   void OnSentPacket(uint16_t sequence_number, int64_t send_time_ms);
@@ -60,7 +61,7 @@ class TransportFeedbackAdapter : public TransportFeedbackObserver,
   rtc::CriticalSection lock_;
   rtc::CriticalSection bwe_lock_;
   int transport_overhead_bytes_per_packet_ GUARDED_BY(&lock_);
-  SendTimeHistory send_time_history_ GUARDED_BY(&lock_);
+  std::map<uint32_t, std::unique_ptr<SendTimeHistory> > send_time_history_ GUARDED_BY(&lock_);
   std::unique_ptr<DelayBasedBwe> delay_based_bwe_ GUARDED_BY(&bwe_lock_);
   Clock* const clock_;
   int64_t current_offset_ms_;

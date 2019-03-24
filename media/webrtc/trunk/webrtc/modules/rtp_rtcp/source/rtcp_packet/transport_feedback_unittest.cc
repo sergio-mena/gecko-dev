@@ -53,13 +53,13 @@ class FeedbackTester {
     expected_seq_.clear();
     expected_deltas_.clear();
     feedback_.reset(new TransportCCFeedback());
-    feedback_->SetBase(received_seq[0], received_ts[0]);
+    feedback_->SetBase(0, received_seq[0], received_ts[0]);
     ASSERT_TRUE(feedback_->IsConsistent());
 
     int64_t last_time = feedback_->GetBaseTimeUs();
     for (int i = 0; i < length; ++i) {
       int64_t time = received_ts[i];
-      EXPECT_TRUE(feedback_->AddReceivedPacket(received_seq[i], time));
+      EXPECT_TRUE(feedback_->AddReceivedPacket(0, received_seq[i], time));
 
       if (last_time != -1) {
         int64_t delta = time - last_time;
@@ -335,13 +335,13 @@ TEST(RtcpPacketTest, TransportFeedback_OneToTwoBitVectorSplit) {
 
 TEST(RtcpPacketTest, TransportFeedback_Aliasing) {
   TransportCCFeedback feedback;
-  feedback.SetBase(0, 0);
+  feedback.SetBase(0, 0, 0);
 
   const int kSamples = 100;
   const int64_t kTooSmallDelta = TransportCCFeedback::kDeltaScaleFactor / 3;
 
   for (int i = 0; i < kSamples; ++i)
-    feedback.AddReceivedPacket(i, i * kTooSmallDelta);
+    feedback.AddReceivedPacket(0, i, i * kTooSmallDelta);
 
   feedback.Build();
   std::vector<int64_t> deltas = feedback.GetReceiveDeltasUs();
@@ -361,48 +361,48 @@ TEST(RtcpPacketTest, TransportFeedback_Aliasing) {
 TEST(RtcpPacketTest, TransportFeedback_Limits) {
   // Sequence number wrap above 0x8000.
   std::unique_ptr<TransportFeedback> packet(new TransportCCFeedback());
-  packet->SetBase(0, 0);
-  EXPECT_TRUE(packet->AddReceivedPacket(0x0, 0));
-  EXPECT_TRUE(packet->AddReceivedPacket(0x8000, 1000));
+  packet->SetBase(0, 0, 0);
+  EXPECT_TRUE(packet->AddReceivedPacket(0, 0x0, 0));
+  EXPECT_TRUE(packet->AddReceivedPacket(0, 0x8000, 1000));
 
   packet.reset(new TransportCCFeedback());
-  packet->SetBase(0, 0);
-  EXPECT_TRUE(packet->AddReceivedPacket(0x0, 0));
-  EXPECT_FALSE(packet->AddReceivedPacket(0x8000 + 1, 1000));
+  packet->SetBase(0, 0, 0);
+  EXPECT_TRUE(packet->AddReceivedPacket(0, 0x0, 0));
+  EXPECT_FALSE(packet->AddReceivedPacket(0, 0x8000 + 1, 1000));
 
   // Packet status count max 0xFFFF.
   packet.reset(new TransportCCFeedback());
-  packet->SetBase(0, 0);
-  EXPECT_TRUE(packet->AddReceivedPacket(0x0, 0));
-  EXPECT_TRUE(packet->AddReceivedPacket(0x8000, 1000));
-  EXPECT_TRUE(packet->AddReceivedPacket(0xFFFE, 2000));
-  EXPECT_FALSE(packet->AddReceivedPacket(0xFFFF, 3000));
+  packet->SetBase(0, 0, 0);
+  EXPECT_TRUE(packet->AddReceivedPacket(0, 0x0, 0));
+  EXPECT_TRUE(packet->AddReceivedPacket(0, 0x8000, 1000));
+  EXPECT_TRUE(packet->AddReceivedPacket(0, 0xFFFE, 2000));
+  EXPECT_FALSE(packet->AddReceivedPacket(0, 0xFFFF, 3000));
 
   // Too large delta.
   packet.reset(new TransportCCFeedback());
-  packet->SetBase(0, 0);
+  packet->SetBase(0, 0, 0);
   int64_t kMaxPositiveTimeDelta = std::numeric_limits<int16_t>::max() *
                                   TransportCCFeedback::kDeltaScaleFactor;
   EXPECT_FALSE(packet->AddReceivedPacket(
-      1, kMaxPositiveTimeDelta + TransportCCFeedback::kDeltaScaleFactor));
-  EXPECT_TRUE(packet->AddReceivedPacket(1, kMaxPositiveTimeDelta));
+      0, 1, kMaxPositiveTimeDelta + TransportCCFeedback::kDeltaScaleFactor));
+  EXPECT_TRUE(packet->AddReceivedPacket(0, 1, kMaxPositiveTimeDelta));
 
   // Too large negative delta.
   packet.reset(new TransportCCFeedback());
-  packet->SetBase(0, 0);
+  packet->SetBase(0, 0, 0);
   int64_t kMaxNegativeTimeDelta = std::numeric_limits<int16_t>::min() *
                                   TransportCCFeedback::kDeltaScaleFactor;
   EXPECT_FALSE(packet->AddReceivedPacket(
-      1, kMaxNegativeTimeDelta - TransportCCFeedback::kDeltaScaleFactor));
-  EXPECT_TRUE(packet->AddReceivedPacket(1, kMaxNegativeTimeDelta));
+      0, 1, kMaxNegativeTimeDelta - TransportCCFeedback::kDeltaScaleFactor));
+  EXPECT_TRUE(packet->AddReceivedPacket(0, 1, kMaxNegativeTimeDelta));
 
   // Base time at maximum value.
   int64_t kMaxBaseTime =
       static_cast<int64_t>(TransportCCFeedback::kDeltaScaleFactor) * (1L << 8) *
       ((1L << 23) - 1);
   packet.reset(new TransportCCFeedback());
-  packet->SetBase(0, kMaxBaseTime);
-  EXPECT_TRUE(packet->AddReceivedPacket(0, kMaxBaseTime));
+  packet->SetBase(0, 0, kMaxBaseTime);
+  EXPECT_TRUE(packet->AddReceivedPacket(0, 0, kMaxBaseTime));
   // Serialize and de-serialize (verify 24bit parsing).
   rtc::Buffer raw_packet = packet->Build();
   packet = TransportCCFeedback::ParseFrom(raw_packet.data(), raw_packet.size());
@@ -412,8 +412,8 @@ TEST(RtcpPacketTest, TransportFeedback_Limits) {
   int64_t kTooLargeBaseTime =
       kMaxBaseTime + (TransportCCFeedback::kDeltaScaleFactor * (1L << 8));
   packet.reset(new TransportCCFeedback());
-  packet->SetBase(0, kTooLargeBaseTime);
-  packet->AddReceivedPacket(0, kTooLargeBaseTime);
+  packet->SetBase(0, 0, kTooLargeBaseTime);
+  packet->AddReceivedPacket(0, 0, kTooLargeBaseTime);
   raw_packet = packet->Build();
   packet = TransportCCFeedback::ParseFrom(raw_packet.data(), raw_packet.size());
   EXPECT_NE(kTooLargeBaseTime, packet->GetBaseTimeUs());
@@ -428,8 +428,8 @@ TEST(RtcpPacketTest, TransportFeedback_Padding) {
   const size_t kExpectedSizeWords = (kExpectedSizeBytes + 3) / 4;
 
   TransportCCFeedback feedback;
-  feedback.SetBase(0, 0);
-  EXPECT_TRUE(feedback.AddReceivedPacket(0, 0));
+  feedback.SetBase(0, 0, 0);
+  EXPECT_TRUE(feedback.AddReceivedPacket(0, 0, 0));
 
   rtc::Buffer packet = feedback.Build();
   EXPECT_EQ(kExpectedSizeWords * 4, packet.size());
@@ -469,10 +469,10 @@ TEST(RtcpPacketTest, TransportFeedback_CorrectlySplitsVectorChunks) {
 
   for (int deltas = 0; deltas <= kOneBitVectorCapacity + 1; ++deltas) {
     TransportCCFeedback feedback;
-    feedback.SetBase(0, 0);
+    feedback.SetBase(0, 0, 0);
     for (int i = 0; i < deltas; ++i)
-      feedback.AddReceivedPacket(i, i * 1000);
-    feedback.AddReceivedPacket(deltas, deltas * 1000 + kLargeTimeDelta);
+      feedback.AddReceivedPacket(0, i, i * 1000);
+    feedback.AddReceivedPacket(0, deltas, deltas * 1000 + kLargeTimeDelta);
 
     rtc::Buffer serialized_packet = feedback.Build();
     std::unique_ptr<TransportFeedback> deserialized_packet =

@@ -44,7 +44,7 @@ TransportFeedbackAdapter::TransportFeedbackAdapter(
     Clock* clock,
     BitrateController* bitrate_controller)
     : transport_overhead_bytes_per_packet_(0),
-      send_time_history_(clock, kSendTimeHistoryWindowMs),
+      //send_time_history_(clock, kSendTimeHistoryWindowMs),
       clock_(clock),
       current_offset_ms_(kNoTimestamp),
       last_timestamp_us_(kNoTimestamp),
@@ -57,7 +57,8 @@ void TransportFeedbackAdapter::InitBwe() {
   delay_based_bwe_.reset(new DelayBasedBwe(clock_));
 }
 
-void TransportFeedbackAdapter::AddPacket(uint16_t sequence_number,
+void TransportFeedbackAdapter::AddPacket(uint32_t ssrc,
+                                         uint16_t sequence_number,
                                          size_t length,
                                          int probe_cluster_id) {
   rtc::CritScope cs(&lock_);
@@ -65,13 +66,22 @@ void TransportFeedbackAdapter::AddPacket(uint16_t sequence_number,
       "Enabled") {
     length += transport_overhead_bytes_per_packet_;
   }
-  send_time_history_.AddAndRemoveOld(sequence_number, length, probe_cluster_id);
+
+  if (send_time_history_.find(ssrc) == send_time_history_.end()) {
+    std::unique_ptr<SendTimeHistory> p = std::make_unique<SendTimeHistory>(clock_, kSendTimeHistoryWindowMs);
+    send_time_history_[ssrc] = std::move(p);
+  }
+  send_time_history_[ssrc]->AddAndRemoveOld(sequence_number, length, probe_cluster_id);
 }
 
 void TransportFeedbackAdapter::OnSentPacket(uint16_t sequence_number,
                                             int64_t send_time_ms) {
+  //TODO This is only called from UTs
+  FATAL();
   rtc::CritScope cs(&lock_);
-  send_time_history_.OnSentPacket(sequence_number, send_time_ms);
+  if (send_time_history_.find(0) != send_time_history_.end()) {
+    send_time_history_[0]->OnSentPacket(sequence_number, send_time_ms);
+  }
 }
 
 void TransportFeedbackAdapter::SetMinBitrate(int min_bitrate_bps) {
@@ -113,27 +123,38 @@ std::vector<PacketInfo> TransportFeedbackAdapter::GetPacketFeedbackVector(
   last_timestamp_us_ = timestamp_us;
 
   std::vector<PacketInfo> packet_feedback_vector;
+  size_t failed_lookups = 0;
+
   {
     rtc::CritScope cs(&lock_);
-    size_t failed_lookups = 0;
 
-    std::vector<PacketInfo> pfb_ret = feedback.GetFeedbackVector(current_offset_ms_);
-    packet_feedback_vector.reserve(pfb_ret.size());
-    for (auto info : pfb_ret) {
-      if (send_time_history_.GetInfo(&info, true) && info.send_time_ms >= 0) {
-        packet_feedback_vector.push_back(info);
-      } else {
-        ++failed_lookups;
+    for (const auto& ssrc: feedback.GetSsrcs()) {
+      std::vector<PacketInfo> pfb_it;
+
+      std::vector<PacketInfo> pfb_ret = feedback.GetFeedbackVector(ssrc, current_offset_ms_);
+      pfb_it.reserve(pfb_ret.size());
+      for (auto info : pfb_ret) {
+        if (send_time_history_.find(ssrc) != send_time_history_.end()
+            && send_time_history_[ssrc]->GetInfo(&info, true) && info.send_time_ms >= 0) {
+          pfb_it.push_back(info);
+        } else {
+          ++failed_lookups;
+        }
+      }
+      std::sort(pfb_it.begin(), pfb_it.end(), PacketInfoComparator());
+
+      //TODO merge the two vectors. For the time being, keep the longest
+      if (pfb_it.size() > packet_feedback_vector.size()) {
+        packet_feedback_vector = pfb_it;
       }
     }
-    std::sort(packet_feedback_vector.begin(), packet_feedback_vector.end(),
-              PacketInfoComparator());
-    if (failed_lookups > 0) {
-      LOG(LS_WARNING) << "Failed to lookup send time for " << failed_lookups
-                      << " packet" << (failed_lookups > 1 ? "s" : "")
-                      << ". Send time history too small?";
-    }
   }
+  if (failed_lookups > 0) {
+    LOG(LS_WARNING) << "Failed to lookup send time for " << failed_lookups
+                    << " packet" << (failed_lookups > 1 ? "s" : "")
+                    << ". Send time history too small?";
+  }
+
   return packet_feedback_vector;
 }
 
