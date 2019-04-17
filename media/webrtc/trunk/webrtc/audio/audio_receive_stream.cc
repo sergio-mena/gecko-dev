@@ -37,7 +37,6 @@ std::string AudioReceiveStream::Config::Rtp::ToString() const {
   ss << "{remote_ssrc: " << remote_ssrc;
   ss << ", local_ssrc: " << local_ssrc;
   ss << ", transport_cc: " << (transport_cc ? "on" : "off");
-  ss << ", ccfb: " << (ccfb ? "on" : "off");
   ss << ", nack: " << nack.ToString();
   ss << ", extensions: [";
   for (size_t i = 0; i < extensions.size(); ++i) {
@@ -112,7 +111,6 @@ AudioReceiveStream::AudioReceiveStream(
       channel_proxy_->EnableReceiveTransportSequenceNumber(extension.id);
       bool registered = rtp_header_parser_->RegisterRtpHeaderExtension(
           kRtpExtensionTransportSequenceNumber, extension.id);
-      //TODO Add CCFB registration when Audio implemented
       RTC_DCHECK(registered);
     } else {
       RTC_NOTREACHED() << "Unsupported RTP extension.";
@@ -279,9 +277,6 @@ bool AudioReceiveStream::DeliverRtp(const uint8_t* packet,
     size_t payload_size = length - header.headerLength;
     remote_bitrate_estimator_->IncomingPacket(arrival_time_ms, payload_size,
                                               header);
-    //TODO Implement audio or delete
-  } else if (config_.rtp.ccfb) {
-    //TODO forward the packet to an added remote estimator
   }
 
   return channel_proxy_->ReceivedRTPPacket(packet, length, packet_time);

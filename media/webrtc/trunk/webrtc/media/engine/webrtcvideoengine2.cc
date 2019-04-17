@@ -151,7 +151,7 @@ class WebRtcSimulcastEncoderFactory
 
 void AddDefaultFeedbackParams(VideoCodec* codec) {
   codec->AddFeedbackParam(FeedbackParam(kRtcpFbParamCcm, kRtcpFbCcmParamFir));
-  codec->AddFeedbackParam(FeedbackParam(kRtcpFbParamAck, kRtcpFbParamCcfb));
+  codec->AddFeedbackParam(FeedbackParam(kRtcpFbParamAck, kRtcpFbAckParamCcfb));
   codec->AddFeedbackParam(FeedbackParam(kRtcpFbParamNack, kParamValueEmpty));
   codec->AddFeedbackParam(FeedbackParam(kRtcpFbParamNack, kRtcpFbNackParamPli));
   codec->AddFeedbackParam(FeedbackParam(kRtcpFbParamRemb, kParamValueEmpty));
@@ -508,9 +508,6 @@ RtpCapabilities WebRtcVideoEngine2::GetCapabilities() const {
   capabilities.header_extensions.push_back(
       webrtc::RtpExtension(webrtc::RtpExtension::kPlayoutDelayUri,
                            webrtc::RtpExtension::kPlayoutDelayDefaultId));
-  capabilities.header_extensions.push_back(
-      webrtc::RtpExtension(webrtc::RtpExtension::kCCFBFlagUri,
-                           webrtc::RtpExtension::kCCFBFlagDefaultId));
   return capabilities;
 }
 

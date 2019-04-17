@@ -711,7 +711,7 @@ bool TransportCCFeedback::AddDeltaSize(DeltaSize delta_size) {
 
 
 
-//-- RCTP CCFB HEADER (draft-ietf-avtcore-cc-feedback-message-02) -//
+//-- RCTP CCFB HEADER (draft-ietf-avtcore-cc-feedback-message-03) -//
 //   0                   1                   2                   3
 //   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -811,7 +811,8 @@ void CcfbFeedback::SetBase(uint32_t ssrc,
 
 
   if (report_blocks_.find(ssrc) != report_blocks_.end()) {
-    //log: "you shouldn't set the base sequence more than once per SSRC
+    LOG(LS_WARNING) << "Base sequence (" << base_sequence
+                    << ") shouldn't be set more than one for SSRC " << ssrc;
     return;
   }
   auto& rb = report_blocks_[ssrc];
@@ -833,16 +834,18 @@ bool CcfbFeedback::AddReceivedPacket(uint32_t ssrc,
   uint8_t ecn = 0;
   RTC_DCHECK_GE(timestamp_us, 0); //TODO Remove this and check type all over
   if (ecn > 0x03) {
-      //log: bad ecn
+      LOG(LS_WARNING) << "Bad ECN value provided " << ecn;
       return false;
   }
   if (report_blocks_.find(ssrc) == report_blocks_.end()) {
-    //log: "you must first set the base sequence
+    LOG(LS_WARNING) << "Base sequence should be set for SSRC " << ssrc
+                    << " before adding received packets from that SSRC";
     return false;
   }
   auto& rb = report_blocks_[ssrc];
   if (rb.second.find(sequence_number) != rb.second.end()) {
-    //log: duplicate
+    LOG(LS_WARNING) << "Received duplicate packet with sequence number "
+                    << sequence_number << " and SSRC " << ssrc << " received";
     return false;
   }
   auto& mb = rb.second[sequence_number];
@@ -850,7 +853,8 @@ bool CcfbFeedback::AddReceivedPacket(uint32_t ssrc,
   mb.ecn_ = ecn;
   if (!UpdateLength()) {
       rb.second.erase(sequence_number);
-      //log: too long
+      LOG(LS_WARNING) << "Discarding received packet with sequence number " << sequence_number
+                      << " and SSRC " << ssrc << " as it would make the feedback packet too long";
       return false;
   }
   SetMediaSsrc(report_blocks_.begin()->first);
@@ -873,7 +877,7 @@ std::vector<PacketInfo> CcfbFeedback::GetFeedbackVector(uint32_t ssrc, int64_t b
 
   const auto& rb_it = report_blocks_.find(ssrc);
   if(rb_it == report_blocks_.end()) {
-    //log error
+    LOG(LS_WARNING) << "No feedback found for SSRC " << ssrc << ", returning empty vector";
     return packet_feedback_vector;
   }
   const auto& rb = rb_it->second;
@@ -1034,10 +1038,6 @@ bool CcfbFeedback::Create(uint8_t* packet,
     const uint16_t beginSeq = beginStop.first;
     const uint16_t stopSeq = beginStop.second;
     WriteSequential<uint16_t>(packet, position, beginSeq);
-    // TODO(drno): does it really make sense that in the case of a single report
-    // block we write the same number as stopSeq and the beginSeq?
-    // (Sergio): this is the main difference between versions -01 and -02. I just corrected it
-    // In version -02, if both fields are equal, it means no metrics (i.e., empty report for that SSRC)
     const uint16_t num_reports = uint16_t(stopSeq - beginSeq);
     WriteSequential<uint16_t>(packet, position, num_reports); // Wraps properly
     RTC_DCHECK(!rb.second.second.empty()); // at least one metric block
@@ -1068,8 +1068,6 @@ bool CcfbFeedback::Create(uint8_t* packet,
   const uint32_t ntpTs = UsToNtp(last_timestamp_us_);
   WriteSequential<uint32_t>(packet, position, ntpTs);
 
-  /* TODO(drno): see above
-  */
   RTC_DCHECK_EQ(*position, position_end);
   return true;
 }
@@ -1084,7 +1082,7 @@ void CcfbFeedback::Clear() {
 std::pair<uint16_t, uint16_t>
 CcfbFeedback::CalculateBeginStopSeq(const ReportBlock_t& rb)
 {
-  //TODO: This would be more efficient to maintain in AddReceivedPacket
+  //TODO (semena): This would be more efficient to maintain in AddReceivedPacket
   const uint16_t baseSeq = rb.first;
   uint16_t endSeq = baseSeq - 1;
   for (auto& mb : rb.second) {

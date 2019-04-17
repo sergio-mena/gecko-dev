@@ -57,7 +57,6 @@ constexpr RtpExtensionSize kExtensionSizes[] = {
     CreateExtensionSize<TransmissionOffset>(),
     CreateExtensionSize<TransportSequenceNumber>(),
     CreateExtensionSize<PlayoutDelayLimits>(),
-    CreateExtensionSize<CCFBFlag>(),
 };
 
 const char* FrameTypeToString(FrameType frame_type) {
@@ -542,8 +541,7 @@ size_t RTPSender::SendPadData(size_t bytes, int probe_cluster_id) {
             !(rtp_header_extension_map_.IsRegistered(AbsoluteSendTime::kId) ||
               (rtp_header_extension_map_.IsRegistered(
                    TransportSequenceNumber::kId) &&
-               transport_sequence_number_allocator_) ||
-              rtp_header_extension_map_.IsRegistered(CCFBFlag::kId))) {
+               transport_sequence_number_allocator_))) {
           break;
         }
         // Only change change the timestamp of padding packets sent over RTX.
@@ -580,9 +578,7 @@ size_t RTPSender::SendPadData(size_t bytes, int probe_cluster_id) {
       UpdateTransportSequenceNumber(padding_packet.get(), &options.packet_id);
     padding_packet->SetPadding(padding_bytes_in_packet, &random_);
 
-    //TODO Make sure this is false when using CCFB
     if (has_transport_seq_num) {
-      FATAL(); //TODO just to make sure...
       AddPacketToTransportFeedback(0, options.packet_id, *padding_packet,
                                    probe_cluster_id);
     } else if (rtp_header_extension_map_.IsRegistered(TransportSequenceNumber::kId)) {
@@ -767,9 +763,7 @@ bool RTPSender::PrepareAndSendPacket(std::unique_ptr<RtpPacketToSend> packet,
       AbsoluteSendTime::MsTo24Bits(now_ms));
 
   PacketOptions options;
-  //TODO Make sure this returns false when using CCFB
   if (UpdateTransportSequenceNumber(packet_to_send, &options.packet_id)) {
-    FATAL(); //TODO just to make sure...
     AddPacketToTransportFeedback(0, options.packet_id, *packet_to_send,
                                  probe_cluster_id);
   } else if (rtp_header_extension_map_.IsRegistered(TransportSequenceNumber::kId)) {
@@ -903,9 +897,7 @@ bool RTPSender::SendToNetwork(std::unique_ptr<RtpPacketToSend> packet,
   }
 
   PacketOptions options;
-  //TODO Make sure this returns false when using CCFB
   if (UpdateTransportSequenceNumber(packet.get(), &options.packet_id)) {
-    FATAL(); //TODO just to make sure...
     AddPacketToTransportFeedback(0, options.packet_id, *packet,
                                  PacketInfo::kNotAProbe);
   } else if (rtp_header_extension_map_.IsRegistered(TransportSequenceNumber::kId)) {
@@ -1030,7 +1022,6 @@ std::unique_ptr<RtpPacketToSend> RTPSender::AllocatePacket() const {
   packet->ReserveExtension<AbsoluteSendTime>();
   packet->ReserveExtension<TransmissionOffset>();
   packet->ReserveExtension<TransportSequenceNumber>();
-  packet->ReserveExtension<CCFBFlag>();
   if (playout_delay_oracle_.send_playout_delay()) {
     packet->SetExtension<PlayoutDelayLimits>(
         playout_delay_oracle_.playout_delay());

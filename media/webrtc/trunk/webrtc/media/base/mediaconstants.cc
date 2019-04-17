@@ -83,8 +83,7 @@ const char kRtcpFbNackParamPli[] = "pli";
 const char kRtcpFbParamRemb[] = "goog-remb";
 const char kRtcpFbParamTransportCc[] = "transport-cc";
 
-//TODO rename to kRtcpFbAckParamCcfb
-const char kRtcpFbParamCcfb[] = "ccfb";
+const char kRtcpFbAckParamCcfb[] = "ccfb";
 const char kRtcpFbParamCcm[] = "ccm";
 const char kRtcpFbCcmParamFir[] = "fir";
 const char kCodecParamMaxBitrate[] = "x-google-max-bitrate";

@@ -44,7 +44,6 @@ TransportFeedbackAdapter::TransportFeedbackAdapter(
     Clock* clock,
     BitrateController* bitrate_controller)
     : transport_overhead_bytes_per_packet_(0),
-      //send_time_history_(clock, kSendTimeHistoryWindowMs),
       clock_(clock),
       current_offset_ms_(kNoTimestamp),
       last_timestamp_us_(kNoTimestamp),
@@ -76,8 +75,6 @@ void TransportFeedbackAdapter::AddPacket(uint32_t ssrc,
 
 void TransportFeedbackAdapter::OnSentPacket(uint16_t sequence_number,
                                             int64_t send_time_ms) {
-  //TODO This is only called from UTs
-  FATAL();
   rtc::CritScope cs(&lock_);
   if (send_time_history_.find(0) != send_time_history_.end()) {
     send_time_history_[0]->OnSentPacket(sequence_number, send_time_ms);
@@ -143,7 +140,8 @@ std::vector<PacketInfo> TransportFeedbackAdapter::GetPacketFeedbackVector(
       }
       std::sort(pfb_it.begin(), pfb_it.end(), PacketInfoComparator());
 
-      //TODO merge the two vectors. For the time being, keep the longest
+      //TODO (semena): merge the two vectors properly (using sending times).
+      // For the time being, just keep the longest
       if (pfb_it.size() > packet_feedback_vector.size()) {
         packet_feedback_vector = pfb_it;
       }

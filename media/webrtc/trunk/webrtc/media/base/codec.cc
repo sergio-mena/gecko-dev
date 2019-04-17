@@ -331,7 +331,7 @@ bool HasTransportCc(const Codec& codec) {
 
 bool HasCcfb(const Codec& codec) {
   return codec.HasFeedbackParam(
-      FeedbackParam(kRtcpFbParamAck, kRtcpFbParamCcfb));
+      FeedbackParam(kRtcpFbParamAck, kRtcpFbAckParamCcfb));
 }
 
 bool CodecNamesEq(const std::string& name1, const std::string& name2) {

@@ -88,10 +88,6 @@ const char* RtpExtension::kCsrcAudioLevelUri =
     "urn:ietf:params:rtp-hdrext:csrc-audio-level";
 const int RtpExtension::kCsrcAudioLevelDefaultId = 10;
 
-const char* RtpExtension::kCCFBFlagUri =
-    "http://www.ietf.org/id/draft-ietf-avtcore-cc-feedback-message-02";
-const int RtpExtension::kCCFBFlagDefaultId = 11;
-
 bool RtpExtension::IsSupportedForAudio(const std::string& uri) {
   return uri == webrtc::RtpExtension::kAudioLevelUri ||
          uri == webrtc::RtpExtension::kTransportSequenceNumberUri ||
@@ -99,7 +95,6 @@ bool RtpExtension::IsSupportedForAudio(const std::string& uri) {
          uri == webrtc::RtpExtension::kRepairedRtpStreamIdUri ||
          uri == webrtc::RtpExtension::kMIdUri ||
          uri == webrtc::RtpExtension::kCsrcAudioLevelUri;
-         //TODO Add kCCFBFlagUri when Audio implemented
 }
 
 bool RtpExtension::IsSupportedForVideo(const std::string& uri) {
@@ -110,8 +105,7 @@ bool RtpExtension::IsSupportedForVideo(const std::string& uri) {
          uri == webrtc::RtpExtension::kPlayoutDelayUri ||
          uri == webrtc::RtpExtension::kRtpStreamIdUri ||
          uri == webrtc::RtpExtension::kRepairedRtpStreamIdUri ||
-         uri == webrtc::RtpExtension::kMIdUri ||
-         uri == webrtc::RtpExtension::kCCFBFlagUri;
+         uri == webrtc::RtpExtension::kMIdUri;
 }
 
 VideoStream::VideoStream()

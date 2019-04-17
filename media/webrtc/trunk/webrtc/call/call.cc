@@ -529,8 +529,8 @@ webrtc::AudioReceiveStream* Call::CreateAudioReceiveStream(
       &packet_router_,
       // TODO(nisse): Used only when UseSendSideBwe(config) is true.
       congestion_controller_->GetRemoteBitrateEstimator(CongestionController::kBweTransportCC), config,
-      //TODO I don't understand: Audio uses transportCC _unconditionally_, doesn't depend on SDP ????
-      //TODO add estimator when Audio implemented
+      //TODO (semena): I don't understand this: audio uses transportCC estimator _unconditionally_.
+      // Shouldn't it depend on SDP negotiation?
       config_.audio_state, event_log_);
   {
     WriteLockScoped write_lock(*receive_crit_);

@@ -928,7 +928,6 @@ struct RTPHeaderExtension {
 
   StreamId mId;
   CsrcAudioLevelList csrcAudioLevels;
-  bool CCFBFlag;
 };
 
 struct RTPHeader {

@@ -61,7 +61,6 @@ int64_t RemoteEstimatorProxy::TimeUntilNextProcess() {
   return time_until_next;
 }
 
-
 void RemoteEstimatorProxy::Process() {
   last_process_time_ms_ = clock_->TimeInMilliseconds();
 
@@ -175,7 +174,6 @@ bool RemoteEstimatorProxy::BuildFeedbackPacket(
     feedback_packet->SetBase(d.first,
                              static_cast<uint16_t>(d.second.window_start_seq_ & 0xFFFF),
                              it->second * 1000);
-    //TODO: Interesting: CCFB format doesn't have a seq no for reports themselves
     feedback_packet->SetFeedbackSequenceNumber(feedback_sequence_++);
     for (; it != d.second.packet_arrival_times_.end(); ++it) {
       if (!feedback_packet->AddReceivedPacket(
@@ -242,11 +240,6 @@ CcfbEstimator::~CcfbEstimator() {}
 void CcfbEstimator::IncomingPacket(int64_t arrival_time_ms,
                                           size_t payload_size,
                                           const RTPHeader& header) {
-  if (!header.extension.CCFBFlag) {
-    LOG(LS_WARNING) << "Incoming packet is missing the CCFB flag! "
-                       "It should not be routed to this estimator";
-    return;
-  }
   rtc::CritScope cs(&lock_);
   OnPacketArrival(header.ssrc, header.sequenceNumber, arrival_time_ms);
 }

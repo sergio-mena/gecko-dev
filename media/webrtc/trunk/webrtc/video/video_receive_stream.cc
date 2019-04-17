@@ -39,11 +39,7 @@ namespace webrtc {
 
 static CongestionController::SendSideBwe UseSendSideBwe(const VideoReceiveStream::Config& config) {
   if (config.rtp.ccfb) {
-    for (const auto& extension : config.rtp.extensions) {
-      if (extension.uri == RtpExtension::kCCFBFlagUri)
-        return CongestionController::kBweCcfb;
-    }
-    return CongestionController::kBweNone;
+    return CongestionController::kBweCcfb;
   }
   if (!config.rtp.transport_cc)
     return CongestionController::kBweNone;

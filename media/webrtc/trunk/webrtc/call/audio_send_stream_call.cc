@@ -80,7 +80,6 @@ std::string AudioSendStream::Config::SendCodecSpec::ToString() const {
   std::stringstream ss;
   ss << "{nack_enabled: " << (nack_enabled ? "true" : "false");
   ss << ", transport_cc_enabled: " << (transport_cc_enabled ? "true" : "false");
-  ss << ", ccfb_enabled: " << (ccfb_enabled ? "true" : "false");
   ss << ", enable_codec_fec: " << (enable_codec_fec ? "true" : "false");
   ss << ", enable_opus_dtx: " << (enable_opus_dtx ? "true" : "false");
   ss << ", opus_max_playback_rate: " << opus_max_playback_rate;
@@ -97,7 +96,6 @@ bool AudioSendStream::Config::SendCodecSpec::operator==(
     const AudioSendStream::Config::SendCodecSpec& rhs) const {
   if (nack_enabled == rhs.nack_enabled &&
       transport_cc_enabled == rhs.transport_cc_enabled &&
-      ccfb_enabled == rhs.ccfb_enabled &&
       enable_codec_fec == rhs.enable_codec_fec &&
       enable_opus_dtx == rhs.enable_opus_dtx &&
       opus_max_playback_rate == rhs.opus_max_playback_rate &&

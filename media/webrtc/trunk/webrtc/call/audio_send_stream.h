@@ -111,9 +111,7 @@ class AudioSendStream {
       }
 
       bool nack_enabled = false;
-      //TODO Implement audio or delete
       bool transport_cc_enabled = false;
-      bool ccfb_enabled = false;
       bool enable_codec_fec = false;
       bool enable_opus_dtx = false;
       int opus_max_playback_rate = 0;

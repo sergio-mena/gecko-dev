@@ -209,11 +209,10 @@ void CongestionController::OnReceivedPacket(int64_t arrival_time_ms,
   }
 
   // Send-side BWE (CCFB)
-  if (header.extension.CCFBFlag) {
-    bwe_proxy_ccfb_.IncomingPacket(arrival_time_ms, payload_size,
-                                   header);
-    return;
-  }
+  // TODO (semena): Need to retrieve the feedback type that was negotiated and check
+  // here which estimator should get the packet
+  bwe_proxy_ccfb_.IncomingPacket(arrival_time_ms, payload_size,
+                                 header);
 
   // Receive-side BWE.
   if (remote_bitrate_estimator_) {

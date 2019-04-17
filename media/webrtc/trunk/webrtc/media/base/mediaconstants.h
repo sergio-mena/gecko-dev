@@ -97,7 +97,8 @@ extern const char kRtcpFbParamRemb[];
 // rtcp-fb messages according to
 // https://tools.ietf.org/html/draft-holmer-rmcat-transport-wide-cc-extensions-01
 extern const char kRtcpFbParamTransportCc[];
-extern const char kRtcpFbParamCcfb[];
+// https://tools.ietf.org/html/draft-ietf-avtcore-cc-feedback-message-03
+extern const char kRtcpFbAckParamCcfb[];
 // ccm submessages according to RFC 5104
 extern const char kRtcpFbParamCcm[];
 extern const char kRtcpFbCcmParamFir[];

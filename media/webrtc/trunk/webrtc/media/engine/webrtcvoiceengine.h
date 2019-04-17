@@ -256,8 +256,6 @@ class WebRtcVoiceMediaChannel final : public VoiceMediaChannel,
   rtc::Optional<int> dtmf_payload_type_;
   int dtmf_payload_freq_ = -1;
   bool recv_transport_cc_enabled_ = false;
-  //TODO Implement audio or delete
-  bool recv_ccfb_enabled_ = false;
   bool recv_nack_enabled_ = false;
   bool desired_playout_ = false;
   bool playout_ = false;
