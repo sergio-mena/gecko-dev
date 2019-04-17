@@ -242,9 +242,9 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
     if (first_update_ms_ < 0) 
 	first_update_ms_ = now_ms; 
 
-    printf("\t NadaOwdBwe::IncomingPacketFeedbackVector | t=%ld (%ld) ms, nfb = %d, fbint = %6.2f ms\n", 
-		now_ms, now_ms - first_update_ms_, 
-		nfb, nada_delta_);
+    printf("NadaOwdBwe::IncomingPacketFeedbackVector | t=%ld (%ld) ms, nfb = %d, fbint = %6.2f ms\n", 
+	    now_ms, now_ms - first_update_ms_, 
+	    nfb, nada_delta_);
 
     // [XZ 2019-03-07]
 
@@ -289,7 +289,7 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
        
        dq = dtmp - nada_d_base_; 
 
-       printf("PktFBInfo: seqno=%6d, pktsize=%6d | creatts=%8ld, sendts=%8ld, recvts=%8ld, ackts=%8ld | d_fwd=%6.1f, dbase=%6.1f, dqueue=%6.1f ms | rtt=%6.1f, rtt_base=%6.1f, rtt_rel=%6.1fms\n",
+       printf("\t pktinfo | seqno=%6d, pktsize=%6d | creatts=%8ld, sendts=%8ld, recvts=%8ld, ackts=%8ld | d_fwd=%6.1f, dbase=%6.1f, dqueue=%6.1f ms | rtt=%6.1f, rtt_base=%6.1f, rtt_rel=%6.1fms\n",
 		packet_info.sequence_number, 
 		int(packet_info.payload_size), 
 		packet_info.creation_time_ms, 
@@ -312,8 +312,7 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
    nada_d_queue_ = nada_d_fwd_ - nada_d_base_;
    nada_x_curr_ = nada_d_queue_;  
    
-
-   printf("\t NadaOwdBwe pktstats: delta = %6.2f d_fwd = %6.2f, d_base = %6.2f, d_queue = %6.2f ms | rtt: %6.2f - %6.2f = %6.2f | x_curr = %6.2f\n", 
+   printf("\t pktstats | delta=%6.2f d_fwd=%6.2f, d_base=%6.2f, d_queue=%6.2f ms, rtt=%6.2f, rtt_b=%6.2f, rtt_rel=%6.2f, x_curr=%6.2f\n", 
 	      nada_delta_, nada_d_fwd_, nada_d_base_, nada_d_queue_, 
 	      nada_rtt_in_ms_, nada_rtt_base_in_ms_, nada_rtt_rel_in_ms_, 
 	      nada_x_curr_);    
