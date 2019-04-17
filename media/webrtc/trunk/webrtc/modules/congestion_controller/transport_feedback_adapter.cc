@@ -185,13 +185,12 @@ std::vector<PacketInfo> TransportFeedbackAdapter::GetPacketFeedbackVector(
 void TransportFeedbackAdapter::OnTransportFeedback(
     const rtcp::TransportFeedback& feedback) {
 
-  printf("Inside TransportFeedbackAdapter: OnTransportFeedback \n");
+  // printf("Inside TransportFeedbackAdapter: OnTransportFeedback \n");
   last_packet_feedback_vector_ = GetPacketFeedbackVector(feedback);
 
   DelayBasedBwe::Result result;
   {
-    printf("\t XZXZXZXZ inside OnTransportFeedback | invoking delay-based BWE \n");
-
+    // printf("\t XZXZXZXZ inside OnTransportFeedback | invoking delay-based BWE \n");
     rtc::CritScope cs(&bwe_lock_);
     result = delay_based_bwe_->IncomingPacketFeedbackVector(
         last_packet_feedback_vector_);
@@ -199,7 +198,7 @@ void TransportFeedbackAdapter::OnTransportFeedback(
 
   if (result.updated)
   {
-    printf("\t XZXZXZXZ updating delay-based BWE for bitrate controller \n");
+    // printf("\t XZXZXZXZ updating delay-based BWE for bitrate controller \n");
     bitrate_controller_->OnDelayBasedBweResult(result);
   }
 }
