@@ -230,6 +230,9 @@ void CongestionController::SetBweBitrates(int min_bitrate_bps,
     remote_bitrate_estimator_->SetMinBitrate(min_bitrate_bps);
   min_bitrate_bps_ = min_bitrate_bps;
   transport_feedback_adapter_.SetMinBitrate(min_bitrate_bps_);
+  
+  
+  printf("Inside CongestionController: SetBweBitrates => MaybeTriggerOnNetworkChanged\n");
   MaybeTriggerOnNetworkChanged();
 }
 
@@ -251,6 +254,8 @@ void CongestionController::ResetBweAndBitrates(int bitrate_bps,
   transport_feedback_adapter_.InitBwe();
   transport_feedback_adapter_.SetMinBitrate(min_bitrate_bps);
   // TODO(holmer): Trigger a new probe once mid-call probing is implemented.
+  
+  printf("Inside CongestionController: ResetBweAndBitrates => MaybeTriggerOnNetworkChanged\n");
   MaybeTriggerOnNetworkChanged();
 }
 
@@ -291,6 +296,7 @@ int64_t CongestionController::GetPacerQueuingDelayMs() const {
 }
 
 void CongestionController::SignalNetworkState(NetworkState state) {
+
   LOG(LS_INFO) << "SignalNetworkState "
                << (state == kNetworkUp ? "Up" : "Down");
   if (state == kNetworkUp) {
@@ -303,6 +309,9 @@ void CongestionController::SignalNetworkState(NetworkState state) {
     network_state_ = state;
   }
   probe_controller_->OnNetworkStateChanged(state);
+  
+  
+  printf("Inside CongestionController: SignalNetworkState => MaybeTriggerOnNetworkChanged\n");
   MaybeTriggerOnNetworkChanged();
 }
 
@@ -338,6 +347,8 @@ void CongestionController::Process() {
   bitrate_controller_->Process();
   remote_bitrate_estimator_->Process();
   probe_controller_->Process();
+  
+//  printf("Inside CongestionController: Process() => MaybeTriggerOnNetworkChanged\n");
   MaybeTriggerOnNetworkChanged();
 }
 
@@ -346,6 +357,8 @@ void CongestionController::MaybeTriggerOnNetworkChanged() {
   // BitrateObserver is used. Remove this check once the ctor is removed.
   if (!observer_)
     return;
+
+//  printf("\t Inside CongestionController: MaybeTriggerOnNetworkChanged => GetNetParam\n");
 
   uint32_t bitrate_bps;
   uint8_t fraction_loss;

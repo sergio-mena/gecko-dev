@@ -164,6 +164,7 @@ class ViEEncoder::VideoSourceProxy {
       return;
     }
 
+    printf("[XQ] VideoSourceProxy::SetSource: calling AddOrUpdateSink\n");
     source->AddOrUpdateSink(vie_encoder_, wants);
   }
 
@@ -172,6 +173,7 @@ class ViEEncoder::VideoSourceProxy {
     sink_wants_.rotation_applied = rotation_applied;
     disabled_scaling_sink_wants_.rotation_applied = rotation_applied;
     if (source_) {
+      printf("[XQ] VideoSourceProxy::SetWantsRotationApplied: calling AddOrUpdateSink\n");
       source_->AddOrUpdateSink(vie_encoder_, current_wants());
     }
   }
@@ -193,8 +195,13 @@ class ViEEncoder::VideoSourceProxy {
       return;
     sink_wants_.max_pixel_count = rtc::Optional<int>(pixels_wanted);
     sink_wants_.max_pixel_count_step_up = rtc::Optional<int>();
-    if (source_)
+    if (source_) {
+
+      printf("[XQ] VideoSourceProxy::RequestResolutionLowerThan: calling AddOrUpdateSink, npixel=%d, %d\n",
+		pixel_count, pixels_wanted); 
+
       source_->AddOrUpdateSink(vie_encoder_, sink_wants_);
+    }
   }
 
   void RequestHigherResolutionThan(int pixel_count) {
@@ -211,8 +218,14 @@ class ViEEncoder::VideoSourceProxy {
     // how the source can scale the input frame size.
     sink_wants_.max_pixel_count = rtc::Optional<int>();
     sink_wants_.max_pixel_count_step_up = rtc::Optional<int>(pixel_count);
-    if (source_)
+    if (source_) 
+    {
+      printf("[XQ] VideoSourceProxy::RequestHigherResolutionThan: calling AddOrUpdateSink, pixel_up=%d\n",
+		      pixel_count); 
+
       source_->AddOrUpdateSink(vie_encoder_, sink_wants_);
+  
+    }
   }
 
  private:
@@ -716,21 +729,31 @@ void ViEEncoder::ScaleDown(ScaleReason reason) {
       last_frame_info_ ? last_frame_info_->pixel_count() : 0;
   if (max_pixel_count_ && current_pixel_count >= *max_pixel_count_)
     return;
+  
   switch (reason) {
     case kQuality:
+      printf("[XQ] ViEEncoder::ScaleDown: ramping down due to Quality issue\n");
+      
       stats_proxy_->OnQualityRestrictedResolutionChanged(
           scale_counter_[reason] + 1);
+
       break;
     case kCpu:
+      printf("[XQ] ViEEncoder::ScaleDown: ramping down due to CPU issue\n");
+      
       if (scale_counter_[reason] >= kMaxCpuDowngrades)
         return;
       // Update stats accordingly.
       stats_proxy_->OnCpuRestrictedResolutionChanged(true);
       break;
   }
+
   max_pixel_count_ = rtc::Optional<int>(current_pixel_count);
   max_pixel_count_step_up_ = rtc::Optional<int>();
-  ++scale_counter_[reason];
+  ++scale_counter_[reason]; 
+  
+  printf("[XQ] ViEEncoder::ScaleDown: calling RequestResolutionLowerThan with target %d\n", current_pixel_count);
+
   source_proxy_->RequestResolutionLowerThan(current_pixel_count);
   LOG(LS_INFO) << "Scaling down resolution.";
   for (size_t i = 0; i < kScaleReasonSize; ++i) {

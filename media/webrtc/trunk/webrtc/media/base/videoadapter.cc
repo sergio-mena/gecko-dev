@@ -132,6 +132,7 @@ bool VideoAdapter::AdaptFrameResolution(int in_width,
         max_pixel_count, requested_format_->width * requested_format_->height -
                              static_cast<int>(step_up_));
   }
+  
   if (scale_) {
     // We calculate the scaled pixel count from the in_width and in_height,
     // which is the input resolution. We then take the minimum of the scaled
@@ -140,6 +141,9 @@ bool VideoAdapter::AdaptFrameResolution(int in_width,
     // will never go above the requested scaled resolution.
     int scaled_pixel_count = (in_width*in_height/scale_resolution_by_)/scale_resolution_by_;
     max_pixel_count = std::min(max_pixel_count, scaled_pixel_count);
+
+    printf("[XQ] VideoAdapter::AdaptFrameResolution: scale = %f, max_pixel_count = %d\n", 
+		    scale_resolution_by_, max_pixel_count);
   }
 
   // Drop the input frame if necessary.
@@ -197,6 +201,9 @@ bool VideoAdapter::AdaptFrameResolution(int in_width,
   RTC_DCHECK_EQ(0, *cropped_height % scale.denominator);
 
   // Calculate final output size.
+//  printf("[XQ] VideoAdapter::AdaptFrameResolution: scale = %d/%d\n", 
+//		  scale.numerator, scale.denominator);
+
   *out_width = *cropped_width / scale.denominator * scale.numerator;
   *out_height = *cropped_height / scale.denominator * scale.numerator;
   RTC_DCHECK_EQ(0, *out_height % required_resolution_alignment_);
@@ -228,6 +235,9 @@ void VideoAdapter::OnOutputFormatRequest(const VideoFormat& format) {
   rtc::CritScope cs(&critical_section_);
   requested_format_ = rtc::Optional<VideoFormat>(format);
   next_frame_timestamp_ns_ = rtc::Optional<int64_t>();
+  
+  printf("[XQ] VideoAdapter::OnOutputFrameRequest: max_pixel_count = w%d, h%d\n",
+		  format.width, format.height); 
 }
 
 void VideoAdapter::OnResolutionRequest(
@@ -237,6 +247,9 @@ void VideoAdapter::OnResolutionRequest(
   resolution_request_max_pixel_count_ = max_pixel_count.value_or(
       max_pixel_count_step_up.value_or(std::numeric_limits<int>::max()));
   step_up_ = static_cast<bool>(max_pixel_count_step_up);
+  
+  printf("[XQ] VideoAdapter::OnResolutionRequest: max_pixel_count = %d\n",
+		resolution_request_max_pixel_count_);   
 }
 
 void VideoAdapter::OnScaleResolutionBy(
@@ -245,6 +258,9 @@ void VideoAdapter::OnScaleResolutionBy(
   scale_resolution_by_ = scale_resolution_by.value_or(1.0);
   RTC_DCHECK_GE(scale_resolution_by_, 1.0);
   scale_ = static_cast<bool>(scale_resolution_by);
+
+  printf("[XQ] VideoAdapter::OnScaleResolutionBy: scale = %6.2f\n", 
+	   scale_resolution_by_);
 }
 
 }  // namespace cricket

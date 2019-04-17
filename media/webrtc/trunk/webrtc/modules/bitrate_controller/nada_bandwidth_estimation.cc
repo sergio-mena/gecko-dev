@@ -19,6 +19,8 @@
 #include "webrtc/system_wrappers/include/field_trial.h"
 #include "webrtc/system_wrappers/include/metrics.h"
 
+#define USE_DELAY_BASED 1
+
 namespace webrtc {
 
 namespace {
@@ -48,8 +50,6 @@ const int64_t kNADAParamQboundMs = 50;  // Upper bound on self-inflicted queuing
 const int64_t kNADAParamDfiltMs = 120;  // Bound on filtering delay [DFILT: in ms]
 const float   kNADAParamGammaMax =0.2;  // Upper bound on rate increase ratio for accelerated ramp-up
 					// [GAMMA_MAX: dimensionless]
-
-
 const int kNADAParamRateBps =  800000;  // Default rate: 800Kbps
 const int kNADAParamRminBps =  250000;  // Min rate: 250Kbps
 const int kNADAParamRmaxBps = 2500000;  // Max rate: 2.5Mbps
@@ -85,7 +85,7 @@ NADABandwidthEstimation::NADABandwidthEstimation(RtcEventLog* event_log)
       last_round_trip_time_ms_(0),
       min_round_trip_time_ms_(0),
       bwe_incoming_(0),
-      delay_based_bitrate_bps_(0),
+      delay_based_bitrate_bps_(kNADAParamRateBps),
       // time_last_decrease_ms_(0),
       first_report_time_ms_(-1),
       // initially_lost_packets_(0),
@@ -172,12 +172,30 @@ int NADABandwidthEstimation::GetMinBitrate() const {
   return min_bitrate_configured_;
 }
 
+
+
+// [XZ 2019-03-07 Report query of currently estimated bitrate]
+//
 void NADABandwidthEstimation::CurrentEstimate(int* bitrate,
                                               uint8_t* loss,
                                               int64_t* rtt) const {
+
+
+#ifdef USE_DELAY_BASED
+  *bitrate = delay_based_bitrate_bps_;
+#else
   *bitrate = bitrate_;
+#endif
+
   *loss = last_fraction_loss_;
   *rtt = last_round_trip_time_ms_;
+
+/*  
+printf("NADA CurrentEstimate: rtt-based: %8.2f, owd-based: %8.2f | rate = %.2f Kbps, loss = %d, rtt = %ld ms\n", 
+	bitrate_/1000., delay_based_bitrate_bps_/1000., 
+	*bitrate/1000.,  *loss, *rtt);   
+
+*/
 }
 
 
@@ -187,10 +205,8 @@ void NADABandwidthEstimation::UpdateReceiverEstimate(
     int64_t now_ms, uint32_t bandwidth) {
 
   bwe_incoming_ = bandwidth;
-//  bitrate_ = CapBitrateToThresholds(now_ms, bitrate_);
 
-
-    LOG(LS_INFO) << "NADA UpdateReceiverEstimate: now = " << now_ms-first_report_time_ms_ 
+  LOG(LS_INFO) << "NADA UpdateReceiverEstimate: now = " << now_ms-first_report_time_ms_ 
 	       << " ms, bwe_incoming_ = " << bandwidth/1000
 	       << " Kbps" << std::endl; 
 }
@@ -200,9 +216,10 @@ void NADABandwidthEstimation::UpdateDelayBasedEstimate(
     uint32_t bitrate_bps) {
 
   delay_based_bitrate_bps_ = bitrate_bps;
-//  bitrate_ = CapBitrateToThresholds(now_ms, bitrate_);
     
-  printf("NADA UpdateDelayBasedEstimate: %.2f Kbps at %d ms\n", delay_based_bitrate_bps_/1000., now_ms-first_report_time_ms_);
+  printf("NADA UpdateDelayBasedEstimate: %.2f Kbps at %ld ms\n", 
+	  delay_based_bitrate_bps_/1000., 
+	  now_ms-first_report_time_ms_);
 
   LOG(LS_INFO) << "NADA UpdateDelayBasedEstimate: now = " << now_ms-first_report_time_ms_ 
 	       << " ms, delay_based_rate_ = " << bitrate_bps/1000 
@@ -229,8 +246,9 @@ void NADABandwidthEstimation::UpdateReceiverBlock(uint8_t fraction_loss,
   }
 
 
-  printf("NADA UpdateReceiverBlock at %d ms...\n", now_ms-first_report_time_ms_);
-  
+  printf("NADA UpdateReceiverBlock at %ld ms...rtt = %ld, npkts = %d\n", 
+	  now_ms-first_report_time_ms_, rtt, number_of_packets);
+
   LOG(LS_INFO) << "NADA UpdateReceiverBlock: now = " << now_ms-first_report_time_ms_
 	       << " ms, fb_interval = " << feedback_interval_ms_ 
 	       << " ms, loss = " << int(fraction_loss)
@@ -349,7 +367,7 @@ void NADABandwidthEstimation::AcceleratedRampUp(const int64_t now_ms) {
 	float rtt = float(last_round_trip_time_ms_); 
 
 	float gamma = kNADAParamQboundMs /(rtt + kNADAParamDeltaMs + kNADAParamDfiltMs); 
-	if (gamma > kNADAParamDeltaMs) gamma = kNADAParamGammaMax; 
+	if (gamma > kNADAParamGammaMax) gamma = kNADAParamGammaMax; 
 
 	// float rnew = (1+gamma)* bwe_incoming_; 
 	// if (rnew > bitrate_)	bitrate_ = rnew; 
@@ -402,7 +420,7 @@ void NADABandwidthEstimation::GradualRateUpdate(const int64_t now_ms) {
 void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
     
 
-    printf("NADA invoking UpdateEstimate at %d ms...\n", now_ms-first_report_time_ms_);
+//    printf("NADA invoking UpdateEstimate at %d ms...\n", now_ms-first_report_time_ms_);
 
     if (last_feedback_ms_ == -1) {
         
@@ -455,7 +473,6 @@ void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
         else
 	    GradualRateUpdate(now_ms);
 
-    	// clip the updated rate between [rmin, rmax]
 	ClipBitrate(); 
     
         LOG(LS_INFO) << "NADA UpdateEstimate | " 
@@ -469,6 +486,9 @@ void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
     		     << " rmin: "  << min_bitrate_configured_/1000 
 		     << " rmax: "  << max_bitrate_configured_/1000 
 		    << std::endl; 	
+
+       printf("NADA UpdateEstimate triggered by FB: ts = %ld, fbint = %d ms, rmode = %d, xcurr = %4.2f, rate = %6d Kbps\n", 
+		  now_ms-first_report_time_ms_, feedback_interval_ms_, rmode, nada_x_curr_, bitrate_/1000);
 
     } else {
 
