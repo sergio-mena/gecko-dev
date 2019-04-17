@@ -979,7 +979,7 @@ RtcpStatisticsCallback* RTCPReceiver::GetRtcpStatisticsCallback() {
 void RTCPReceiver::TriggerCallbacksFromRtcpPacket(
     const PacketInformation& packet_information) {
 
-    printf(" \t\t XZXZXZXZXZ Inside RTCPReceiver, TriggerCallbacksFromRtcpPacket \n");
+    // printf(" \t\t XZXZXZXZXZ Inside RTCPReceiver, TriggerCallbacksFromRtcpPacket \n");
   
    // Process TMMBR and REMB first to avoid multiple callbacks
   // to OnNetworkChanged.
@@ -1012,7 +1012,7 @@ void RTCPReceiver::TriggerCallbacksFromRtcpPacket(
   // a send report block should go out to all receivers.
   if (rtcp_intra_frame_observer_) {
 
-    printf("\t\t XZXZXZXZXZXZ rtcp_intra_frame_observer_ exists | handle report blocks\n");
+//    printf("\t\t XZXZXZXZXZXZ rtcp_intra_frame_observer_ exists | handle report blocks\n");
     RTC_DCHECK(!receiver_only_);
     if ((packet_information.packet_type_flags & kRtcpPli) ||
         (packet_information.packet_type_flags & kRtcpFir)) {
@@ -1036,7 +1036,7 @@ void RTCPReceiver::TriggerCallbacksFromRtcpPacket(
   }
   if (rtcp_bandwidth_observer_) {
 
-    printf("\t\t XZXZXZXZXZXZ rtcp_bandwidth_observer_ exists | handle report blocks\n");
+//    printf("\t\t XZXZXZXZXZXZ rtcp_bandwidth_observer_ exists | handle report blocks\n");
 
     RTC_DCHECK(!receiver_only_);
     if (packet_information.packet_type_flags & kRtcpRemb) {
@@ -1056,7 +1056,7 @@ void RTCPReceiver::TriggerCallbacksFromRtcpPacket(
   if ((packet_information.packet_type_flags & kRtcpSr) ||
       (packet_information.packet_type_flags & kRtcpRr)) {
   
-    printf("\t\t XZXZXZXZXZ calling OnReceivedRtcpReportBlocks via rtp_rtcp_\n");
+//    printf("\t\t XZXZXZXZXZ calling OnReceivedRtcpReportBlocks via rtp_rtcp_\n");
 
 	  rtp_rtcp_->OnReceivedRtcpReportBlocks(packet_information.report_blocks);
   }
@@ -1064,7 +1064,7 @@ void RTCPReceiver::TriggerCallbacksFromRtcpPacket(
   if (transport_feedback_observer_ &&
       (packet_information.packet_type_flags & kRtcpTransportFeedback)) {
     
-    printf("\t\t XZXZXZXZXZXZ transport_feedback_observer_ exists | handle report blocks\n");
+//    printf("\t\t XZXZXZXZXZXZ transport_feedback_observer_ exists | handle report blocks\n");
     uint32_t media_source_ssrc =
         packet_information.transport_feedback->media_ssrc();
     if (media_source_ssrc == local_ssrc ||

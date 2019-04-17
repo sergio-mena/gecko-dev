@@ -17,6 +17,7 @@
 #include "webrtc/base/logging.h"
 #include "webrtc/modules/bitrate_controller/include/bitrate_controller.h"
 #include "webrtc/modules/congestion_controller/delay_based_bwe.h"
+#include "webrtc/modules/congestion_controller/nada_owd_bwe.h"
 #include "webrtc/modules/rtp_rtcp/source/rtcp_packet/transport_feedback.h"
 #include "webrtc/modules/utility/include/process_thread.h"
 #include "webrtc/system_wrappers/include/field_trial.h"
@@ -54,7 +55,13 @@ TransportFeedbackAdapter::~TransportFeedbackAdapter() {}
 
 void TransportFeedbackAdapter::InitBwe() {
   rtc::CritScope cs(&bwe_lock_);
+
+#ifdef ENABLE_NADA_OWD
+  delay_based_bwe_.reset(new NadaOwdBwe(clock_));
+#else
   delay_based_bwe_.reset(new DelayBasedBwe(clock_));
+#endif
+
 }
 
 void TransportFeedbackAdapter::AddPacket(uint16_t sequence_number,
@@ -65,20 +72,22 @@ void TransportFeedbackAdapter::AddPacket(uint16_t sequence_number,
       "Enabled") {
     length += transport_overhead_bytes_per_packet_;
   }
-  printf("\t XZXZXZ adding pkt (seqno=%d) to record in send_time_history\n", sequence_number);
+  // printf("\t XZXZXZ adding pkt (seqno=%d) to record in send_time_history\n", sequence_number);
   send_time_history_.AddAndRemoveOld(sequence_number, length, probe_cluster_id);
 }
 
 void TransportFeedbackAdapter::OnSentPacket(uint16_t sequence_number,
                                             int64_t send_time_ms) {
   rtc::CritScope cs(&lock_);
-  printf("\t XZXZXZ calling OnSentPacket in send_time_history_ for pkt (seqno=%d)\n", sequence_number);
+  // printf("\t XZXZXZ calling OnSentPacket in send_time_history_ for pkt (seqno=%d)\n", sequence_number);
   send_time_history_.OnSentPacket(sequence_number, send_time_ms);
 }
 
 void TransportFeedbackAdapter::SetMinBitrate(int min_bitrate_bps) {
   rtc::CritScope cs(&bwe_lock_);
+  
   delay_based_bwe_->SetMinBitrate(min_bitrate_bps);
+
 }
 
 void TransportFeedbackAdapter::SetTransportOverhead(
@@ -89,7 +98,9 @@ void TransportFeedbackAdapter::SetTransportOverhead(
 
 int64_t TransportFeedbackAdapter::GetProbingIntervalMs() const {
   rtc::CritScope cs(&bwe_lock_);
+  
   return delay_based_bwe_->GetProbingIntervalMs();
+
 }
 
 std::vector<PacketInfo> TransportFeedbackAdapter::GetPacketFeedbackVector(
@@ -97,7 +108,7 @@ std::vector<PacketInfo> TransportFeedbackAdapter::GetPacketFeedbackVector(
 
   int64_t timestamp_us = feedback.GetBaseTimeUs();
 
-  printf("\t XZXZXZ Inside TransportFeedbackAdapter::GetPacketFeedbackVector: ts=%ld\n", timestamp_us);
+  // printf("\t XZXZXZ Inside TransportFeedbackAdapter::GetPacketFeedbackVector: ts=%ld\n", timestamp_us);
 
   // Add timestamp deltas to a local time base selected on first packet arrival.
   // This won't be the true time base, but makes it easier to manually inspect
@@ -119,15 +130,15 @@ std::vector<PacketInfo> TransportFeedbackAdapter::GetPacketFeedbackVector(
   last_timestamp_us_ = timestamp_us;
 
   uint16_t sequence_number = feedback.GetBaseSequence();
-  printf("\t XZXZXZ Inside TransportFeedbackAdapter::GetPacketFeedbackVector: seqno=%d\n", sequence_number);
+  // printf("\t XZXZXZ Inside TransportFeedbackAdapter::GetPacketFeedbackVector: seqno=%d\n", sequence_number);
 
   std::vector<int64_t> delta_vec = feedback.GetReceiveDeltasUs();
   auto delta_it = delta_vec.begin();
   std::vector<PacketInfo> packet_feedback_vector;
   packet_feedback_vector.reserve(delta_vec.size());
 
-  printf("\t XZXZXZ Inside TransportFeedbackAdapter::GetPacketFeedbackVector: delta_size=%ld\n", 
-	delta_vec.size());
+  // printf("\t XZXZXZ Inside TransportFeedbackAdapter::GetPacketFeedbackVector: delta_size=%ld\n", 
+  // 	delta_vec.size());
 
   {
     rtc::CritScope cs(&lock_);
@@ -135,14 +146,14 @@ std::vector<PacketInfo> TransportFeedbackAdapter::GetPacketFeedbackVector(
     int64_t offset_us = 0;
     for (auto symbol : feedback.GetStatusVector()) {
 
-      printf("\t XZXZXZ GetStatusVector: status = %d, seqno = %d\n", symbol, sequence_number);
+//      printf("\t XZXZXZ GetStatusVector: status = %d, seqno = %d\n", symbol, sequence_number);
       if (symbol != rtcp::TransportFeedback::StatusSymbol::kNotReceived) {
 
         RTC_DCHECK(delta_it != delta_vec.end());
         offset_us += *(delta_it++);
         int64_t timestamp_ms = current_offset_ms_ + (offset_us / 1000);
         PacketInfo info(timestamp_ms, sequence_number);
-	printf("\t\t\t generating new packet info ..., sendtime = %ld\n", info.send_time_ms);
+//	printf("\t\t\t generating new packet info ..., sendtime = %ld\n", info.send_time_ms);
 
         if (send_time_history_.GetInfo(&info, true) && info.send_time_ms >= 0) {
           packet_feedback_vector.push_back(info);
@@ -160,26 +171,26 @@ std::vector<PacketInfo> TransportFeedbackAdapter::GetPacketFeedbackVector(
                       << " packet" << (failed_lookups > 1 ? "s" : "")
                       << ". Send time history too small?";
 
-      printf("\t XZXZXZ Failed to lookup send time for %zu packets. \n", failed_lookups);
+//      printf("\t XZXZXZ Failed to lookup send time for %zu packets. \n", failed_lookups);
     }
   }
 
-  printf("\t XZXZXZ recorded %zu fb vectors\n", packet_feedback_vector.size());
+//  printf("\t XZXZXZ recorded %zu fb vectors\n", packet_feedback_vector.size());
   return packet_feedback_vector;
 }
 
 
-// TODO (by Xiaoqing): call NADA-OWD bandwidth estimator instead
+// TODO (by Xiaoqing): call NadaOwd bandwidth estimator instead
 //
 void TransportFeedbackAdapter::OnTransportFeedback(
     const rtcp::TransportFeedback& feedback) {
 
-    printf("\t\t XZXZXZXZ inside OnTransportFeedback \n");
-
+  printf("Inside TransportFeedbackAdapter: OnTransportFeedback \n");
   last_packet_feedback_vector_ = GetPacketFeedbackVector(feedback);
+
   DelayBasedBwe::Result result;
   {
-    printf("\t\t XZXZXZXZ inside OnTransportFeedback | invoking delay-based BWE \n");
+    printf("\t XZXZXZXZ inside OnTransportFeedback | invoking delay-based BWE \n");
 
     rtc::CritScope cs(&bwe_lock_);
     result = delay_based_bwe_->IncomingPacketFeedbackVector(
@@ -188,8 +199,7 @@ void TransportFeedbackAdapter::OnTransportFeedback(
 
   if (result.updated)
   {
-    
-    printf("\t\t XZXZXZXZ updating delay-based BWE for bitrate controller \n");
+    printf("\t XZXZXZXZ updating delay-based BWE for bitrate controller \n");
     bitrate_controller_->OnDelayBasedBweResult(result);
   }
 }

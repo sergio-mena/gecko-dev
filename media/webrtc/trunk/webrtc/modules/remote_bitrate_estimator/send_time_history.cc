@@ -71,14 +71,14 @@ bool SendTimeHistory::GetInfo(PacketInfo* packet_info, bool remove) {
   int64_t unwrapped_seq_num =
       seq_num_unwrapper_.Unwrap(packet_info->sequence_number);
 
-  printf("\t\t XZXZXZ looking up packet (seqno = %ld -> %ld) in history\n", 
-	 packet_info->sequence_number, unwrapped_seq_num);
+  // printf("\t\t XZXZXZ looking up packet (seqno = %ld -> %ld) in history\n", 
+  // 	 packet_info->sequence_number, unwrapped_seq_num);
 
   auto it = history_.find(unwrapped_seq_num);
   if (it == history_.end())
     return false;
 
-  printf("\t\t still here ...\n");
+  // printf("\t\t still here ...\n");
 
   // Save arrival_time not to overwrite it.
   int64_t arrival_time_ms = packet_info->arrival_time_ms;
@@ -88,8 +88,9 @@ bool SendTimeHistory::GetInfo(PacketInfo* packet_info, bool remove) {
   if (remove)
     history_.erase(it);
   
-  printf("\t\t still here ... returning true, send_time = %d, arrival_time = %d\n", 
-	  packet_info->send_time_ms, packet_info->arrival_time_ms);
+  // printf("\t\t still here ... returning true, send_time = %d, arrival_time = %d\n", 
+  // 	  packet_info->send_time_ms, packet_info->arrival_time_ms);
+  
   return true;
 }
 

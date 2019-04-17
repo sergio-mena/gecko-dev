@@ -81,6 +81,10 @@ bool AdaptedVideoTrackSource::apply_rotation() {
 void AdaptedVideoTrackSource::OnSinkWantsChanged(
     const rtc::VideoSinkWants& wants) {
   RTC_DCHECK(thread_checker_.CalledOnValidThread());
+
+  // printf("[XQ] AdaptedVideoTrackSource::OnSinkWantsChanged: triggering OnResolutionRequest, target=%d\n",
+// 	       wants.max_pixel_count);
+
   video_adapter_.OnResolutionRequest(wants.max_pixel_count,
                                      wants.max_pixel_count_step_up);
 }

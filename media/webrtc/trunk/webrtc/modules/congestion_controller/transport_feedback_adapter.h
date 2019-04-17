@@ -18,8 +18,11 @@
 #include "webrtc/base/thread_annotations.h"
 #include "webrtc/base/thread_checker.h"
 #include "webrtc/modules/congestion_controller/delay_based_bwe.h"
+#include "webrtc/modules/congestion_controller/nada_owd_bwe.h"
 #include "webrtc/modules/include/module_common_types.h"
 #include "webrtc/modules/remote_bitrate_estimator/include/send_time_history.h"
+
+#define ENABLE_NADA_OWD 1
 
 namespace webrtc {
 
@@ -61,7 +64,13 @@ class TransportFeedbackAdapter : public TransportFeedbackObserver,
   rtc::CriticalSection bwe_lock_;
   int transport_overhead_bytes_per_packet_ GUARDED_BY(&lock_);
   SendTimeHistory send_time_history_ GUARDED_BY(&lock_);
+
+#ifdef ENABLE_NADA_OWD
+  std::unique_ptr<NadaOwdBwe> delay_based_bwe_ GUARDED_BY(&bwe_lock_);
+#else
   std::unique_ptr<DelayBasedBwe> delay_based_bwe_ GUARDED_BY(&bwe_lock_);
+#endif
+
   Clock* const clock_;
   int64_t current_offset_ms_;
   int64_t last_timestamp_us_;

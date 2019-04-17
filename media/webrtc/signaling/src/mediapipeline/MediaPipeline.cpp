@@ -126,10 +126,14 @@ public:
 
   void QueueVideoChunk(const VideoChunk& aChunk, bool aForceBlack)
   {
+
     IntSize size = aChunk.mFrame.GetIntrinsicSize();
     if (size.width == 0 || size.width == 0) {
       return;
     }
+
+//    printf("[XQ] MediaPipeline::QueueVideoChunk: frame size = w%d-by-h%d \n", 
+//		    size.width, size.height);
 
     if (aChunk.IsNull()) {
       aForceBlack = true;
@@ -260,7 +264,7 @@ protected:
       MOZ_ASSERT(false);
       return;
     }
-    MOZ_ASSERT(aVideoType == VideoType::kVideoI420);
+    MOZ_ASSERT(aVideoType == VideoType::kVideoI420); 
 
     const int stride_y = aWidth;
     const int stride_uv = (aWidth + 1) / 2;
@@ -283,13 +287,18 @@ protected:
     webrtc::VideoFrame video_frame(video_frame_buffer,
                                    aCaptureTime,
                                    aCaptureTime,
-                                   webrtc::kVideoRotation_0); // XXX
+   				   webrtc::kVideoRotation_0); // XXX
+   
     VideoFrameConverted(video_frame);
   }
 
   void VideoFrameConverted(const webrtc::VideoFrame& aVideoFrame)
   {
     MutexAutoLock lock(mMutex);
+
+
+//    printf("[XQ] MediaPipeline::VideoFrameConverted:  Calling OnVideoFrameConverted via listener\n");
+
 
     for (RefPtr<VideoConverterListener>& listener : mListeners) {
       listener->OnVideoFrameConverted(aVideoFrame);
@@ -319,6 +328,9 @@ protected:
       webrtc::VideoFrame frame(buffer,
                                0, 0, // not setting timestamps
                                webrtc::kVideoRotation_0);
+
+//      printf("[XQ] MediaPipeline::ProcessVideoFrame: calling VideoFrameConverted(), aForceBlack\n");
+
       VideoFrameConverted(frame);
       return;
     }
@@ -348,6 +360,10 @@ protected:
                                       webrtc::kVideoRotation_0);
         MOZ_LOG(gMediaPipelineLog, LogLevel::Debug,
                 ("Sending an I420 video frame"));
+      
+//	printf("[XQ] MediaPipeline::ProcessVideoFrame: calling VideoFrameConverted(), w=%d, h=%d\n", 
+//		     aImage->GetSize().width, aImage->GetSize().height); 
+
         VideoFrameConverted(i420_frame);
         return;
       }
@@ -1192,6 +1208,9 @@ public:
   void OnVideoFrameConverted(const webrtc::VideoFrame& aVideoFrame)
   {
     MOZ_RELEASE_ASSERT(mConduit->type() == MediaSessionConduit::VIDEO);
+
+//    printf("[XQ] MediaPipeline::OnVideoFrameConverted: calling SendVideoFrame in VideoConduit\n");
+
     static_cast<VideoSessionConduit*>(mConduit.get())
       ->SendVideoFrame(aVideoFrame);
   }
@@ -1260,6 +1279,9 @@ public:
     if (!mListener) {
       return;
     }
+
+
+//    printf("[XQ] MediaPipeline::OnVideoFrameConverted: calling mListener->OnVideoFrameConverted\n");
 
     mListener->OnVideoFrameConverted(aVideoFrame);
   }
@@ -1660,6 +1682,9 @@ MediaPipelineTransmit::PipelineListener::NotifyRealtimeTrackData(
     TRACE_COMMENT("Video");
     // We have to call the upstream NotifyRealtimeTrackData and
     // MediaStreamVideoSink will route them to SetCurrentFrames.
+    
+    // printf("[XQ] MediaPipeline::NotifyRealtime...: Rerouting VIDEO data via MediaStreamVideoSink\n");
+
     MediaStreamVideoSink::NotifyRealtimeTrackData(aGraph, aOffset, aMedia);
     return;
   }
@@ -1752,7 +1777,10 @@ MediaPipelineTransmit::PipelineListener::NewData(const MediaSegment& aMedia,
       mAudioProcessing->QueueAudioChunk(aRate, *iter, mEnabled);
     }
   } else {
+
     const VideoSegment* video = static_cast<const VideoSegment*>(&aMedia);
+  
+    // printf("[XQ] MediaPipeline::NewData: calling QueueVideoChunk\n");
 
     for (VideoSegment::ConstChunkIterator iter(*video); !iter.IsEnded();
          iter.Next()) {
@@ -1765,6 +1793,8 @@ void
 MediaPipelineTransmit::PipelineListener::SetCurrentFrames(
   const VideoSegment& aSegment)
 {
+
+//  printf("[XQ] MediaPipeline::SetCurrentFrames: calling NewData\n");
   NewData(aSegment);
 }
 

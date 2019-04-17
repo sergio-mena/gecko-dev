@@ -413,7 +413,7 @@ bool TransportFeedback::Parse(const CommonHeader& packet) {
   RTC_DCHECK_EQ(packet.type(), kPacketType);
   RTC_DCHECK_EQ(packet.fmt(), kFeedbackMessageType);
 
-  printf("\t\t\tXXXXXX I'm asked to parse a transport feedback!!!!\n");
+//  printf("\t\t\tXXXXXX I'm asked to parse a transport feedback!!!!\n");
   
   if (packet.payload_size_bytes() < kMinPayloadSizeBytes) {
     LOG(LS_WARNING) << "Buffer too small (" << packet.payload_size_bytes()
@@ -434,7 +434,7 @@ bool TransportFeedback::Parse(const CommonHeader& packet) {
   size_t index = 16;
   const size_t end_index = packet.payload_size_bytes();
 
-  printf("\t\t\tXXXXXX receiving transport feedback for %6d packets\n", status_count);
+//  printf("\t\t\tXXXXXX receiving transport feedback for %6d packets\n", status_count);
 
 
   if (status_count == 0) {
@@ -506,7 +506,8 @@ std::unique_ptr<TransportFeedback> TransportFeedback::ParseFrom(
     size_t length) {
 
 	
-  printf("\t\t\tXXXXXX Inside ParseFrom: received a transport feedback!!!!\n");
+//  printf("\t\t\tXXXXXX Inside ParseFrom: received a transport feedback!!!!\n");
+
   CommonHeader header;
   if (!header.Parse(buffer, length))
     return nullptr;
@@ -516,7 +517,7 @@ std::unique_ptr<TransportFeedback> TransportFeedback::ParseFrom(
   if (!parsed->Parse(header))
     return nullptr;
 
-  printf("\t\t\tXXXXXX Inside ParseFrom: finished parsing a transport feedback!!!!\n");
+//  printf("\t\t\tXXXXXX Inside ParseFrom: finished parsing a transport feedback!!!!\n");
 
   return parsed;
 }

@@ -242,13 +242,13 @@ DelayBasedBwe::Result DelayBasedBwe::IncomingPacketFeedbackVector(
 
     // [XZ 2019-02-20  add time stamp info]
     int64_t now_ms = clock_->TimeInMilliseconds();
-    printf("\t XZXZXZ Inside DelayBasedBwe::IncomingPacketFeedbackVector at %d ms\n", now_ms);
+    printf("\t XZXZXZ Inside DelayBasedBwe::IncomingPacketFeedbackVector at %ld ms\n", now_ms);
     // [XZ 2019-02-20]
 
 
     RTC_DCHECK(network_thread_.CalledOnValidThread());
 
-    printf("\t XZXZXZ Inside DelayBasedBwe::IncomingPacketFeedbackVector, still here\n");
+//    printf("\t XZXZXZ Inside DelayBasedBwe::IncomingPacketFeedbackVector, still here\n");
     if (!uma_recorded_) {
         RTC_HISTOGRAM_ENUMERATION(kBweTypeHistogram,
                               BweNames::kSendSideTransportSeqNum,
@@ -256,8 +256,8 @@ DelayBasedBwe::Result DelayBasedBwe::IncomingPacketFeedbackVector(
         uma_recorded_ = true;
     }
 
-    printf("\t XZXZXZ Inside DelayBasedBwe::IncomingPacketFeedbackVector, before the loop, fb size=%d\n",
-		    packet_feedback_vector.size());
+//    printf("\t XZXZXZ Inside DelayBasedBwe::IncomingPacketFeedbackVector, before the loop, fb size=%d\n",
+//		    packet_feedback_vector.size());
 
     Result aggregated_result;
     for (const auto& packet_info : packet_feedback_vector) {
@@ -265,8 +265,8 @@ DelayBasedBwe::Result DelayBasedBwe::IncomingPacketFeedbackVector(
        // printf("\t\t Inside DelayBasedBwe | calling IncomingPacketInfo\n");
 	Result result = IncomingPacketInfo(packet_info);
        
-	printf("\t\t Inside DelayBasedBwe | update based on pkt %d, result = %d\n", 
-		packet_info.sequence_number, result.updated);
+//	printf("\t\t Inside DelayBasedBwe | update based on pkt %d, result = %d\n", 
+//		packet_info.sequence_number, result.updated);
 
         if (result.updated)
     	    aggregated_result = result;
