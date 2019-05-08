@@ -708,6 +708,9 @@ class MediaPipelineTransmit::PipelineListener
 
   void OnVideoFrameConverted(const webrtc::VideoFrame& aVideoFrame) {
     MOZ_RELEASE_ASSERT(mConduit->type() == MediaSessionConduit::VIDEO);
+
+//    printf("[XQ] MediaPipeline::OnVideoFrameConverted: calling SendVideoFrame in VideoConduit\n");
+
     static_cast<VideoSessionConduit*>(mConduit.get())
         ->SendVideoFrame(aVideoFrame);
   }
@@ -766,6 +769,9 @@ class MediaPipelineTransmit::VideoFrameFeeder : public VideoConverterListener {
     if (!mListener) {
       return;
     }
+
+
+//    printf("[XQ] MediaPipeline::OnVideoFrameConverted: calling mListener->OnVideoFrameConverted\n");
 
     mListener->OnVideoFrameConverted(aVideoFrame);
   }
@@ -1061,6 +1067,11 @@ nsresult MediaPipeline::PipelineTransport::SendRtcpPacket(const uint8_t* aData,
 // Called if we're attached with AddDirectListener()
 void MediaPipelineTransmit::PipelineListener::NotifyRealtimeTrackData(
     MediaStreamGraph* aGraph, StreamTime aOffset, const MediaSegment& aMedia) {
+
+  if (aMedia.GetType() == MediaSegment::VIDEO) {
+    // printf("[XQ] MediaPipeline::NotifyRealtime...: Rerouting VIDEO data via MediaStreamVideoSink\n");
+  }
+
   MOZ_LOG(
       gMediaPipelineLog, LogLevel::Debug,
       ("MediaPipeline::NotifyRealtimeTrackData() listener=%p, offset=%" PRId64
@@ -1156,7 +1167,10 @@ void MediaPipelineTransmit::PipelineListener::NewData(
       mAudioProcessing->QueueAudioChunk(aRate, *iter, mEnabled);
     }
   } else {
+
     const VideoSegment* video = static_cast<const VideoSegment*>(&aMedia);
+  
+    // printf("[XQ] MediaPipeline::NewData: calling QueueVideoChunk\n");
 
     for (VideoSegment::ConstChunkIterator iter(*video); !iter.IsEnded();
          iter.Next()) {

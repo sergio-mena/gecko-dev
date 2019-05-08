@@ -142,6 +142,9 @@ static unsigned int SelectSendFrameRate(const VideoCodecConfig* codecConfig,
                                         unsigned int old_framerate,
                                         unsigned short sending_width,
                                         unsigned short sending_height) {
+  printf("[XQ] VideoConduit::SelectSendFrameRate: frame_rate = %d, w=%d, h=%d\n", 
+           old_framerate, sending_width, sending_height);
+
   unsigned int new_framerate = old_framerate;
 
   // Limit frame rate based on max-mbps
@@ -836,6 +839,7 @@ MediaConduitErrorCode WebrtcVideoConduit::ConfigureSendMediaCodec(
   // So we can comply with b=TIAS/b=AS/maxbr=X when input resolution changes
   mNegotiatedMaxBitrate = codecConfig->mTias;
 
+
   if (mLastWidth == 0 && mMinBitrateEstimate != 0) {
     // Only do this at the start; use "have we send a frame" as a reasonable
     // stand-in. min <= start <= max (which can be -1, note!)
@@ -1435,6 +1439,7 @@ MediaConduitErrorCode WebrtcVideoConduit::ConfigureRecvMediaCodecs(
   bool use_nack_basic = false;
   bool use_tmmbr = false;
   bool use_remb = false;
+  bool use_trans_cc = false;
   bool use_fec = false;
   int ulpfec_payload_type = kNullPayloadType;
   int red_payload_type = kNullPayloadType;
@@ -1491,6 +1496,7 @@ MediaConduitErrorCode WebrtcVideoConduit::ConfigureRecvMediaCodecs(
     use_nack_basic |= codec_config->RtcpFbNackIsSet("");
     use_tmmbr |= codec_config->RtcpFbCcmIsSet("tmmbr");
     use_remb |= codec_config->RtcpFbRembIsSet();
+    use_trans_cc |= codec_config->RtcpFbTransCCIsSet();
     use_fec |= codec_config->RtcpFbFECIsSet();
 
     recv_codecs.AppendElement(new VideoCodecConfig(*codec_config));
@@ -1506,6 +1512,7 @@ MediaConduitErrorCode WebrtcVideoConduit::ConfigureRecvMediaCodecs(
       mRecvStreamConfig.rtp.nack.rtp_history_ms !=
           (use_nack_basic ? 1000 : 0) ||
       mRecvStreamConfig.rtp.remb != use_remb ||
+      mRecvStreamConfig.rtp.transport_cc != use_trans_cc ||
       mRecvStreamConfig.rtp.tmmbr != use_tmmbr ||
       mRecvStreamConfig.rtp.keyframe_method != kf_request_method ||
       (use_fec &&
@@ -1522,6 +1529,7 @@ MediaConduitErrorCode WebrtcVideoConduit::ConfigureRecvMediaCodecs(
     mRecvStreamConfig.rtp.rtcp_mode = webrtc::RtcpMode::kCompound;
     mRecvStreamConfig.rtp.nack.rtp_history_ms = use_nack_basic ? 1000 : 0;
     mRecvStreamConfig.rtp.remb = use_remb;
+    mRecvStreamConfig.rtp.transport_cc = use_trans_cc;
     mRecvStreamConfig.rtp.tmmbr = use_tmmbr;
     mRecvStreamConfig.rtp.keyframe_method = kf_request_method;
 
@@ -1751,6 +1759,9 @@ void WebrtcVideoConduit::SelectSendResolution(unsigned short width,
   mMutex.AssertCurrentThreadOwns();
   // XXX This will do bandwidth-resolution adaptation as well - bug 877954
 
+
+  printf("[XQ] VideoConduit::SelectSendResolution, [w,h]=[%d, %d]\n", 
+		width, height);
   // Enforce constraints
   if (mCurSendCodecConfig) {
     uint16_t max_width = mCurSendCodecConfig->mEncodingConstraints.maxWidth;
@@ -1761,6 +1772,10 @@ void WebrtcVideoConduit::SelectSendResolution(unsigned short width,
       ConstrainPreservingAspectRatio(max_width, max_height, &width, &height);
     }
 
+
+    printf("[XQ] VideoConduit::SelectSendResolution, max_w = %d, max_h%d, updated [w,h]=%d, %d\n",
+	    max_width, max_height, width, height); 
+
     // Limit resolution to max-fs
     const auto& wants = mVideoBroadcaster.wants();
     if (mCurSendCodecConfig->mEncodingConstraints.maxFs) {
@@ -1770,6 +1785,7 @@ void WebrtcVideoConduit::SelectSendResolution(unsigned short width,
         max_fs = wants.max_pixel_count;
       }
       if (max_fs != 0) {
+        printf("[XQ] VideoConduit::SelectSendResolution: calling OnResolutionFramerateRequest, target=%d\n", max_fs);
         mVideoAdapter->OnResolutionFramerateRequest(
             rtc::Optional<int>(), max_fs, std::numeric_limits<int>::max());
       }
@@ -1789,6 +1805,10 @@ void WebrtcVideoConduit::SelectSendResolution(unsigned short width,
 void WebrtcVideoConduit::AddOrUpdateSink(
     rtc::VideoSinkInterface<webrtc::VideoFrame>* sink,
     const rtc::VideoSinkWants& wants) {
+
+  printf("[XQ] VideoConduit::AddOrUpdateSink: calling OnSinkWantsChanged, target=%d\n",
+          wants.max_pixel_count.value_or(-1));
+
   if (!NS_IsMainThread()) {
     // This may be called off main thread, but only to update an already added
     // sink. If we add it after the dispatch we're at risk of a UAF.
@@ -1816,6 +1836,9 @@ void WebrtcVideoConduit::RemoveSink(
 
   mRegisteredSinks.RemoveElement(sink);
   mVideoBroadcaster.RemoveSink(sink);
+  
+  printf("[XQ] VideoConduit::RemoveSink: calling OnSinkWantsChanged\n");
+
   OnSinkWantsChanged(mVideoBroadcaster.wants());
 }
 
@@ -1838,10 +1861,16 @@ void WebrtcVideoConduit::OnSinkWantsChanged(const rtc::VideoSinkWants& wants) {
   int max_fs = mCurSendCodecConfig->mEncodingConstraints.maxFs * (16 * 16);
   int max_pixel_count = wants.max_pixel_count;
 
+
+  
   if (max_fs > 0) {
     // max_fs was explicitly set by signaling and needs to be accounted for
     max_pixel_count = std::min(max_pixel_count, max_fs);
   }
+
+
+  printf("[XQ] VideoConduit::OnSinkWantsChange: calling OnResolutionFramerateRequest, max_fs = %d, target=%d\n",
+       max_fs, wants.max_pixel_count.value_or(-1));
 
   mVideoAdapter->OnResolutionFramerateRequest(
       rtc::Optional<int>(), max_pixel_count, std::numeric_limits<int>::max());
@@ -1853,6 +1882,9 @@ MediaConduitErrorCode WebrtcVideoConduit::SendVideoFrame(
   // camera via TranslateTimestamp(); we should look at doing the same.  This
   // avoids sampling error when capturing frames, but google had to deal with
   // some broken cameras, include Logitech c920's IIRC.
+
+//  printf("[XQ] VideoConduit::SendVideoFrame, incoming frame info with wxh = %d, %d | %d, %d\n", 
+//		frame.width(), frame.height(), mLastWidth, mLastHeight);
 
   int cropWidth;
   int cropHeight;
@@ -1892,6 +1924,11 @@ MediaConduitErrorCode WebrtcVideoConduit::SendVideoFrame(
 
   int cropX = (frame.width() - cropWidth) / 2;
   int cropY = (frame.height() - cropHeight) / 2;
+
+//  printf("[XQ] VideoConduit::SendVideoFrame: wxh of original: %d, %d | cropped: %d, %d | adapted: %d, %d\n", 
+//	  frame.width(), frame.height(), 
+//	  cropWidth, cropHeight, 
+//	  adaptedWidth, adaptedHeight);
 
   rtc::scoped_refptr<webrtc::VideoFrameBuffer> buffer;
   if (adaptedWidth == frame.width() && adaptedHeight == frame.height()) {

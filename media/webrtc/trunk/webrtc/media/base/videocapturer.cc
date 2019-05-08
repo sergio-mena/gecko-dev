@@ -153,6 +153,10 @@ void VideoCapturer::OnSinkWantsChanged(const rtc::VideoSinkWants& wants) {
   apply_rotation_ = wants.rotation_applied;
 
   if (video_adapter()) {
+
+    // printf("[XQ] VideoCapturer::OnSinkWantsChanged: calling OnResolutionFramerateRequest, target=%d\n",
+    //         wants.max_pixel_count);
+
     video_adapter()->OnResolutionFramerateRequest(wants.target_pixel_count,
                                                   wants.max_pixel_count,
                                                   wants.max_framerate_fps);

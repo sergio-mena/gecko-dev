@@ -86,6 +86,7 @@ void TransportFeedbackAdapter::AddPacket(uint32_t ssrc,
 void TransportFeedbackAdapter::OnSentPacket(uint16_t sequence_number,
                                             int64_t send_time_ms) {
   rtc::CritScope cs(&lock_);
+  // printf("\t XZXZXZ calling OnSentPacket in send_time_history_ for pkt (seqno=%d)\n", sequence_number);
   send_time_history_.OnSentPacket(sequence_number, send_time_ms);
 }
 
@@ -105,6 +106,9 @@ void TransportFeedbackAdapter::SetNetworkIds(uint16_t local_id,
 std::vector<PacketFeedback> TransportFeedbackAdapter::GetPacketFeedbackVector(
     const rtcp::TransportFeedback& feedback) {
   int64_t timestamp_us = feedback.GetBaseTimeUs();
+
+  // printf("\t XZXZXZ Inside TransportFeedbackAdapter::GetPacketFeedbackVector: ts=%ld\n", timestamp_us);
+
   int64_t now_ms = clock_->TimeInMilliseconds();
   // Add timestamp deltas to a local time base selected on first packet arrival.
   // This won't be the true time base, but makes it easier to manually inspect
@@ -131,6 +135,10 @@ std::vector<PacketFeedback> TransportFeedbackAdapter::GetPacketFeedbackVector(
     return packet_feedback_vector;
   }
   packet_feedback_vector.reserve(feedback.GetPacketStatusCount());
+
+  // printf("\t XZXZXZ Inside TransportFeedbackAdapter::GetPacketFeedbackVector: delta_size=%ld\n",
+  //    feedback.GetPacketStatusCount());
+
   int64_t feedback_rtt = -1;
   {
     rtc::CritScope cs(&lock_);
@@ -138,6 +146,8 @@ std::vector<PacketFeedback> TransportFeedbackAdapter::GetPacketFeedbackVector(
     int64_t offset_us = 0;
     int64_t timestamp_ms = 0;
     uint16_t seq_num = feedback.GetBaseSequence();
+    // printf("\t XZXZXZ Inside TransportFeedbackAdapter::GetPacketFeedbackVector: seqno=%d\n", seq_num);
+
     for (const auto& packet : feedback.GetReceivedPackets()) {
       // Insert into the vector those unreceived packets which precede this
       // iteration's received packet.
@@ -177,6 +187,8 @@ std::vector<PacketFeedback> TransportFeedbackAdapter::GetPacketFeedbackVector(
       RTC_LOG(LS_WARNING) << "Failed to lookup send time for " << failed_lookups
                           << " packet" << (failed_lookups > 1 ? "s" : "")
                           << ". Send time history too small?";
+
+//      printf("\t XZXZXZ Failed to lookup send time for %zu packets. \n", failed_lookups);
     }
     if (feedback_rtt > -1) {
       feedback_rtts_.push_back(feedback_rtt);
@@ -187,13 +199,21 @@ std::vector<PacketFeedback> TransportFeedbackAdapter::GetPacketFeedbackVector(
           *std::min_element(feedback_rtts_.begin(), feedback_rtts_.end()));
     }
   }
+
+//  printf("\t XZXZXZ recorded %zu fb vectors\n", packet_feedback_vector.size());
   return packet_feedback_vector;
 }
 
+
+// TODO (by Xiaoqing): call NadaOwd bandwidth estimator instead
+//
 void TransportFeedbackAdapter::OnTransportFeedback(
     const rtcp::TransportFeedback& feedback) {
+
+  // printf("Inside TransportFeedbackAdapter: OnTransportFeedback \n");
   last_packet_feedback_vector_ = GetPacketFeedbackVector(feedback);
   {
+    // printf("\t XZXZXZXZ inside OnTransportFeedback | invoking delay-based BWE \n");
     rtc::CritScope cs(&observers_lock_);
     for (auto observer : observers_) {
       observer->OnPacketFeedbackVector(last_packet_feedback_vector_);

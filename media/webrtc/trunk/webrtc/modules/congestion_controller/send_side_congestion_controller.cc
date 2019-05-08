@@ -118,7 +118,11 @@ SendSideCongestionController::SendSideCongestionController(
       pause_pacer_(false),
       pacer_paused_(false),
       min_bitrate_bps_(congestion_controller::GetMinBitrateBps()),
+#ifdef ENABLE_NADA_OWD
+      delay_based_bwe_(new NadaOwdBwe(event_log_, clock_)),
+#else
       delay_based_bwe_(new DelayBasedBwe(event_log_, clock_)),
+#endif
       in_cwnd_experiment_(CwndExperimentEnabled()),
       accepted_queue_ms_(kDefaultAcceptedQueueMs),
       was_in_alr_(false),
@@ -175,6 +179,8 @@ void SendSideCongestionController::SetBweBitrates(int min_bitrate_bps,
     min_bitrate_bps_ = min_bitrate_bps;
     delay_based_bwe_->SetMinBitrate(min_bitrate_bps_);
   }
+
+  printf("Inside CongestionController: SetBweBitrates => MaybeTriggerOnNetworkChanged\n");
   MaybeTriggerOnNetworkChanged();
 }
 
@@ -196,7 +202,12 @@ void SendSideCongestionController::OnNetworkRouteChanged(
   {
     rtc::CritScope cs(&bwe_lock_);
     min_bitrate_bps_ = min_bitrate_bps;
+
+#ifdef ENABLE_NADA_OWD
+    delay_based_bwe_.reset(new NadaOwdBwe(event_log_, clock_));
+#else
     delay_based_bwe_.reset(new DelayBasedBwe(event_log_, clock_));
+#endif
     acknowledged_bitrate_estimator_.reset(new AcknowledgedBitrateEstimator());
     delay_based_bwe_->SetStartBitrate(bitrate_bps);
     delay_based_bwe_->SetMinBitrate(min_bitrate_bps);
@@ -205,6 +216,7 @@ void SendSideCongestionController::OnNetworkRouteChanged(
   probe_controller_->Reset();
   probe_controller_->SetBitrates(min_bitrate_bps, bitrate_bps, max_bitrate_bps);
 
+  printf("Inside CongestionController: OnNetworkRouteChanged => MaybeTriggerOnNetworkChanged\n");
   MaybeTriggerOnNetworkChanged();
 }
 
@@ -252,6 +264,8 @@ void SendSideCongestionController::SignalNetworkState(NetworkState state) {
     network_state_ = state;
   }
   probe_controller_->OnNetworkStateChanged(state);
+
+  printf("Inside CongestionController: SignalNetworkState => MaybeTriggerOnNetworkChanged\n");
   MaybeTriggerOnNetworkChanged();
 }
 
@@ -265,6 +279,9 @@ void SendSideCongestionController::OnSentPacket(
     const rtc::SentPacket& sent_packet) {
   // We're not interested in packets without an id, which may be stun packets,
   // etc, sent on the same transport.
+
+  printf("\t\t Inside CC:OnSentPacket: id = %d\n", sent_packet.packet_id);
+
   if (sent_packet.packet_id == -1)
     return;
   transport_feedback_adapter_.OnSentPacket(sent_packet.packet_id,
@@ -300,6 +317,8 @@ void SendSideCongestionController::Process() {
   }
   bitrate_controller_->Process();
   probe_controller_->Process();
+
+  printf("Inside CongestionController: Process() => MaybeTriggerOnNetworkChanged\n");
   MaybeTriggerOnNetworkChanged();
 }
 
@@ -340,6 +359,8 @@ void SendSideCongestionController::OnTransportFeedback(
   if (result.updated) {
     bitrate_controller_->OnDelayBasedBweResult(result);
     // Update the estimate in the ProbeController, in case we want to probe.
+
+    printf("Inside CongestionController: OnTransportFeedback => MaybeTriggerOnNetworkChanged\n");
     MaybeTriggerOnNetworkChanged();
   }
   if (result.recovered_from_overuse)
@@ -382,6 +403,9 @@ void SendSideCongestionController::MaybeTriggerOnNetworkChanged() {
   uint32_t bitrate_bps;
   uint8_t fraction_loss;
   int64_t rtt;
+
+  //  printf("\t Inside CongestionController: MaybeTriggerOnNetworkChanged => GetNetParam\n");
+
   bool estimate_changed = bitrate_controller_->GetNetworkParameters(
       &bitrate_bps, &fraction_loss, &rtt);
   if (estimate_changed) {

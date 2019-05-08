@@ -1993,6 +1993,8 @@ void JsepSessionImpl::SetupDefaultRtpExtensions() {
                        SdpDirectionAttribute::Direction::kSendrecv);
   AddVideoRtpExtension(webrtc::RtpExtension::kTimestampOffsetUri,
                        SdpDirectionAttribute::Direction::kSendrecv);
+  AddVideoRtpExtension(webrtc::RtpExtension::kTransportSequenceNumberUri,
+                       SdpDirectionAttribute::Direction::kSendrecv); //TODO Try Only recv?
 }
 
 void JsepSessionImpl::SetState(JsepSignalingState state) {
