@@ -6065,6 +6065,30 @@ sdp_attr_get_rtcp_fb_remb_enabled(sdp_t *sdp_p,
     return (attr_p? TRUE : FALSE); // either exists or not
 }
 
+
+
+
+
+/*
+ * Document
+ */
+tinybool
+sdp_attr_get_rtcp_fb_trans_cc_enabled(sdp_t *sdp_p,
+                                      uint16_t level,
+                                      uint16_t payload_type)
+{
+    sdp_attr_t  *attr_p;
+
+    attr_p = sdp_find_rtcp_fb_attr(sdp_p, level, payload_type,
+                                   SDP_RTCP_FB_TRANS_CC,
+                                   1); // always check for 1st instance
+    return (attr_p ? TRUE : FALSE); // either exists or not
+}
+
+
+
+
+
 /* Function:    sdp_attr_get_rtcp_fb_ccm
  * Description: Returns the value of the rtcp-fb:...ccm attribute
  * Parameters:  sdp_p      The SDP handle returned by sdp_init_description.
@@ -6229,6 +6253,40 @@ sdp_attr_set_rtcp_fb_remb(sdp_t *sdp_p, uint16_t level, uint16_t payload_type,
     attr_p->attr.rtcp_fb.feedback_type = SDP_RTCP_FB_REMB;
     return (SDP_SUCCESS);
 }
+
+
+
+
+/*
+ * Document
+ */
+sdp_result_e
+sdp_attr_set_rtcp_fb_trans_cc(sdp_t *sdp_p, uint16_t level, uint16_t payload_type,
+                              uint16_t inst)
+{
+    sdp_attr_t  *attr_p;
+
+    attr_p = sdp_find_attr(sdp_p, level, 0, SDP_ATTR_RTCP_FB, inst);
+    if (!attr_p) {
+        if (sdp_p->debug_flag[SDP_DEBUG_ERRORS]) {
+            CSFLogError(logTag, "%s rtcp_fb transport-cc attribute, level %u "
+                      "instance %u not found.", sdp_p->debug_str, (unsigned)level,
+                      (unsigned)inst);
+        }
+        sdp_p->conf_p->num_invalid_param++;
+        return (SDP_INVALID_PARAMETER);
+    }
+
+    attr_p->attr.rtcp_fb.payload_num = payload_type;
+    attr_p->attr.rtcp_fb.feedback_type = SDP_RTCP_FB_TRANS_CC;
+    return (SDP_SUCCESS);
+}
+
+
+
+
+
+
 
 /* Function:    sdp_attr_set_rtcp_fb_ccm
  * Description: Sets the value of an rtcp-fb:...ccm attribute

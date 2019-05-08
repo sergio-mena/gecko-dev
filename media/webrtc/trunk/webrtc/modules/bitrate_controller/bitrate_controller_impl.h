@@ -23,8 +23,11 @@
 #include <vector>
 
 #include "modules/bitrate_controller/send_side_bandwidth_estimation.h"
+#include "modules/bitrate_controller/nada_bandwidth_estimation.h"
 #include "rtc_base/constructormagic.h"
 #include "rtc_base/criticalsection.h"
+
+#define ENABLE_NADA 1
 
 namespace webrtc {
 
@@ -94,7 +97,13 @@ class BitrateControllerImpl : public BitrateController {
   rtc::CriticalSection critsect_;
   std::map<uint32_t, uint32_t> ssrc_to_last_received_extended_high_seq_num_
       RTC_GUARDED_BY(critsect_);
+
+#ifdef ENABLE_NADA
+  NADABandwidthEstimation bandwidth_estimation_ RTC_GUARDED_BY(critsect_);
+#else
   SendSideBandwidthEstimation bandwidth_estimation_ RTC_GUARDED_BY(critsect_);
+#endif
+
   uint32_t reserved_bitrate_bps_ RTC_GUARDED_BY(critsect_);
 
   uint32_t last_bitrate_bps_ RTC_GUARDED_BY(critsect_);

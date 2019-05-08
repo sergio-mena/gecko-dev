@@ -117,7 +117,15 @@ DelayBasedBwe::Result DelayBasedBwe::IncomingPacketFeedbackVector(
   RTC_DCHECK(std::is_sorted(packet_feedback_vector.begin(),
                             packet_feedback_vector.end(),
                             PacketFeedbackComparator()));
+
+  // [XZ 2019-02-20  add time stamp info]
+  int64_t now_ms = clock_->TimeInMilliseconds();
+  printf("\t XZXZXZ Inside DelayBasedBwe::IncomingPacketFeedbackVector at %ld ms\n", now_ms);
+  // [XZ 2019-02-20]
+
   RTC_DCHECK_RUNS_SERIALIZED(&network_race_);
+
+  //    printf("\t XZXZXZ Inside DelayBasedBwe::IncomingPacketFeedbackVector, still here\n");
 
   // TOOD(holmer): An empty feedback vector here likely means that
   // all acks were too late and that the send time history had
@@ -133,6 +141,10 @@ DelayBasedBwe::Result DelayBasedBwe::IncomingPacketFeedbackVector(
                               BweNames::kBweNamesMax);
     uma_recorded_ = true;
   }
+
+  //    printf("\t XZXZXZ Inside DelayBasedBwe::IncomingPacketFeedbackVector, before the loop, fb size=%d\n",
+  //           packet_feedback_vector.size());
+
   bool overusing = false;
   bool delayed_feedback = true;
   bool recovered_from_overuse = false;
@@ -141,7 +153,14 @@ DelayBasedBwe::Result DelayBasedBwe::IncomingPacketFeedbackVector(
     if (packet_feedback.send_time_ms < 0)
       continue;
     delayed_feedback = false;
+
+    // printf("\t\t Inside DelayBasedBwe | calling IncomingPacketInfo\n");
     IncomingPacketFeedback(packet_feedback);
+
+    //  TODO Sergio: interface of IncomingPacketFeedback is now "void"
+    //  printf("\t\t Inside DelayBasedBwe | update based on pkt %d, result = %d\n",
+    //      packet_info.sequence_number, result.updated);
+
     if (!in_sparse_update_experiment_)
       overusing |= (detector_.State() == BandwidthUsage::kBwOverusing);
     if (prev_detector_state == BandwidthUsage::kBwUnderusing &&
@@ -187,6 +206,9 @@ DelayBasedBwe::Result DelayBasedBwe::OnLongFeedbackDelay(
 void DelayBasedBwe::IncomingPacketFeedback(
     const PacketFeedback& packet_feedback) {
   int64_t now_ms = clock_->TimeInMilliseconds();
+
+  // printf("\t Inside DelayBasedBwe: now_ms=%ld\n", now_ms);
+
   // Reset if the stream has timed out.
   if (last_seen_packet_ms_ == -1 ||
       now_ms - last_seen_packet_ms_ > kStreamTimeOutMs) {

@@ -204,14 +204,17 @@ class VideoStreamEncoder::VideoSourceProxy {
       return;
     }
 
+    printf("[XQ] VideoSourceProxy::SetSource: calling AddOrUpdateSink\n");
     source->AddOrUpdateSink(video_stream_encoder_, wants);
   }
 
   void SetWantsRotationApplied(bool rotation_applied) {
     rtc::CritScope lock(&crit_);
     sink_wants_.rotation_applied = rotation_applied;
-    if (source_)
+    if (source_) {
+      printf("[XQ] VideoSourceProxy::SetWantsRotationApplied: calling AddOrUpdateSink\n");
       source_->AddOrUpdateSink(video_stream_encoder_, sink_wants_);
+    }
   }
 
   rtc::VideoSinkWants GetActiveSinkWants() {
@@ -252,6 +255,11 @@ class VideoStreamEncoder::VideoSourceProxy {
                      << pixels_wanted;
     sink_wants_.max_pixel_count = pixels_wanted;
     sink_wants_.target_pixel_count = rtc::Optional<int>();
+
+    printf("[XQ] VideoSourceProxy::RequestResolutionLowerThan: calling AddOrUpdateSink, npixel=%d, %d\n",
+           pixel_count, pixels_wanted); 
+
+
     source_->AddOrUpdateSink(video_stream_encoder_,
                              GetActiveSinkWantsInternal());
     return true;
@@ -295,6 +303,9 @@ class VideoStreamEncoder::VideoSourceProxy {
     }
     RTC_LOG(LS_INFO) << "Scaling up resolution, max pixels: "
                      << max_pixels_wanted;
+    printf("[XQ] VideoSourceProxy::RequestHigherResolutionThan: calling AddOrUpdateSink, pixel_up=%d\n",
+           pixel_count); 
+
     source_->AddOrUpdateSink(video_stream_encoder_,
                              GetActiveSinkWantsInternal());
     return true;
@@ -1111,10 +1122,14 @@ void VideoStreamEncoder::AdaptUp(AdaptReason reason) {
 void VideoStreamEncoder::UpdateAdaptationStats(AdaptReason reason) {
   switch (reason) {
     case kCpu:
+      printf("[XQ] ViEEncoder::ScaleDown: ramping down due to CPU issue\n");
+
       stats_proxy_->OnCpuAdaptationChanged(GetActiveCounts(kCpu),
                                            GetActiveCounts(kQuality));
       break;
     case kQuality:
+      printf("[XQ] ViEEncoder::ScaleDown: ramping down due to Quality issue\n");
+
       stats_proxy_->OnQualityAdaptationChanged(GetActiveCounts(kCpu),
                                                GetActiveCounts(kQuality));
       break;
