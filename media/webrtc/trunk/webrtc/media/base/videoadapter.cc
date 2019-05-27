@@ -177,7 +177,7 @@ bool VideoAdapter::AdaptFrameResolution(int in_width,
     int scaled_pixel_count = (in_width*in_height/scale_resolution_by_)/scale_resolution_by_;
     max_pixel_count = std::min(max_pixel_count, scaled_pixel_count);
 
-    printf("[XQ] VideoAdapter::AdaptFrameResolution: scale = %f, max_pixel_count = %d\n", 
+    printf("[XQ] VideoAdapter::AdaptFrameResolution: scale = %f, max_pixel_count = %d\n",
 		    scale_resolution_by_, max_pixel_count);
   }
 
@@ -275,7 +275,7 @@ void VideoAdapter::OnOutputFormatRequest(const VideoFormat& format) {
   rtc::CritScope cs(&critical_section_);
   requested_format_ = format;
   next_frame_timestamp_ns_ = rtc::nullopt;
-  
+
   printf("[XQ] VideoAdapter::OnOutputFrameRequest: max_pixel_count = w%d, h%d\n",
          format.width, format.height);
 }
@@ -301,7 +301,7 @@ void VideoAdapter::OnScaleResolutionBy(
   RTC_DCHECK_GE(scale_resolution_by_, 1.0);
   scale_ = static_cast<bool>(scale_resolution_by);
 
-  printf("[XQ] VideoAdapter::OnScaleResolutionBy: scale = %6.2f\n", 
+  printf("[XQ] VideoAdapter::OnScaleResolutionBy: scale = %6.2f\n",
 	   scale_resolution_by_);
 }
 

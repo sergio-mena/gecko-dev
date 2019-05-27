@@ -119,7 +119,7 @@ SendSideCongestionController::SendSideCongestionController(
       pacer_paused_(false),
       min_bitrate_bps_(congestion_controller::GetMinBitrateBps()),
 #ifdef ENABLE_NADA_OWD
-      delay_based_bwe_(new NadaOwdBwe(event_log_, clock_)),
+      delay_based_bwe_(new NadaOwdBwe(clock_)),
 #else
       delay_based_bwe_(new DelayBasedBwe(event_log_, clock_)),
 #endif
@@ -204,7 +204,7 @@ void SendSideCongestionController::OnNetworkRouteChanged(
     min_bitrate_bps_ = min_bitrate_bps;
 
 #ifdef ENABLE_NADA_OWD
-    delay_based_bwe_.reset(new NadaOwdBwe(event_log_, clock_));
+    delay_based_bwe_.reset(new NadaOwdBwe(clock_));
 #else
     delay_based_bwe_.reset(new DelayBasedBwe(event_log_, clock_));
 #endif

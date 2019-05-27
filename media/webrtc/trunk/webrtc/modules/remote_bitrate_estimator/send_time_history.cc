@@ -38,7 +38,6 @@ void SendTimeHistory::AddAndRemoveOld(const PacketFeedback& packet) {
 //  printf("\t\t XZXZXZ adding pkt (seqno = %d->%ld) to history, sendtime unassigned\n",
 //    packet.sequence_number, unwrapped_seq_num);
 
-  packet.send_time_ms = packet.creation_time_ms;        // [XZ 2019-02-20: sent time same as creation time
   history_.insert(std::make_pair(unwrapped_seq_num, packet));
 }
 
@@ -77,10 +76,10 @@ bool SendTimeHistory::GetFeedback(PacketFeedback* packet_feedback,
 
   if (remove)
     history_.erase(it);
-  
-  // printf("\t\t still here ... returning true, send_time = %d, arrival_time = %d\n", 
+
+  // printf("\t\t still here ... returning true, send_time = %d, arrival_time = %d\n",
   // 	  packet_info->send_time_ms, packet_info->arrival_time_ms);
-  
+
   return true;
 }
 

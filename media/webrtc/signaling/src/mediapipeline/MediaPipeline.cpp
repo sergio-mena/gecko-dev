@@ -1169,7 +1169,7 @@ void MediaPipelineTransmit::PipelineListener::NewData(
   } else {
 
     const VideoSegment* video = static_cast<const VideoSegment*>(&aMedia);
-  
+
     // printf("[XQ] MediaPipeline::NewData: calling QueueVideoChunk\n");
 
     for (VideoSegment::ConstChunkIterator iter(*video); !iter.IsEnded();

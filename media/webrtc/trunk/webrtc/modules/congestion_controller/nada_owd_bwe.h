@@ -8,25 +8,26 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#ifndef WEBRTC_MODULES_CONGESTION_CONTROLLER_NADA_OWD_BWE_H_
-#define WEBRTC_MODULES_CONGESTION_CONTROLLER_NADA_OWD_BWE_H_
+#ifndef MODULES_CONGESTION_CONTROLLER_NADA_OWD_BWE_H_
+#define MODULES_CONGESTION_CONTROLLER_NADA_OWD_BWE_H_
 
 #include <deque>
 #include <memory>
 #include <utility>
 #include <vector>
 
-#include "webrtc/base/checks.h"
-#include "webrtc/base/constructormagic.h"
-#include "webrtc/base/rate_statistics.h"
-#include "webrtc/base/thread_checker.h"
-#include "webrtc/modules/congestion_controller/delay_based_bwe.h"  // for Result struct
+#include "modules/congestion_controller/delay_based_bwe.h"  // for Result struct
+#include "rtc_base/checks.h"
+#include "rtc_base/constructormagic.h"
+#include "rtc_base/rate_statistics.h"
+#include "rtc_base/race_checker.h"
 
 namespace webrtc {
 
+class RtcEventLog;
+
 class NadaOwdBwe {
  public:
-
   // static const int64_t kStreamTimeOutMs = 2000;
   /*
   struct Result {
@@ -40,22 +41,22 @@ class NadaOwdBwe {
 
   */
 
-  explicit NadaOwdBwe(Clock* clock);
-  virtual ~NadaOwdBwe() {}
+  explicit NadaOwdBwe(const Clock* clock);
+  virtual ~NadaOwdBwe();
 
-  // Triggers BW estimation upon receving a new packet FB vector 
+  // Triggers BW estimation upon receving a new packet FB vector
   DelayBasedBwe::Result IncomingPacketFeedbackVector(
-      const std::vector<PacketInfo>& packet_feedback_vector);
+      const std::vector<PacketFeedback>& packet_feedback_vector,
+      rtc::Optional<uint32_t> acked_bitrate_bps);
 
   // Update local variables fed by others:  RTT, R_min
   void OnRttUpdate(int64_t avg_rtt_ms, int64_t max_rtt_ms);
-  void SetMinBitrate(int min_bitrate_bps);
-
-  // Answer queries: 
+  // Answer queries:
   bool LatestEstimate(std::vector<uint32_t>* ssrcs,
                       uint32_t* bitrate_bps) const;
-
-  int64_t GetProbingIntervalMs() const;
+  void SetStartBitrate(int start_bitrate_bps);
+  void SetMinBitrate(int min_bitrate_bps);
+  int64_t GetExpectedBwePeriodMs() const;
 
  private:
 
@@ -79,7 +80,6 @@ class NadaOwdBwe {
     float bitrate_estimate_;
     float bitrate_estimate_var_;
     RateStatistics old_estimator_;
-    const bool in_experiment_;
   };
 
   // Core NADA BW Estimation Calculations
@@ -87,7 +87,7 @@ class NadaOwdBwe {
   void AcceleratedRampUp(int64_t now_ms);
   void GradualRateUpdate(int64_t now_ms);
   void ClipBitrate();  // Clip bitrate_ between [R_min, R_max]
- 
+
   // DelayBasedBwe::Result IncomingPacketInfo(const PacketInfo& info);
 
   // Updates the current remote rate estimate and returns true if a valid
@@ -99,15 +99,15 @@ class NadaOwdBwe {
   // const bool in_trendline_experiment_;
   // const bool in_median_slope_experiment_;
 
-  rtc::ThreadChecker network_thread_;
-  Clock* const clock_;
+  rtc::RaceChecker network_race_;
+  const Clock* const clock_;
 
-  BitrateEstimator receiver_incoming_bitrate_;  // for estimating recevied rate, used for Accelerated Ramp Up calculation 
-  int64_t last_update_ms_;			// timestamp for last rate update: t_last in draft 
+  BitrateEstimator receiver_incoming_bitrate_;  // for estimating recevied rate, used for Accelerated Ramp Up calculation
+  int64_t last_update_ms_;			// timestamp for last rate update: t_last in draft
   int64_t first_update_ms_;			// timestamp for first rate update: t_init
   int64_t last_seen_packet_ms_;			// timestamp for last seen packet: t_last in draft (?)
 
-  // history of plr and dfwd 
+  // history of plr and dfwd
   void UpdateDminHistory(int64_t now_ms, float dtmp);
   void UpdateDelHistory(int64_t now_ms);
   void UpdatePlrHistory(int64_t now_ms);
@@ -117,29 +117,29 @@ class NadaOwdBwe {
 
 
 // variables for NADA BW estimation
-  uint32_t nada_rate_in_bps_;  // key variable holding calculated bandwidth: r_ref in draft 
-  uint32_t nada_rmin_in_bps_;  // configured minimum rate: RMIN in draft 
+  uint32_t nada_rate_in_bps_;  // key variable holding calculated bandwidth: r_ref in draft
+  uint32_t nada_rmin_in_bps_;  // configured minimum rate: RMIN in draft
   uint32_t nada_rmax_in_bps_;  // configured maximum rate: RMAX in draft
   uint32_t nada_recv_in_bps_;  // estimated receiving rate based on FB reports
 
   float  nada_rtt_in_ms_;    // measured RTT used for Accelerated Ramp Up calculation
-  float  nada_rtt_base_in_ms_;   // baseline RTT  
-  float  nada_rtt_rel_in_ms_;    // relative RTT  
-  float  nada_rtt_avg_in_ms_;    // average RTT fed by others  
-     
-  float nada_x_curr_;   // current congestion level:  x_curr in draft 
-  float nada_x_prev_;   // previous congestion level: x_prev in draft 
+  float  nada_rtt_base_in_ms_;   // baseline RTT
+  float  nada_rtt_rel_in_ms_;    // relative RTT
+  float  nada_rtt_avg_in_ms_;    // average RTT fed by others
+
+  float nada_x_curr_;   // current congestion level:  x_curr in draft
+  float nada_x_prev_;   // previous congestion level: x_prev in draft
   float nada_delta_; 	// update interval:  delta in draft
   float nada_d_fwd_;    // current forward one-way-delay:  d_fwd in draft
   float nada_d_base_;   // baseline forward one-way-delay along path: d_base in draft
-  float nada_d_queue_;  // queuing delay: d_queue in draft  
-  float nada_plr_; 	// packet loss ratio:  XXX in draft 
+  float nada_d_queue_;  // queuing delay: d_queue in draft
+  float nada_plr_; 	// packet loss ratio:  XXX in draft
 
-  int64_t probing_interval_in_ms_; 
+  int64_t probing_interval_in_ms_;
 
   RTC_DISALLOW_IMPLICIT_CONSTRUCTORS(NadaOwdBwe);
 };
 
 }  // namespace webrtc
 
-#endif  // WEBRTC_MODULES_CONGESTION_CONTROLLER_NADA_OWD_BWE_H_
+#endif  // MODULES_CONGESTION_CONTROLLER_NADA_OWD_BWE_H_

@@ -120,7 +120,7 @@ DelayBasedBwe::Result DelayBasedBwe::IncomingPacketFeedbackVector(
 
   // [XZ 2019-02-20  add time stamp info]
   int64_t now_ms = clock_->TimeInMilliseconds();
-  printf("\t XZXZXZ Inside DelayBasedBwe::IncomingPacketFeedbackVector at %ld ms\n", now_ms);
+  printf("\t XZXZXZ Inside DelayBasedBwe::IncomingPacketFeedbackVector at %lld ms\n", now_ms);
   // [XZ 2019-02-20]
 
   RTC_DCHECK_RUNS_SERIALIZED(&network_race_);
