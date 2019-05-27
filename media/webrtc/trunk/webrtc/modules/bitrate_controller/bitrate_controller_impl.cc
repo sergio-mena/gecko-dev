@@ -169,7 +169,7 @@ void BitrateControllerImpl::OnDelayBasedBweResult(
     bandwidth_estimation_.UpdateDelayBasedEstimate(clock_->TimeInMilliseconds(),
                                                    result.target_bitrate_bps);
   }
-  
+
 //  printf("BitrateControllerImpl::OnDelayBasedBweResult, calling MaybeTriggerOnNetworkChanged\n");
   MaybeTriggerOnNetworkChanged();
 }
@@ -265,10 +265,9 @@ bool BitrateControllerImpl::GetNetworkParameters(uint32_t* bitrate,
                                                  uint8_t* fraction_loss,
                                                  int64_t* rtt) {
 
-
-   int64_t now_ms = clock_->TimeInMilliseconds(); 
+//   int64_t now_ms = clock_->TimeInMilliseconds();
 //   printf("\t\t BitrateControllerImpl:  Inside GetNetworkParameters=> bwe_.CurrentEstm() at now = %ld ms\n", now_ms);
-  
+
   rtc::CritScope cs(&critsect_);
   int current_bitrate;
   bandwidth_estimation_.CurrentEstimate(&current_bitrate, fraction_loss, rtt);
@@ -302,8 +301,8 @@ bool BitrateControllerImpl::GetNetworkParameters(uint32_t* bitrate,
 bool BitrateControllerImpl::AvailableBandwidth(uint32_t* bandwidth) const {
   rtc::CritScope cs(&critsect_);
 
-  int64_t now_ms = clock_->TimeInMilliseconds(); 
-  printf("Inside BitrateControllerImpl:  AvailableBandwidth => CurrentEstimate, now = %ld\n", now_ms);
+  int64_t now_ms = clock_->TimeInMilliseconds();
+  printf("Inside BitrateControllerImpl:  AvailableBandwidth => CurrentEstimate, now = %lld\n", now_ms);
 
   int bitrate;
   uint8_t fraction_loss;

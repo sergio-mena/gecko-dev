@@ -257,7 +257,7 @@ class VideoStreamEncoder::VideoSourceProxy {
     sink_wants_.target_pixel_count = rtc::Optional<int>();
 
     printf("[XQ] VideoSourceProxy::RequestResolutionLowerThan: calling AddOrUpdateSink, npixel=%d, %d\n",
-           pixel_count, pixels_wanted); 
+           pixel_count, pixels_wanted);
 
 
     source_->AddOrUpdateSink(video_stream_encoder_,
@@ -304,7 +304,7 @@ class VideoStreamEncoder::VideoSourceProxy {
     RTC_LOG(LS_INFO) << "Scaling up resolution, max pixels: "
                      << max_pixels_wanted;
     printf("[XQ] VideoSourceProxy::RequestHigherResolutionThan: calling AddOrUpdateSink, pixel_up=%d\n",
-           pixel_count); 
+           pixel_count);
 
     source_->AddOrUpdateSink(video_stream_encoder_,
                              GetActiveSinkWantsInternal());

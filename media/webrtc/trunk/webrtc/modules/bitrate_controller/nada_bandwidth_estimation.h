@@ -18,15 +18,14 @@
 
 
 
-#ifndef WEBRTC_MODULES_BITRATE_CONTROLLER_NADA_BANDWIDTH_ESTIMATION_H_
-#define WEBRTC_MODULES_BITRATE_CONTROLLER_NADA_BANDWIDTH_ESTIMATION_H_
+#ifndef MODULES_BITRATE_CONTROLLER_NADA_BANDWIDTH_ESTIMATION_H_
+#define MODULES_BITRATE_CONTROLLER_NADA_BANDWIDTH_ESTIMATION_H_
 
 #include <deque>
 #include <utility>
 #include <vector>
 
-#include "webrtc/modules/rtp_rtcp/include/rtp_rtcp_defines.h"
-#include "webrtc/system_wrappers/include/critical_section_wrapper.h"
+#include "modules/rtp_rtcp/include/rtp_rtcp_defines.h"
 
 namespace webrtc {
 
@@ -34,7 +33,7 @@ class RtcEventLog;
 
 class NADABandwidthEstimation {
  public:
-  
+
   NADABandwidthEstimation() = delete;
   explicit NADABandwidthEstimation(RtcEventLog* event_log);
   virtual ~NADABandwidthEstimation();
@@ -67,65 +66,65 @@ class NADABandwidthEstimation {
 
  private:
 
-  int getRampUpMode(); 
+  int getRampUpMode();
   void AcceleratedRampUp(int64_t now_ms);
   void GradualRateUpdate(int64_t now_ms);
 
-  // 
+  //
   // [XZ 2018-12-20]  save for now ...
   //
-  // Returns the input bitrate capped to the range 
+  // Returns the input bitrate capped to the range
   // between min and max bandwidth.
   //
   // uint32_t CapBitrateToThresholds(int64_t now_ms, uint32_t bitrate);
 
-  void ClipBitrate();  // Clip bitrate_ between [R_min, R_max]
+  void ClipBitrate();  // Clip bitrate_ between [R_min, R_max] //TODO Sergio: check new method CapBitrateToThresholds
 
-  // Updates history of: 
+  // Updates history of:
   // -- min bitrates (to be depreciated for NADA)
-  // -- max rtt/owd 
-  // -- max plr 
+  // -- max rtt/owd
+  // -- max plr
   //
   // After this method returns xxx_history_.front().second contains the
   // min/max value used during last logging window Logwin.
   //
   void UpdateMinHistory(int64_t now_ms);
-  void UpdateRttHistory(int64_t now_ms); 
-  void UpdatePlrHistory(int64_t now_ms); 
+  void UpdateRttHistory(int64_t now_ms);
+  void UpdatePlrHistory(int64_t now_ms);
   std::deque<std::pair<int64_t, uint32_t> > min_bitrate_history_;
   std::deque<std::pair<int64_t, int64_t> > max_rtt_history_;
   std::deque<std::pair<int64_t, uint8_t> > max_plr_history_;
 
-  // incoming filters for calculating packet loss ratio 
+  // incoming filters for calculating packet loss ratio
   int lost_packets_since_last_loss_update_Q8_;
   int expected_packets_since_last_loss_update_;
 
-  // 
+  //
   // key variables for NADA rate calculation
   //
   // rates: r_ref, RMIN, RMAX
-  uint32_t bitrate_;		// key variable holding calculated bandwidth: r_ref in draft
-  uint32_t min_bitrate_configured_; 	// min rate: RMIN in draft
-  uint32_t max_bitrate_configured_;	// max rate: RMAX in draft
+  uint32_t bitrate_;                    // key variable holding calculated bandwidth: r_ref in draft
+  uint32_t min_bitrate_configured_;     // min rate: RMIN in draft
+  uint32_t max_bitrate_configured_;     // max rate: RMAX in draft
 
-  // intervals: delta 
-  // int64_t last_rate_update_ms_; 	// last time updating the rate (in ms) | t_last in draft
-  int64_t last_feedback_ms_; 		// last time receiving a feedback (in ms) | t_last in draft
-  // int64_t rate_update_interval_ms_; 	// previous rate update interval | delta = t_curr - t_last
-  int64_t feedback_interval_ms_; 	// previous feedback interval | delta = t_curr - t_last
-  int64_t delta_; 			// update interval used for rate calculation | delta in draft
+  // intervals: delta
+  // int64_t last_rate_update_ms_;      // last time updating the rate (in ms) | t_last in draft
+  int64_t last_feedback_ms_;            // last time receiving a feedback (in ms) | t_last in draft
+  // int64_t rate_update_interval_ms_;  // previous rate update interval | delta = t_curr - t_last
+  int64_t feedback_interval_ms_;        // previous feedback interval | delta = t_curr - t_last
+  int64_t delta_;                       // update interval used for rate calculation | delta in draft
 
   // congestion level
-  float nada_x_curr_; 	// current congestion level  | x_curr in draft 
-  float nada_x_prev_; 	// previous congestion level | x_prev in draft 
+  float nada_x_curr_;   // current congestion level  | x_curr in draft
+  float nada_x_prev_;   // previous congestion level | x_prev in draft
 
-  // 
+  //
   // inherited from SenderSideBandwidthEstimation
   //
 //  bool has_decreased_since_last_fraction_loss_;
 //  int64_t last_feedback_ms_;		// last time receiving a feedback
-//  int64_t last_packet_report_ms_;	// 
-//  int64_t last_timeout_ms_;		
+//  int64_t last_packet_report_ms_;	//
+//  int64_t last_timeout_ms_;
   uint8_t last_fraction_loss_;
 //  uint8_t last_logged_fraction_loss_;
   int64_t last_round_trip_time_ms_;
@@ -146,4 +145,4 @@ class NADABandwidthEstimation {
 
 }  // namespace webrtc
 
-#endif  // WEBRTC_MODULES_BITRATE_CONTROLLER_NADA_BANDWIDTH_ESTIMATION_H_
+#endif  // MODULES_BITRATE_CONTROLLER_NADA_BANDWIDTH_ESTIMATION_H_

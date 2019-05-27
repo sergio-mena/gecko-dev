@@ -70,9 +70,12 @@ void TransportFeedbackAdapter::AddPacket(uint32_t ssrc,
       length += transport_overhead_bytes_per_packet_;
     }
     const int64_t creation_time_ms = clock_->TimeInMilliseconds();
-    send_time_history_.AddAndRemoveOld(
-        PacketFeedback(creation_time_ms, sequence_number, length, local_net_id_,
-                       remote_net_id_, pacing_info));
+
+    auto pf = PacketFeedback(creation_time_ms, sequence_number, length,
+                             local_net_id_, remote_net_id_, pacing_info);
+    pf.send_time_ms = pf.creation_time_ms;        // [XZ 2019-02-20: sent time same as creation time
+
+    send_time_history_.AddAndRemoveOld(pf);
   }
 
   {

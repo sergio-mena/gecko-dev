@@ -332,9 +332,9 @@ void TransportFeedback::SetFeedbackSequenceNumber(uint8_t feedback_sequence) {
 
 bool TransportFeedback::AddReceivedPacket(uint16_t sequence_number,
                                           int64_t timestamp_us) {
-  
+
     // printf("\t\t\tXXXXXX I've been asked to add a received packet to feedback\n");
-  
+
   // Convert to ticks and round.
   int64_t delta_full = (timestamp_us - last_timestamp_us_) % kTimeWrapPeriodUs;
   if (delta_full > kTimeWrapPeriodUs / 2)
@@ -390,7 +390,7 @@ bool TransportFeedback::Parse(const CommonHeader& packet) {
   TRACE_EVENT0("webrtc", "TransportFeedback::Parse");
 
 //  printf("\t\t\tXXXXXX I'm asked to parse a transport feedback!!!!\n");
-  
+
   if (packet.payload_size_bytes() < kMinPayloadSizeBytes) {
     RTC_LOG(LS_WARNING) << "Buffer too small (" << packet.payload_size_bytes()
                         << " bytes) to fit a "
@@ -481,7 +481,7 @@ std::unique_ptr<TransportFeedback> TransportFeedback::ParseFrom(
     const uint8_t* buffer,
     size_t length) {
 
-	
+
 //  printf("\t\t\tXXXXXX Inside ParseFrom: received a transport feedback!!!!\n");
 
   CommonHeader header;

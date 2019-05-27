@@ -142,7 +142,7 @@ static unsigned int SelectSendFrameRate(const VideoCodecConfig* codecConfig,
                                         unsigned int old_framerate,
                                         unsigned short sending_width,
                                         unsigned short sending_height) {
-  printf("[XQ] VideoConduit::SelectSendFrameRate: frame_rate = %d, w=%d, h=%d\n", 
+  printf("[XQ] VideoConduit::SelectSendFrameRate: frame_rate = %d, w=%d, h=%d\n",
            old_framerate, sending_width, sending_height);
 
   unsigned int new_framerate = old_framerate;
@@ -1760,7 +1760,7 @@ void WebrtcVideoConduit::SelectSendResolution(unsigned short width,
   // XXX This will do bandwidth-resolution adaptation as well - bug 877954
 
 
-  printf("[XQ] VideoConduit::SelectSendResolution, [w,h]=[%d, %d]\n", 
+  printf("[XQ] VideoConduit::SelectSendResolution, [w,h]=[%d, %d]\n",
 		width, height);
   // Enforce constraints
   if (mCurSendCodecConfig) {
@@ -1774,7 +1774,7 @@ void WebrtcVideoConduit::SelectSendResolution(unsigned short width,
 
 
     printf("[XQ] VideoConduit::SelectSendResolution, max_w = %d, max_h%d, updated [w,h]=%d, %d\n",
-	    max_width, max_height, width, height); 
+	    max_width, max_height, width, height);
 
     // Limit resolution to max-fs
     const auto& wants = mVideoBroadcaster.wants();
@@ -1807,7 +1807,7 @@ void WebrtcVideoConduit::AddOrUpdateSink(
     const rtc::VideoSinkWants& wants) {
 
   printf("[XQ] VideoConduit::AddOrUpdateSink: calling OnSinkWantsChanged, target=%d\n",
-          wants.max_pixel_count.value_or(-1));
+          wants.target_pixel_count.value_or(-1));
 
   if (!NS_IsMainThread()) {
     // This may be called off main thread, but only to update an already added
@@ -1836,7 +1836,7 @@ void WebrtcVideoConduit::RemoveSink(
 
   mRegisteredSinks.RemoveElement(sink);
   mVideoBroadcaster.RemoveSink(sink);
-  
+
   printf("[XQ] VideoConduit::RemoveSink: calling OnSinkWantsChanged\n");
 
   OnSinkWantsChanged(mVideoBroadcaster.wants());
@@ -1862,7 +1862,7 @@ void WebrtcVideoConduit::OnSinkWantsChanged(const rtc::VideoSinkWants& wants) {
   int max_pixel_count = wants.max_pixel_count;
 
 
-  
+
   if (max_fs > 0) {
     // max_fs was explicitly set by signaling and needs to be accounted for
     max_pixel_count = std::min(max_pixel_count, max_fs);
@@ -1870,7 +1870,7 @@ void WebrtcVideoConduit::OnSinkWantsChanged(const rtc::VideoSinkWants& wants) {
 
 
   printf("[XQ] VideoConduit::OnSinkWantsChange: calling OnResolutionFramerateRequest, max_fs = %d, target=%d\n",
-       max_fs, wants.max_pixel_count.value_or(-1));
+       max_fs, wants.target_pixel_count.value_or(-1));
 
   mVideoAdapter->OnResolutionFramerateRequest(
       rtc::Optional<int>(), max_pixel_count, std::numeric_limits<int>::max());
@@ -1883,7 +1883,7 @@ MediaConduitErrorCode WebrtcVideoConduit::SendVideoFrame(
   // avoids sampling error when capturing frames, but google had to deal with
   // some broken cameras, include Logitech c920's IIRC.
 
-//  printf("[XQ] VideoConduit::SendVideoFrame, incoming frame info with wxh = %d, %d | %d, %d\n", 
+//  printf("[XQ] VideoConduit::SendVideoFrame, incoming frame info with wxh = %d, %d | %d, %d\n",
 //		frame.width(), frame.height(), mLastWidth, mLastHeight);
 
   int cropWidth;
@@ -1925,9 +1925,9 @@ MediaConduitErrorCode WebrtcVideoConduit::SendVideoFrame(
   int cropX = (frame.width() - cropWidth) / 2;
   int cropY = (frame.height() - cropHeight) / 2;
 
-//  printf("[XQ] VideoConduit::SendVideoFrame: wxh of original: %d, %d | cropped: %d, %d | adapted: %d, %d\n", 
-//	  frame.width(), frame.height(), 
-//	  cropWidth, cropHeight, 
+//  printf("[XQ] VideoConduit::SendVideoFrame: wxh of original: %d, %d | cropped: %d, %d | adapted: %d, %d\n",
+//	  frame.width(), frame.height(),
+//	  cropWidth, cropHeight,
 //	  adaptedWidth, adaptedHeight);
 
   rtc::scoped_refptr<webrtc::VideoFrameBuffer> buffer;
