@@ -1770,6 +1770,10 @@ tinybool
 sdp_attr_get_rtcp_fb_remb_enabled(sdp_t *sdp_p, uint16_t level,
                                   uint16_t payload_type);
 
+tinybool
+sdp_attr_get_rtcp_fb_trans_cc_enabled(sdp_t *sdp_p, uint16_t level,
+                                      uint16_t payload_type);
+
 sdp_rtcp_fb_ccm_type_e
 sdp_attr_get_rtcp_fb_ccm(sdp_t *sdp_p, uint16_t level, uint16_t payload_type, uint16_t inst);
 
@@ -1788,6 +1792,10 @@ sdp_attr_set_rtcp_fb_trr_int(sdp_t *sdp_p, uint16_t level, uint16_t payload_type
 sdp_result_e
 sdp_attr_set_rtcp_fb_remb(sdp_t *sdp_p, uint16_t level, uint16_t payload_type,
                           uint16_t inst);
+
+sdp_result_e
+sdp_attr_set_rtcp_fb_trans_cc(sdp_t *sdp_p, uint16_t level, uint16_t payload_type,
+                              uint16_t inst);
 
 sdp_result_e
 sdp_attr_set_rtcp_fb_ccm(sdp_t *sdp_p, uint16_t level, uint16_t payload_type, uint16_t inst,

@@ -125,6 +125,7 @@ void DiscardRedundantExtensions(
         [uri](const webrtc::RtpExtension& rhs) { return rhs.uri == uri; });
     if (it != extensions->end()) {
       if (found) {
+        printf("\t\t\tRemoving redundant extension %s\n", uri);
         extensions->erase(it);
       }
       found = true;

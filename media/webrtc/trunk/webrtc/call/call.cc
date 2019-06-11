@@ -70,11 +70,17 @@ namespace {
 // TODO(nisse): This really begs for a shared context struct.
 bool UseSendSideBwe(const std::vector<RtpExtension>& extensions,
                     bool transport_cc) {
+  printf("\t\t\tBeginning of UseSendSideBwe\n");
   if (!transport_cc)
     return false;
+  printf("\t\t\tUseSendSideBwe: transport_cc is true\n");
   for (const auto& extension : extensions) {
-    if (extension.uri == RtpExtension::kTransportSequenceNumberUri)
-      return true;
+    printf("\t\t\tChecking configured RTP URIs. Current: %s\n", extension.uri.c_str());
+    printf("\t\t\tChecking configured RTP URIs. expected: %s\n",RtpExtension::kTransportSequenceNumberUri);
+    if (extension.uri == RtpExtension::kTransportSequenceNumberUri) {
+        printf("\t\t\t Matching URI, returning true\n");
+        return true;
+    }
   }
   return false;
 }
@@ -1170,6 +1176,9 @@ void Call::UpdateAggregateNetworkState() {
 }
 
 void Call::OnSentPacket(const rtc::SentPacket& sent_packet) {
+
+  printf("\t\t XZXZXZ  Inside Call::OnSentPacket ...\n");
+
   video_send_delay_stats_->OnSentPacket(sent_packet.packet_id,
                                         clock_->TimeInMilliseconds());
   transport_send_->send_side_cc()->OnSentPacket(sent_packet);

@@ -408,7 +408,8 @@ pref("media.videocontrols.picture-in-picture.video-toggle.always-show", false);
 #ifdef MOZ_WEBRTC
 pref("media.navigator.video.enabled", true);
 pref("media.navigator.video.default_fps",30);
-pref("media.navigator.video.use_remb", true);
+pref("media.navigator.video.use_remb", false);
+pref("media.navigator.video.use_trans_cc", true);
 pref("media.navigator.video.use_tmmbr", false);
 pref("media.navigator.audio.use_fec", true);
 pref("media.navigator.video.red_ulpfec_enabled", false);

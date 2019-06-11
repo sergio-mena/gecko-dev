@@ -73,6 +73,9 @@ class VideoFrameConverter {
       return;
     }
 
+    //    printf("[XQ] MediaPipeline::QueueVideoChunk: frame size = w%d-by-h%d \n",
+    //          size.width, size.height);
+
     TimeStamp t = aChunk.mTimeStamp;
     MOZ_ASSERT(!t.IsNull());
 
@@ -179,6 +182,8 @@ class VideoFrameConverter {
   void VideoFrameConverted(const webrtc::VideoFrame& aVideoFrame) {
     MOZ_ASSERT(mTaskQueue->IsCurrentThreadIn());
 
+    //    printf("[XQ] MediaPipeline::VideoFrameConverted:  Calling OnVideoFrameConverted via listener\n");
+
     if (mSameFrameTimer) {
       mSameFrameTimer->Cancel();
     }
@@ -273,6 +278,9 @@ class VideoFrameConverter {
 
       webrtc::VideoFrame frame(buffer, 0,  // not setting rtp timestamp
                                now, webrtc::kVideoRotation_0);
+
+      //      printf("[XQ] MediaPipeline::ProcessVideoFrame: calling VideoFrameConverted(), aForceBlack\n");
+
       VideoFrameConverted(frame);
       return;
     }
@@ -301,6 +309,10 @@ class VideoFrameConverter {
                                       now, webrtc::kVideoRotation_0);
         MOZ_LOG(gVideoFrameConverterLog, LogLevel::Verbose,
                 ("Sending an I420 video frame"));
+
+        //  printf("[XQ] MediaPipeline::ProcessVideoFrame: calling VideoFrameConverted(), w=%d, h=%d\n",
+        //           aImage->GetSize().width, aImage->GetSize().height);
+
         VideoFrameConverted(i420_frame);
         return;
       }
