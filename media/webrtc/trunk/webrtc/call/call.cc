@@ -1304,12 +1304,25 @@ PacketReceiver::DeliveryStatus Call::DeliverRtcp(MediaType media_type,
     received_rtcp_bytes_per_second_counter_.Add(static_cast<int>(length));
   }
   bool rtcp_delivered = false;
+
+
   if (media_type == MediaType::ANY || media_type == MediaType::VIDEO) {
+    // [X.Z. 2019-06-13] start of modification: printf message to trace fn. call of RTCP recv pkt
+    printf("Inside PacketReceiver: DeliverRtcp() => video_receive_streams_.DeliverRtcp()\n");
+    int nvstream = 0; 
+    // [X.Z. 2019-06-13] end of modification.
+
     ReadLockScoped read_lock(*receive_crit_);
     for (VideoReceiveStream* stream : video_receive_streams_) {
+      nvstream ++; 
       if (stream->DeliverRtcp(packet, length))
         rtcp_delivered = true;
     }
+
+    // [X.Z. 2019-06-13] start of modification: printf message to trace fn. call of RTCP recv pkt
+    printf("Inside PacketReceiver: nvstream = %d\n", nvstream);
+    // [X.Z. 2019-06-13] end of modification.
+
   }
   if (media_type == MediaType::ANY || media_type == MediaType::AUDIO) {
     ReadLockScoped read_lock(*receive_crit_);
@@ -1420,7 +1433,14 @@ PacketReceiver::DeliveryStatus Call::DeliverPacket(
   //Mozilla: Called from STS thread while delivering packets
   //RTC_DCHECK_CALLED_SEQUENTIALLY(&configuration_sequence_checker_);
   if (RtpHeaderParser::IsRtcp(packet, length))
+  {
+    // [X.Z. 2019-06-13] start of modification: printf message to trace fn. call of received RTCP pkt
+    printf("Inside PacketReceiver: DeliverPacket() => DeliverRtcp()\n");
+    // [X.Z. 2019-06-13] end of modification. 
+    
     return DeliverRtcp(media_type, packet, length);
+
+  }
 
   return DeliverRtp(media_type, packet, length, packet_time);
 }

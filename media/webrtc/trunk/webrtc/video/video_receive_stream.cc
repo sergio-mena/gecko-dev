@@ -158,6 +158,11 @@ void VideoReceiveStream::SignalNetworkState(NetworkState state) {
 }
 
 bool VideoReceiveStream::DeliverRtcp(const uint8_t* packet, size_t length) {
+  
+  // [X.Z. 2019-06-13] start of modification: printf message for tracing fn. call of received RTCP
+  printf("Inside VideoReceiveStream: DeliverRtcp() => tp_video_stream_receiver_.DeliverRtcp(...)\n");  
+  // [X.Z. 2019-06-13] end of modification.
+
   return rtp_video_stream_receiver_.DeliverRtcp(packet, length);
 }
 

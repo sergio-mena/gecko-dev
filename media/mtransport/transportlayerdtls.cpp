@@ -1002,7 +1002,6 @@ void TransportLayerDtls::PacketReceived(TransportLayer* layer,
   if (packet.type() != MediaPacket::DTLS) {
     return;
   }
-
   nspr_io_adapter_->PacketReceived(packet);
   GetDecryptedPackets();
 }

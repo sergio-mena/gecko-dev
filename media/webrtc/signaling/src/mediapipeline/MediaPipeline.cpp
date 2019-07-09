@@ -628,6 +628,10 @@ void MediaPipeline::RtcpPacketReceived(MediaPacket& packet) {
     return;
   }
 
+
+  // [X.Z. 2019-06-13] start of modification: printf message to trace path of received RTCP packet
+  printf("Inside MediaPipeline: RtcpPacketReceived() => ReceivedRTCPPacket()\n");
+  // [X.Z. 2019-06-13] end of modification.
   (void)mConduit->ReceivedRTCPPacket(packet.data(),
                                      packet.len());  // Ignore error codes
 }
@@ -649,6 +653,9 @@ void MediaPipeline::PacketReceived(const std::string& aTransportId,
       RtpPacketReceived(packet);
       break;
     case MediaPacket::RTCP:
+      // [X.Z. 2019-06-13] start of modification: printf message to trace fn. call for received RTCP pkt
+      printf("Inside MediaPipeline: PacketReceived() => RtcpPacketReceived()\n");
+      // [X.Z. 2019-06-13] end of modification.
       RtcpPacketReceived(packet);
       break;
     default:;

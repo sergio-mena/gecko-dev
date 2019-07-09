@@ -2056,6 +2056,11 @@ MediaConduitErrorCode WebrtcVideoConduit::ReceivedRTCPPacket(const void* data,
 
   CSFLogVerbose(LOGTAG, " %s Len %d ", __FUNCTION__, len);
 
+
+  // [X.Z. 2019-06-13] start of modification: printf message to track fn. call path of received RTCP packet
+  printf("Inside WebrtcVideoConduit: ReceivedRTCPPacket() => DeliverPacket() => mCall->Call()->Receiver()->DeliverPacket()\n");
+  // [X.Z. 2019-06-13] end of modification.
+
   if (DeliverPacket(data, len) != kMediaConduitNoError) {
     CSFLogError(LOGTAG, "%s RTCP Processing Failed", __FUNCTION__);
     return kMediaConduitRTPProcessingFailed;
