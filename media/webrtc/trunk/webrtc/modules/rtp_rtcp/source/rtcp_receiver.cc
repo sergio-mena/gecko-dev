@@ -151,6 +151,11 @@ void RTCPReceiver::IncomingPacket(const uint8_t* packet, size_t packet_size) {
   PacketInformation packet_information;
   if (!ParseCompoundPacket(packet, packet + packet_size, &packet_information))
     return;
+
+
+  // [X.Z. 2019-06-13] start of modification: printf message to trace fn. call on recv path
+  printf("Inside RTCPReceiver: IncomingPacket() => TriggerCallbacksFromRtcpPacket\n"); 
+  // [X.Z. 2019-06-13] end of modification.
   TriggerCallbacksFromRtcpPacket(packet_information);
 }
 
@@ -1012,7 +1017,9 @@ void RTCPReceiver::TriggerCallbacksFromRtcpPacket(
   if (transport_feedback_observer_ &&
       (packet_information.packet_type_flags & kRtcpTransportFeedback)) {
 
-//    printf("\t\t XZXZXZXZXZXZ transport_feedback_observer_ exists | handle report blocks\n");
+    // [X.Z. 2019-06-13] start of modification: added printf messages for tracing function calls
+    printf("Inside RTCP_Receiver: TriggerCallbacksFromRtcpPacket => transport_feedback_observer_.OnTransportFeedback\n");
+    // [X.Z. 2019-06-13] end of modification
     uint32_t media_source_ssrc =
         packet_information.transport_feedback->media_ssrc();
     if (media_source_ssrc == local_ssrc ||

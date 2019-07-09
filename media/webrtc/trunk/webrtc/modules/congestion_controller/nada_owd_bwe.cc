@@ -211,13 +211,14 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
                             packet_feedback_vector.end(),
                             PacketFeedbackComparator()));
 
-  // [XZ 2019-03-07  add time stamp info]
+  // [X.Z. 2019-03-07] add time stamp info
   int64_t now_ms = clock_->TimeInMilliseconds();
   int nfb = int(packet_feedback_vector.size());
   if (last_update_ms_ > 0)
     nada_delta_ = now_ms - last_update_ms_;
   if (first_update_ms_ < 0)
     first_update_ms_ = now_ms;
+
 
   printf("NadaOwdBwe::IncomingPacketFeedbackVector | t=%lld (%lld) ms, nfb = %d, fbint = %6.2f ms\n",
          now_ms, now_ms - first_update_ms_,
@@ -238,13 +239,35 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
   // Step 3)  Save to result struct
 
   DelayBasedBwe::Result result;
+
+
+  // // [X.Z. 2019-06-14] handle duplicate (TODO: figure out why) FB vectors
+  // // bypass if feedback interval is too close
+  // if (nada_delta_ < 20.)
+  // {
+  //   result.updated = false; 
+  //   return result; 
+  // }
+  // 
+  // TODO:  more elegant way of handling packet delay logs and duplicate FB vectors: 
+  // keep a local log (list) of "raw" pkt one-way-delay info along with seqno, etc. 
+  // decouple rate calculation from per-pkt stats update 
+
   double dtmp = 0.;
   double dmin = -1.;
   int ipkt = 0;
   int nwin = 5;  // TODO: should make this dynamically tunable but how? [XZ-2019-03-08]
   double rtt = 0.;
   double dq  = 0.;
+  bool dup_flag = false; // [X.Z. 2019-07-05] handle duplicate FB vectors
+
   for (const auto& packet_feedback : packet_feedback_vector) {
+
+    if (packet_feedback.send_time_ms < 0) {
+      dup_flag = true; 
+      printf("\t detected duplicate FB vectors for %6d\n", packet_feedback.sequence_number);
+      break; 
+    }
 
     receiver_incoming_bitrate_.Update(packet_feedback.arrival_time_ms, packet_feedback.payload_size);
     nada_recv_in_bps_ = receiver_incoming_bitrate_.bitrate_bps();
@@ -283,46 +306,53 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
     ipkt ++;
   }
 
-  // update delay measurements
-  nada_d_fwd_ = dmin;
-  nada_d_queue_ = nada_d_fwd_ - nada_d_base_;
-  nada_x_curr_ = nada_d_queue_;
 
-  printf("\t pktstats | delta=%6.2f d_fwd=%6.2f, d_base=%6.2f, d_queue=%6.2f ms, rtt=%6.2f, rtt_b=%6.2f, rtt_rel=%6.2f, x_curr=%6.2f\n",
-         nada_delta_, nada_d_fwd_, nada_d_base_, nada_d_queue_,
-         nada_rtt_in_ms_, nada_rtt_base_in_ms_, nada_rtt_rel_in_ms_,
-         nada_x_curr_);
+  // [X.Z. 2019-07-05] handle duplicate FB vectors, bypass rest of delay statistics update
+  if (dup_flag)  {
+     result.updated = false; 
+  } else {
+    // update delay measurements
+    nada_d_fwd_ = dmin;
+    nada_d_queue_ = nada_d_fwd_ - nada_d_base_;
+    nada_x_curr_ = nada_d_queue_;
 
-  // switch between Accelerated-Ramp-Up mode and
-  // Gradual-Update mode based on loss/delay observations
-   UpdateDelHistory(now_ms);
-   UpdatePlrHistory(now_ms);
+    printf("\t pktstats | delta=%6.2f d_fwd=%6.2f, d_base=%6.2f, d_queue=%6.2f ms, rtt=%6.2f, rtt_b=%6.2f, rtt_rel=%6.2f, x_curr=%6.2f\n",
+           nada_delta_, nada_d_fwd_, nada_d_base_, nada_d_queue_,
+           nada_rtt_in_ms_, nada_rtt_base_in_ms_, nada_rtt_rel_in_ms_,
+           nada_x_curr_);
 
-  int rmode = GetRampUpMode();
+    // switch between Accelerated-Ramp-Up mode and
+    // Gradual-Update mode based on loss/delay observations
+    UpdateDelHistory(now_ms);
+    UpdatePlrHistory(now_ms);
 
-  if (rmode == 0)
-      AcceleratedRampUp(now_ms);
-  else
-      GradualRateUpdate(now_ms);
+    int rmode = GetRampUpMode();
 
-  // clip the updated rate between [rmin, rmax]
-  ClipBitrate();
+    if (rmode == 0)
+        AcceleratedRampUp(now_ms);
+    else
+        GradualRateUpdate(now_ms);
 
-  printf("NadaOwdBwe: t = %lld ms mode = %d | r_curr = %6.2f => [%6.2f, %6.2f] Kbps | rtt_rel = %6.2f ms, x_curr = %6.2f ms | r_recv = %6.2f Kbps\n",
-         now_ms - first_update_ms_,
-         rmode,
-         nada_rate_in_bps_/1000.,
-         nada_rmin_in_bps_/1000.,
-         nada_rmax_in_bps_/1000.,
-         nada_rtt_rel_in_ms_,
-         nada_x_curr_,
-         nada_recv_in_bps_/1000.);
+    // clip the updated rate between [rmin, rmax]
+    ClipBitrate();
 
-  last_seen_packet_ms_ = now_ms;
-  last_update_ms_ = now_ms;
+    printf("NadaOwdBwe: t = %lld ms mode = %d | r_curr = %6.2f => [%6.2f, %6.2f] Kbps | rtt_rel = %6.2f ms, x_curr = %6.2f ms | r_recv = %6.2f Kbps\n",
+           now_ms - first_update_ms_,
+           rmode,
+           nada_rate_in_bps_/1000.,
+           nada_rmin_in_bps_/1000.,
+           nada_rmax_in_bps_/1000.,
+           nada_rtt_rel_in_ms_,
+           nada_x_curr_,
+           nada_recv_in_bps_/1000.);
 
-  result.target_bitrate_bps = nada_rate_in_bps_;
-  result.updated = true;
+    last_seen_packet_ms_ = now_ms;
+    last_update_ms_ = now_ms;
+
+    result.target_bitrate_bps = nada_rate_in_bps_;
+    result.updated = true;
+  }
+
   return result;
 }
 

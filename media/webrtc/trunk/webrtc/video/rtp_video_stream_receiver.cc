@@ -553,6 +553,9 @@ bool RtpVideoStreamReceiver::DeliverRtcp(const uint8_t* rtcp_packet,
     }
   }
 
+  // [X.Z. 2019-06-13] start of modification: printf message for tracing fn. call on recv path
+  printf("Inside RtpVideoStreamReceiver: DeliverRtcp()=>IncomingRtcpPacket()\n");
+  // [X.Z. 2019-06-13] end of modification. 
   rtp_rtcp_->IncomingRtcpPacket(rtcp_packet, rtcp_packet_length);
 
   int64_t rtt = 0;
