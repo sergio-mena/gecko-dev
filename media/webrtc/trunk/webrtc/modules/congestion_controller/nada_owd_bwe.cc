@@ -178,6 +178,7 @@ NadaOwdBwe::NadaOwdBwe(const Clock* clock)
       last_update_ms_(-1),
       first_update_ms_(-1),
       last_seen_packet_ms_(-1),
+      last_seen_seqno_(-1),
 //      uma_recorded_(false),
 //      probe_bitrate_estimator_(event_log),
 //      trendline_window_size_(kDefaultTrendlineWindowSize),
@@ -203,6 +204,13 @@ NadaOwdBwe::NadaOwdBwe(const Clock* clock)
 
 NadaOwdBwe::~NadaOwdBwe() {}
 
+
+// TODO: figure out why we encounter duplicate FB vectors
+// 
+// TODO:  more elegant way of handling packet delay logs and duplicate FB vectors: 
+// keep a local log (list) of "raw" pkt one-way-delay info along with seqno, etc. 
+// decouple rate calculation from per-pkt stats update 
+
 // Main API for BW estimation, triggered by receiving transport FB vectors
 DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
     const std::vector<PacketFeedback>& packet_feedback_vector,
@@ -224,10 +232,7 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
          now_ms, now_ms - first_update_ms_,
          nfb, nada_delta_);
 
-  // [XZ 2019-03-07]
-
   RTC_DCHECK_RUNS_SERIALIZED(&network_race_);
-
 
   // TODO: replace loop below with NADA calculation:
   // Step 1)  FB Vector => per-pkt <seqno, owd> info *
@@ -240,19 +245,6 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
 
   DelayBasedBwe::Result result;
 
-
-  // // [X.Z. 2019-06-14] handle duplicate (TODO: figure out why) FB vectors
-  // // bypass if feedback interval is too close
-  // if (nada_delta_ < 20.)
-  // {
-  //   result.updated = false; 
-  //   return result; 
-  // }
-  // 
-  // TODO:  more elegant way of handling packet delay logs and duplicate FB vectors: 
-  // keep a local log (list) of "raw" pkt one-way-delay info along with seqno, etc. 
-  // decouple rate calculation from per-pkt stats update 
-
   double dtmp = 0.;
   double dmin = -1.;
   int ipkt = 0;
@@ -260,7 +252,8 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
   double rtt = 0.;
   double dq  = 0.;
   bool dup_flag = false; // [X.Z. 2019-07-05] handle duplicate FB vectors
-
+  int nloss = 0;
+  int npkts = 0; 
   for (const auto& packet_feedback : packet_feedback_vector) {
 
     if (packet_feedback.send_time_ms < 0) {
@@ -269,9 +262,11 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
       break; 
     }
 
+    // update rate info: r_recv
     receiver_incoming_bitrate_.Update(packet_feedback.arrival_time_ms, packet_feedback.payload_size);
     nada_recv_in_bps_ = receiver_incoming_bitrate_.bitrate_bps();
 
+    // update delay info: d_fwd, d_base, d_queue, rtt
     dtmp = packet_feedback.arrival_time_ms - packet_feedback.send_time_ms;
     rtt = now_ms - packet_feedback.send_time_ms;
 
@@ -287,6 +282,14 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
     nada_rtt_rel_in_ms_ = nada_rtt_in_ms_ - nada_rtt_base_in_ms_;
 
     dq = dtmp - nada_d_base_;
+
+    // update pkt loss info
+    npkts ++; 
+    if (last_seen_seqno_>0 && packet_feedback.sequence_number > last_seen_seqno_+1)
+    {
+      if (packet_feedback.sequence_number-last_seen_seqno_ < 100) // avoid wrap-around
+        nloss += packet_feedback.sequence_number-last_seen_seqno_-1; 
+    }
 
     printf("\t pktinfo | seqno=%6d, pktsize=%6d | creatts=%8lld, sendts=%8lld, recvts=%8lld, ackts=%8lld | d_fwd=%6.1f, dbase=%6.1f, dqueue=%6.1f ms | rtt=%6.1f, rtt_base=%6.1f, rtt_rel=%6.1fms\n",
            packet_feedback.sequence_number,
@@ -306,7 +309,6 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
     ipkt ++;
   }
 
-
   // [X.Z. 2019-07-05] handle duplicate FB vectors, bypass rest of delay statistics update
   if (dup_flag)  {
      result.updated = false; 
@@ -315,10 +317,13 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
     nada_d_fwd_ = dmin;
     nada_d_queue_ = nada_d_fwd_ - nada_d_base_;
     nada_x_curr_ = nada_d_queue_;
+    nada_plr_ = double(nloss)/(double(npkts+nloss));
 
-    printf("\t pktstats | delta=%6.2f d_fwd=%6.2f, d_base=%6.2f, d_queue=%6.2f ms, rtt=%6.2f, rtt_b=%6.2f, rtt_rel=%6.2f, x_curr=%6.2f\n",
+    printf("\t pktstats | delta=%6.2f d_fwd=%6.2f, d_base=%6.2f, d_queue=%6.2f ms, rtt=%6.2f, rtt_b=%6.2f, rtt_rel=%6.2f, plr = %6.2f, r_recv = %6.2f, x_curr=%6.2f\n",
            nada_delta_, nada_d_fwd_, nada_d_base_, nada_d_queue_,
            nada_rtt_in_ms_, nada_rtt_base_in_ms_, nada_rtt_rel_in_ms_,
+           nada_plr_*100, 
+           nada_recv_in_bps_/1000.0, 
            nada_x_curr_);
 
     // switch between Accelerated-Ramp-Up mode and
@@ -479,7 +484,6 @@ void NadaOwdBwe::GradualRateUpdate(const int64_t now_ms) {
 
 
 //////////////////// Auxilliary Functions ///////////////
-
 void NadaOwdBwe::ClipBitrate() {
 
     if (nada_rate_in_bps_ < nada_rmin_in_bps_)

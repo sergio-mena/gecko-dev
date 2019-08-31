@@ -88,24 +88,14 @@ class NadaOwdBwe {
   void GradualRateUpdate(int64_t now_ms);
   void ClipBitrate();  // Clip bitrate_ between [R_min, R_max]
 
-  // DelayBasedBwe::Result IncomingPacketInfo(const PacketInfo& info);
-
-  // Updates the current remote rate estimate and returns true if a valid
-  // estimate exists.
-  // bool UpdateEstimate(int64_t packet_arrival_time_ms,
-  //                    int64_t now_ms,
-  //                     rtc::Optional<uint32_t> acked_bitrate_bps,
-  //                     uint32_t* target_bitrate_bps);
-  // const bool in_trendline_experiment_;
-  // const bool in_median_slope_experiment_;
-
   rtc::RaceChecker network_race_;
   const Clock* const clock_;
 
   BitrateEstimator receiver_incoming_bitrate_;  // for estimating recevied rate, used for Accelerated Ramp Up calculation
-  int64_t last_update_ms_;			// timestamp for last rate update: t_last in draft
-  int64_t first_update_ms_;			// timestamp for first rate update: t_init
-  int64_t last_seen_packet_ms_;			// timestamp for last seen packet: t_last in draft (?)
+  int64_t last_update_ms_;			      // timestamp for last rate update: t_last in draft
+  int64_t first_update_ms_;			      // timestamp for first rate update: t_init
+  int64_t last_seen_packet_ms_;			  // timestamp for last seen packet: t_last in draft (?)
+  int64_t last_seen_seqno_;            // seqnuence number for last seen packet, for plr estimation
 
   // history of plr and dfwd
   void UpdateDminHistory(int64_t now_ms, float dtmp);
