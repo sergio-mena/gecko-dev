@@ -254,6 +254,7 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
   bool dup_flag = false; // [X.Z. 2019-07-05] handle duplicate FB vectors
   int nloss = 0;
   int npkts = 0; 
+  double tmpplr = 0.0; 
   for (const auto& packet_feedback : packet_feedback_vector) {
 
     if (packet_feedback.send_time_ms < 0) {
@@ -316,13 +317,14 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
     // update delay measurements
     nada_d_fwd_ = dmin;
     nada_d_queue_ = nada_d_fwd_ - nada_d_base_;
-    nada_x_curr_ = nada_d_queue_;
-    nada_plr_ = double(nloss)/(double(npkts+nloss));
+    tmpplr = double(nloss)/(double(npkts+nloss));
+    nada_plr_ += 0.1*(tmpplr - nada_plr_);  // exponential smoothing
+    nada_x_curr_ = nada_d_queue_ + 10. * (nada_plr_/0.01)*(nada_plr_/0.01);
 
-    printf("\t pktstats | delta=%6.2f d_fwd=%6.2f, d_base=%6.2f, d_queue=%6.2f ms, rtt=%6.2f, rtt_b=%6.2f, rtt_rel=%6.2f, plr = %6.2f, r_recv = %6.2f, x_curr=%6.2f\n",
+    printf("\t pktstats | delta=%6.2f d_fwd=%6.2f, d_base=%6.2f, d_queue=%6.2f ms, rtt=%6.2f, rtt_b=%6.2f, rtt_rel=%6.2f, plr = %6.2f, %6.2f, r_recv = %6.2f, x_curr=%6.2f\n",
            nada_delta_, nada_d_fwd_, nada_d_base_, nada_d_queue_,
            nada_rtt_in_ms_, nada_rtt_base_in_ms_, nada_rtt_rel_in_ms_,
-           nada_plr_*100, 
+           tmpplr*100, nada_plr_*100, 
            nada_recv_in_bps_/1000.0, 
            nada_x_curr_);
 
