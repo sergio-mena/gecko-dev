@@ -32,6 +32,8 @@
 #include "video/overuse_frame_detector.h"
 #include "video/send_statistics_proxy.h"
 
+// #define XQ_DEBUG // [2019-09-03] macro for toggling debugging logs
+
 namespace webrtc {
 
 namespace {
@@ -204,7 +206,9 @@ class VideoStreamEncoder::VideoSourceProxy {
       return;
     }
 
+    #ifdef XQ_DEBUG
     printf("[XQ] VideoSourceProxy::SetSource: calling AddOrUpdateSink\n");
+    #endif 
     source->AddOrUpdateSink(video_stream_encoder_, wants);
   }
 
@@ -212,7 +216,10 @@ class VideoStreamEncoder::VideoSourceProxy {
     rtc::CritScope lock(&crit_);
     sink_wants_.rotation_applied = rotation_applied;
     if (source_) {
+
+    #ifdef XQ_DEBUG
       printf("[XQ] VideoSourceProxy::SetWantsRotationApplied: calling AddOrUpdateSink\n");
+    #endif
       source_->AddOrUpdateSink(video_stream_encoder_, sink_wants_);
     }
   }
@@ -256,9 +263,11 @@ class VideoStreamEncoder::VideoSourceProxy {
     sink_wants_.max_pixel_count = pixels_wanted;
     sink_wants_.target_pixel_count = rtc::Optional<int>();
 
+
+    #ifdef XQ_DEBUG
     printf("[XQ] VideoSourceProxy::RequestResolutionLowerThan: calling AddOrUpdateSink, npixel=%d, %d\n",
            pixel_count, pixels_wanted);
-
+    #endif
 
     source_->AddOrUpdateSink(video_stream_encoder_,
                              GetActiveSinkWantsInternal());
@@ -303,8 +312,12 @@ class VideoStreamEncoder::VideoSourceProxy {
     }
     RTC_LOG(LS_INFO) << "Scaling up resolution, max pixels: "
                      << max_pixels_wanted;
+
+
+    #ifdef XQ_DEBUG
     printf("[XQ] VideoSourceProxy::RequestHigherResolutionThan: calling AddOrUpdateSink, pixel_up=%d\n",
            pixel_count);
+    #endif 
 
     source_->AddOrUpdateSink(video_stream_encoder_,
                              GetActiveSinkWantsInternal());
@@ -1122,13 +1135,20 @@ void VideoStreamEncoder::AdaptUp(AdaptReason reason) {
 void VideoStreamEncoder::UpdateAdaptationStats(AdaptReason reason) {
   switch (reason) {
     case kCpu:
+
+    #ifdef XQ_DEBUG
       printf("[XQ] ViEEncoder::ScaleDown: ramping down due to CPU issue\n");
+    #endif 
 
       stats_proxy_->OnCpuAdaptationChanged(GetActiveCounts(kCpu),
                                            GetActiveCounts(kQuality));
       break;
     case kQuality:
+
+
+    #ifdef XQ_DEBUG
       printf("[XQ] ViEEncoder::ScaleDown: ramping down due to Quality issue\n");
+    #endif
 
       stats_proxy_->OnQualityAdaptationChanged(GetActiveCounts(kCpu),
                                                GetActiveCounts(kQuality));

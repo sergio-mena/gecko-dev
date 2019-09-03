@@ -19,6 +19,8 @@
 #include "rtc_base/checks.h"
 #include "rtc_base/logging.h"
 
+// #define XQ_DEBUG // [2019-09-03] macro for toggling debugging logs
+
 namespace webrtc {
 
 class BitrateControllerImpl::RtcpBandwidthObserverImpl
@@ -251,8 +253,10 @@ void BitrateControllerImpl::MaybeTriggerOnNetworkChanged() {
   if (!observer_)
     return;
 
+#ifdef XQ_DEBUG
+  printf("[XQ] BitrateControllerImpl::MaybeTriggerOnNetworkChanged => GetNetworkParam\n");
+#endif 
 
-  printf("BitrateControllerImpl: Inside MaybeTriggerOnNetworkChanged => GetNetworkParam\n");
   uint32_t bitrate_bps;
   uint8_t fraction_loss;
   int64_t rtt;
@@ -265,8 +269,10 @@ bool BitrateControllerImpl::GetNetworkParameters(uint32_t* bitrate,
                                                  uint8_t* fraction_loss,
                                                  int64_t* rtt) {
 
-//   int64_t now_ms = clock_->TimeInMilliseconds();
-//   printf("\t\t BitrateControllerImpl:  Inside GetNetworkParameters=> bwe_.CurrentEstm() at now = %ld ms\n", now_ms);
+#ifdef XQ_DEBUG
+   int64_t now_ms = clock_->TimeInMilliseconds();
+   printf("\t\t [XQ] BitrateControllerImpl::GetNetworkParameters=> bwe_.CurrentEstm() at %ld ms\n", now_ms);
+#endif
 
   rtc::CritScope cs(&critsect_);
   int current_bitrate;
@@ -301,8 +307,10 @@ bool BitrateControllerImpl::GetNetworkParameters(uint32_t* bitrate,
 bool BitrateControllerImpl::AvailableBandwidth(uint32_t* bandwidth) const {
   rtc::CritScope cs(&critsect_);
 
+#ifdef XQ_DEBUG
   int64_t now_ms = clock_->TimeInMilliseconds();
-  printf("Inside BitrateControllerImpl:  AvailableBandwidth => CurrentEstimate, now = %lld\n", now_ms);
+  printf("[XQ] BitrateControllerImpl::AvailableBandwidth => CurrentEstimate, at %lld ms\n", now_ms);
+#endif
 
   int bitrate;
   uint8_t fraction_loss;

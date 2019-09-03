@@ -43,6 +43,8 @@
 #include "rtc_base/trace_event.h"
 #include "system_wrappers/include/ntp_time.h"
 
+// #define XQ_DEBUG // [X.Z. 2019-09-03] macro for toggling debugging logs
+
 namespace webrtc {
 namespace {
 
@@ -141,7 +143,9 @@ RTCPReceiver::~RTCPReceiver() {}
 
 void RTCPReceiver::IncomingPacket(const uint8_t* packet, size_t packet_size) {
 
-  //    printf("\t\t XZXZXZXZXZ Inside IncomingPacket \n");
+#ifdef XQ_DEBUG
+  printf("\t\t [XQ] Inside RTCPReceiver::IncomingPacket()\n");
+#endif
 
   if (packet_size == 0) {
     RTC_LOG(LS_WARNING) << "Incoming empty RTCP packet";
@@ -152,10 +156,12 @@ void RTCPReceiver::IncomingPacket(const uint8_t* packet, size_t packet_size) {
   if (!ParseCompoundPacket(packet, packet + packet_size, &packet_information))
     return;
 
-
+  #ifdef XQ_DEBUG
   // [X.Z. 2019-06-13] start of modification: printf message to trace fn. call on recv path
-  printf("Inside RTCPReceiver: IncomingPacket() => TriggerCallbacksFromRtcpPacket\n"); 
+  printf("[XQ] RTCPReceiver::IncomingPacket() => TriggerCallbacksFromRtcpPacket\n"); 
   // [X.Z. 2019-06-13] end of modification.
+  #endif
+
   TriggerCallbacksFromRtcpPacket(packet_information);
 }
 
@@ -905,7 +911,9 @@ void RTCPReceiver::HandleTransportFeedback(
   packet_information->packet_type_flags |= kRtcpTransportFeedback;
   packet_information->transport_feedback = std::move(transport_feedback);
 
-//  printf("\t\t XZXZXZXZXZ  inside HandleTransportFeedback, updated pkt_info\n");
+  #ifdef XQ_DEBUG
+  printf("\t\t [XQ] RTCPReceiver::HandleTransportFeedback: updated pkt_info\n");
+  #endif
 }
 
 void RTCPReceiver::NotifyTmmbrUpdated() {
@@ -939,7 +947,9 @@ RtcpStatisticsCallback* RTCPReceiver::GetRtcpStatisticsCallback() {
 void RTCPReceiver::TriggerCallbacksFromRtcpPacket(
     const PacketInformation& packet_information) {
 
-    // printf(" \t\t XZXZXZXZXZ Inside RTCPReceiver, TriggerCallbacksFromRtcpPacket \n");
+#ifdef XQ_DEBUG
+    printf(" \t\t [XQ] Inside RTCPReceiver::TriggerCallbacksFromRtcpPacket() \n");
+#endif 
 
    // Process TMMBR and REMB first to avoid multiple callbacks
   // to OnNetworkChanged.
@@ -1017,9 +1027,11 @@ void RTCPReceiver::TriggerCallbacksFromRtcpPacket(
   if (transport_feedback_observer_ &&
       (packet_information.packet_type_flags & kRtcpTransportFeedback)) {
 
+  #ifdef XQ_DEBUG
     // [X.Z. 2019-06-13] start of modification: added printf messages for tracing function calls
-    printf("Inside RTCP_Receiver: TriggerCallbacksFromRtcpPacket => transport_feedback_observer_.OnTransportFeedback\n");
+    printf("[XQ] RTCP_Receiver::TriggerCallbacksFromRtcpPacket => transport_feedback_observer_.OnTransportFeedback\n");
     // [X.Z. 2019-06-13] end of modification
+  #endif
     uint32_t media_source_ssrc =
         packet_information.transport_feedback->media_ssrc();
     if (media_source_ssrc == local_ssrc ||
