@@ -28,6 +28,8 @@
 #include "rtc_base/timeutils.h"
 #include "system_wrappers/include/field_trial.h"
 
+// #define XQ_DEBUG // [2019-09-03] macro for toggling debugging logs
+
 namespace webrtc {
 namespace {
 
@@ -180,9 +182,12 @@ void SendSideCongestionController::SetBweBitrates(int min_bitrate_bps,
     delay_based_bwe_->SetMinBitrate(min_bitrate_bps_);
   }
 
+  #ifdef XQ_DEBUG
   // [X.Z. 2019-06-13] start of modification: printf for tracking modules
-  // printf("Inside CongestionController: SetBweBitrates => MaybeTriggerOnNetworkChanged\n");
+  printf("[XQ] SendSideCongestionController: SetBweBitrates => MaybeTriggerOnNetworkChanged\n");
   // [X.Z. 2019-06-13] end of modification
+  #endif 
+
   MaybeTriggerOnNetworkChanged();
 }
 
@@ -218,10 +223,11 @@ void SendSideCongestionController::OnNetworkRouteChanged(
   probe_controller_->Reset();
   probe_controller_->SetBitrates(min_bitrate_bps, bitrate_bps, max_bitrate_bps);
 
+#ifdef XQ_DEBUG
   // [X.Z. 2019-06-13] start of modification: printf for tracing modules
-  // printf("Inside CongestionController: OnNetworkRouteChanged => MaybeTriggerOnNetworkChanged\n");
+  printf("[XQ] SendSideCongestionController: OnNetworkRouteChanged => MaybeTriggerOnNetworkChanged\n");
   // [X.Z. 2019-06-13] end of modification.
-
+#endif 
   MaybeTriggerOnNetworkChanged();
 }
 
@@ -270,10 +276,11 @@ void SendSideCongestionController::SignalNetworkState(NetworkState state) {
   }
   probe_controller_->OnNetworkStateChanged(state);
 
-
+#ifdef XQ_DEBUG
   // [X.Z. 2019-06-13] start of modification: printf for tracing modules
-  // printf("Inside CongestionController: SignalNetworkState => MaybeTriggerOnNetworkChanged\n");
+  printf("[XQ] SendSideCongestionController: SignalNetworkState => MaybeTriggerOnNetworkChanged\n");
   // [X.Z. 2019-06-13] end of modification.
+#endif
   MaybeTriggerOnNetworkChanged();
 }
 
@@ -288,7 +295,9 @@ void SendSideCongestionController::OnSentPacket(
   // We're not interested in packets without an id, which may be stun packets,
   // etc, sent on the same transport.
 
-  printf("\t\t Inside CC:OnSentPacket: id = %d\n", sent_packet.packet_id);
+#ifdef XQ_DEBUG
+  printf("\t\t [XQ] SendSideCongestionController:OnSentPacket: sentpkt id = %d\n", sent_packet.packet_id);
+#endif
 
   if (sent_packet.packet_id == -1)
     return;
@@ -326,9 +335,11 @@ void SendSideCongestionController::Process() {
   bitrate_controller_->Process();
   probe_controller_->Process();
 
+  #ifdef XQ_DEBUG
   // [X.Z. 2019-06-13] start of modification: printf for tracing modules
-  // printf("Inside CongestionController: Process() => MaybeTriggerOnNetworkChanged\n");
+  printf("[XQ] SendSideCongestionController: Process() => MaybeTriggerOnNetworkChanged\n");
   // [X.Z. 2019-06-13] end of modification
+  #endif 
   MaybeTriggerOnNetworkChanged();
 }
 
@@ -346,9 +357,12 @@ void SendSideCongestionController::OnTransportFeedback(
   RTC_DCHECK_RUNS_SERIALIZED(&worker_race_);
 
 
+  #ifdef XQ_DEBUG
   // [X.Z. 2019-06-13] start of modification: printf for tracing modules
-  printf("Inside SendSideCongestionController: OnTransportFeedback() => transport_feedback_adapter_.OnTransportFeedback()\n");  
+  printf("[XQ] SendSideCongestionController: OnTransportFeedback() => transport_feedback_adapter_.OnTransportFeedback()\n");  
     // [X.Z. 2019-06-13] start of modification
+  #endif 
+
   transport_feedback_adapter_.OnTransportFeedback(feedback);
   std::vector<PacketFeedback> feedback_vector = ReceivedPacketFeedbackVector(
       transport_feedback_adapter_.GetTransportFeedbackVector());
@@ -363,17 +377,21 @@ void SendSideCongestionController::OnTransportFeedback(
   }
   was_in_alr_ = currently_in_alr;
 
-
+  #ifdef XQ_DEBUG
   // [X.Z. 2019-06-13] start of modification: printf for tracing modules
-  printf("Inside SendSideCongestionController: OnTransportFeedback() => acknowledged_bitrate_estimator_->IncomingPacketFeedbackVector()\n");  
-    // [X.Z. 2019-06-13] start of modification
+  printf("[XQ] SendSideCongestionController: OnTransportFeedback() => acknowledged_bitrate_estimator_->IncomingPacketFeedbackVector()\n");  
+  // [X.Z. 2019-06-13] start of modification
+  #endif 
+
   acknowledged_bitrate_estimator_->IncomingPacketFeedbackVector(
       feedback_vector);
 
-
+  #ifdef XQ_DEBUG
   // [X.Z. 2019-06-13] start of modification: printf for tracing modules
-  printf("Inside SendSideCongestionController: OnTransportFeedback() => delay_based_bwe_->IncomingPacketFeedbackVector()\n");    
+  printf("[XQ] SendSideCongestionController: OnTransportFeedback() => delay_based_bwe_->IncomingPacketFeedbackVector()\n");    
   // [X.Z. 2019-06-13] start of modification
+  #endif  
+
   DelayBasedBwe::Result result;
   {
     rtc::CritScope cs(&bwe_lock_);
@@ -384,16 +402,18 @@ void SendSideCongestionController::OnTransportFeedback(
   if (result.updated) {
     bitrate_controller_->OnDelayBasedBweResult(result);
 
-
+  #ifdef XQ_DEBUG
     // [X.Z. 2019-06-13] start of modification: printf for tracing modules
-    printf("Inside SendSideCongestionController: OnTransportFeedback(): Finished Rate Update. \n\n");    
+    printf("[XQ] SendSideCongestionController: OnTransportFeedback(): Finished Rate Update. \n\n");    
     // [X.Z. 2019-06-13] start of modification
+  #endif
 
     // Update the estimate in the ProbeController, in case we want to probe.
-
+  #ifdef XQ_DEBUG
     // [X.Z. 2019-06-13] start of modification: printf for tracing modules
-    // printf("Inside CongestionC.ontroller: OnTransportFeedback() => MaybeTriggerOnNetworkChanged\n");  
+    printf("[XQ] SendSideCongestionController: OnTransportFeedback() => MaybeTriggerOnNetworkChanged\n");  
     // [X.Z. 2019-06-13] start of modification
+    #endif
     MaybeTriggerOnNetworkChanged();
   }
   if (result.recovered_from_overuse)
@@ -437,9 +457,11 @@ void SendSideCongestionController::MaybeTriggerOnNetworkChanged() {
   uint8_t fraction_loss;
   int64_t rtt;
 
+#ifdef XQ_DEBUG
   // [XZ 2019-06-13] start of modification: printf for tracing modules
-  // printf("\t Inside CongestionController: MaybeTriggerOnNetworkChanged => GetNetParam\n");
+  printf("\t [XQ] SendSideCongestionController: MaybeTriggerOnNetworkChanged => GetNetParam\n");
   // [XZ 2019-06-13] end of modification.
+#endif 
 
   bool estimate_changed = bitrate_controller_->GetNetworkParameters(
       &bitrate_bps, &fraction_loss, &rtt);

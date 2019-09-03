@@ -54,6 +54,8 @@ static_assert((WEBRTC_MAX_SAMPLE_RATE / 100) * sizeof(uint16_t) * 2 <=
                   AUDIO_SAMPLE_BUFFER_MAX_BYTES,
               "AUDIO_SAMPLE_BUFFER_MAX_BYTES is not large enough");
 
+// #define XQ_DEBUG // [X.Z. 2019-09-03] macro for toggling debugging logs
+
 using namespace mozilla;
 using namespace mozilla::dom;
 using namespace mozilla::gfx;
@@ -628,10 +630,11 @@ void MediaPipeline::RtcpPacketReceived(MediaPacket& packet) {
     return;
   }
 
-
+#ifdef XQ_DEBUG
   // [X.Z. 2019-06-13] start of modification: printf message to trace path of received RTCP packet
-  printf("Inside MediaPipeline: RtcpPacketReceived() => ReceivedRTCPPacket()\n");
+  printf("[XQ] MediaPipeline: RtcpPacketReceived() => ReceivedRTCPPacket()\n");
   // [X.Z. 2019-06-13] end of modification.
+#endif
   (void)mConduit->ReceivedRTCPPacket(packet.data(),
                                      packet.len());  // Ignore error codes
 }
@@ -653,9 +656,12 @@ void MediaPipeline::PacketReceived(const std::string& aTransportId,
       RtpPacketReceived(packet);
       break;
     case MediaPacket::RTCP:
+    #ifdef XQ_DEBUG
       // [X.Z. 2019-06-13] start of modification: printf message to trace fn. call for received RTCP pkt
-      printf("Inside MediaPipeline: PacketReceived() => RtcpPacketReceived()\n");
+      printf("[XQ] MediaPipeline: PacketReceived() => RtcpPacketReceived()\n");
       // [X.Z. 2019-06-13] end of modification.
+      #endif
+
       RtcpPacketReceived(packet);
       break;
     default:;
@@ -716,7 +722,9 @@ class MediaPipelineTransmit::PipelineListener
   void OnVideoFrameConverted(const webrtc::VideoFrame& aVideoFrame) {
     MOZ_RELEASE_ASSERT(mConduit->type() == MediaSessionConduit::VIDEO);
 
-//    printf("[XQ] MediaPipeline::OnVideoFrameConverted: calling SendVideoFrame in VideoConduit\n");
+#ifdef XQ_DEBUG
+    printf("[XQ] MediaPipeline::OnVideoFrameConverted: calling SendVideoFrame in VideoConduit\n");
+#endif
 
     static_cast<VideoSessionConduit*>(mConduit.get())
         ->SendVideoFrame(aVideoFrame);
@@ -777,8 +785,9 @@ class MediaPipelineTransmit::VideoFrameFeeder : public VideoConverterListener {
       return;
     }
 
-
-//    printf("[XQ] MediaPipeline::OnVideoFrameConverted: calling mListener->OnVideoFrameConverted\n");
+#ifdef XQ_DEBUG
+    printf("[XQ] MediaPipeline::OnVideoFrameConverted: calling mListener->OnVideoFrameConverted\n");
+#endif 
 
     mListener->OnVideoFrameConverted(aVideoFrame);
   }
@@ -1075,9 +1084,11 @@ nsresult MediaPipeline::PipelineTransport::SendRtcpPacket(const uint8_t* aData,
 void MediaPipelineTransmit::PipelineListener::NotifyRealtimeTrackData(
     MediaStreamGraph* aGraph, StreamTime aOffset, const MediaSegment& aMedia) {
 
+#ifdef XQ_DEBUG
   if (aMedia.GetType() == MediaSegment::VIDEO) {
-    // printf("[XQ] MediaPipeline::NotifyRealtime...: Rerouting VIDEO data via MediaStreamVideoSink\n");
+    printf("[XQ] MediaPipeline::NotifyRealtime...: Rerouting VIDEO data via MediaStreamVideoSink\n");
   }
+#endif
 
   MOZ_LOG(
       gMediaPipelineLog, LogLevel::Debug,
@@ -1177,7 +1188,9 @@ void MediaPipelineTransmit::PipelineListener::NewData(
 
     const VideoSegment* video = static_cast<const VideoSegment*>(&aMedia);
 
-    // printf("[XQ] MediaPipeline::NewData: calling QueueVideoChunk\n");
+#ifdef XQ_DEBUG
+    printf("[XQ] MediaPipeline::NewData: calling QueueVideoChunk\n");
+#endif
 
     for (VideoSegment::ConstChunkIterator iter(*video); !iter.IsEnded();
          iter.Next()) {

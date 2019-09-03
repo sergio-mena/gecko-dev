@@ -60,6 +60,8 @@
 #define DEFAULT_VIDEO_MAX_FRAMERATE 30
 #define INVALID_RTP_PAYLOAD 255  // valid payload types are 0 to 127
 
+// #define XQ_DEBUG // [2019-09-03] macro for toggling debugging logs
+
 namespace mozilla {
 
 static const char* vcLogTag = "WebrtcVideoSessionConduit";
@@ -142,8 +144,12 @@ static unsigned int SelectSendFrameRate(const VideoCodecConfig* codecConfig,
                                         unsigned int old_framerate,
                                         unsigned short sending_width,
                                         unsigned short sending_height) {
+
+  #ifdef XQ_DEBUG
   printf("[XQ] VideoConduit::SelectSendFrameRate: frame_rate = %d, w=%d, h=%d\n",
            old_framerate, sending_width, sending_height);
+
+  #endif
 
   unsigned int new_framerate = old_framerate;
 
@@ -1759,9 +1765,11 @@ void WebrtcVideoConduit::SelectSendResolution(unsigned short width,
   mMutex.AssertCurrentThreadOwns();
   // XXX This will do bandwidth-resolution adaptation as well - bug 877954
 
-
+#ifdef XQ_DEBUG
   printf("[XQ] VideoConduit::SelectSendResolution, [w,h]=[%d, %d]\n",
 		width, height);
+#endif
+
   // Enforce constraints
   if (mCurSendCodecConfig) {
     uint16_t max_width = mCurSendCodecConfig->mEncodingConstraints.maxWidth;
@@ -1772,9 +1780,10 @@ void WebrtcVideoConduit::SelectSendResolution(unsigned short width,
       ConstrainPreservingAspectRatio(max_width, max_height, &width, &height);
     }
 
-
+#ifdef XQ_DEBUG
     printf("[XQ] VideoConduit::SelectSendResolution, max_w = %d, max_h%d, updated [w,h]=%d, %d\n",
 	    max_width, max_height, width, height);
+#endif
 
     // Limit resolution to max-fs
     const auto& wants = mVideoBroadcaster.wants();
@@ -1785,7 +1794,10 @@ void WebrtcVideoConduit::SelectSendResolution(unsigned short width,
         max_fs = wants.max_pixel_count;
       }
       if (max_fs != 0) {
+        #ifdef XQ_DEBUG
         printf("[XQ] VideoConduit::SelectSendResolution: calling OnResolutionFramerateRequest, target=%d\n", max_fs);
+        #endif
+
         mVideoAdapter->OnResolutionFramerateRequest(
             rtc::Optional<int>(), max_fs, std::numeric_limits<int>::max());
       }
@@ -1806,8 +1818,10 @@ void WebrtcVideoConduit::AddOrUpdateSink(
     rtc::VideoSinkInterface<webrtc::VideoFrame>* sink,
     const rtc::VideoSinkWants& wants) {
 
+#ifdef XQ_DEBUG
   printf("[XQ] VideoConduit::AddOrUpdateSink: calling OnSinkWantsChanged, target=%d\n",
           wants.target_pixel_count.value_or(-1));
+#endif
 
   if (!NS_IsMainThread()) {
     // This may be called off main thread, but only to update an already added
@@ -1837,7 +1851,9 @@ void WebrtcVideoConduit::RemoveSink(
   mRegisteredSinks.RemoveElement(sink);
   mVideoBroadcaster.RemoveSink(sink);
 
+#ifdef XQ_DEBUG
   printf("[XQ] VideoConduit::RemoveSink: calling OnSinkWantsChanged\n");
+#endif
 
   OnSinkWantsChanged(mVideoBroadcaster.wants());
 }
@@ -1868,9 +1884,10 @@ void WebrtcVideoConduit::OnSinkWantsChanged(const rtc::VideoSinkWants& wants) {
     max_pixel_count = std::min(max_pixel_count, max_fs);
   }
 
-
+#ifdef XQ_DEBUG
   printf("[XQ] VideoConduit::OnSinkWantsChange: calling OnResolutionFramerateRequest, max_fs = %d, target=%d\n",
        max_fs, wants.target_pixel_count.value_or(-1));
+#endif
 
   mVideoAdapter->OnResolutionFramerateRequest(
       rtc::Optional<int>(), max_pixel_count, std::numeric_limits<int>::max());
@@ -1883,8 +1900,10 @@ MediaConduitErrorCode WebrtcVideoConduit::SendVideoFrame(
   // avoids sampling error when capturing frames, but google had to deal with
   // some broken cameras, include Logitech c920's IIRC.
 
-//  printf("[XQ] VideoConduit::SendVideoFrame, incoming frame info with wxh = %d, %d | %d, %d\n",
-//		frame.width(), frame.height(), mLastWidth, mLastHeight);
+  #ifdef XQ_DEBUG
+  printf("[XQ] VideoConduit::SendVideoFrame, incoming frame info with wxh = %d, %d | %d, %d\n",
+		frame.width(), frame.height(), mLastWidth, mLastHeight);
+  #endif
 
   int cropWidth;
   int cropHeight;
@@ -1925,10 +1944,12 @@ MediaConduitErrorCode WebrtcVideoConduit::SendVideoFrame(
   int cropX = (frame.width() - cropWidth) / 2;
   int cropY = (frame.height() - cropHeight) / 2;
 
-//  printf("[XQ] VideoConduit::SendVideoFrame: wxh of original: %d, %d | cropped: %d, %d | adapted: %d, %d\n",
-//	  frame.width(), frame.height(),
-//	  cropWidth, cropHeight,
-//	  adaptedWidth, adaptedHeight);
+  #ifdef XQ_DEBUG
+  printf("[XQ] VideoConduit::SendVideoFrame: wxh of original: %d, %d | cropped: %d, %d | adapted: %d, %d\n",
+	  frame.width(), frame.height(),
+	  cropWidth, cropHeight,
+	  adaptedWidth, adaptedHeight);
+#endif
 
   rtc::scoped_refptr<webrtc::VideoFrameBuffer> buffer;
   if (adaptedWidth == frame.width() && adaptedHeight == frame.height()) {
@@ -2056,10 +2077,11 @@ MediaConduitErrorCode WebrtcVideoConduit::ReceivedRTCPPacket(const void* data,
 
   CSFLogVerbose(LOGTAG, " %s Len %d ", __FUNCTION__, len);
 
-
+#ifdef XQ_DEBUG
   // [X.Z. 2019-06-13] start of modification: printf message to track fn. call path of received RTCP packet
-  printf("Inside WebrtcVideoConduit: ReceivedRTCPPacket() => DeliverPacket() => mCall->Call()->Receiver()->DeliverPacket()\n");
+  printf("[XQ] WebrtcVideoConduit: ReceivedRTCPPacket() => DeliverPacket() => mCall->Call()->Receiver()->DeliverPacket()\n");
   // [X.Z. 2019-06-13] end of modification.
+#endif
 
   if (DeliverPacket(data, len) != kMediaConduitNoError) {
     CSFLogError(LOGTAG, "%s RTCP Processing Failed", __FUNCTION__);

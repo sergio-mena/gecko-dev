@@ -26,6 +26,9 @@
 #pragma warning(disable : 4355)
 #endif
 
+// #define XQ_DEBUG // [X.Z. 2019-09-03] macro for toggling debugging logs
+
+
 namespace webrtc {
 namespace {
 const int64_t kRtpRtcpMaxIdleTimeProcessMs = 5;
@@ -282,10 +285,14 @@ rtc::Optional<uint32_t> ModuleRtpRtcpImpl::FlexfecSsrc() const {
 void ModuleRtpRtcpImpl::IncomingRtcpPacket(const uint8_t* rtcp_packet,
                                            const size_t length) {
 
+  #ifdef XQ_DEBUG
   // [X.Z. 2019-06-13] start of modification: printf messages to track fn. call for incoming RTCP pkt
-  printf("Inside ModuleRtpRtcpImpl: IncomingRtcpPacket() => rtcp_receiver_.IncomingPacket\n"); 
-  rtcp_receiver_.IncomingPacket(rtcp_packet, length);
+  printf("[XQ] ModuleRtpRtcpImpl: IncomingRtcpPacket() => rtcp_receiver_.IncomingPacket\n"); 
   // [X.Z. 2019-06-13] end of modification
+  #endif  
+  
+  rtcp_receiver_.IncomingPacket(rtcp_packet, length);
+
 }
 
 int32_t ModuleRtpRtcpImpl::RegisterSendPayload(

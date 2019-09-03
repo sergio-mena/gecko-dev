@@ -63,6 +63,9 @@
 #include "video/video_receive_stream.h"
 #include "video/video_send_stream.h"
 
+// #define XQ_DEBUG // [X.Z. 2019-09-03] macro for toggling debugging logs
+
+
 namespace webrtc {
 
 namespace {
@@ -1177,7 +1180,9 @@ void Call::UpdateAggregateNetworkState() {
 
 void Call::OnSentPacket(const rtc::SentPacket& sent_packet) {
 
-  printf("\t\t XZXZXZ  Inside Call::OnSentPacket ...\n");
+#ifdef XQ_DEBUG
+  printf("\t\t [XQ] Call::OnSentPacket ...\n");
+#endif
 
   video_send_delay_stats_->OnSentPacket(sent_packet.packet_id,
                                         clock_->TimeInMilliseconds());
@@ -1307,10 +1312,14 @@ PacketReceiver::DeliveryStatus Call::DeliverRtcp(MediaType media_type,
 
 
   if (media_type == MediaType::ANY || media_type == MediaType::VIDEO) {
+
+    #ifdef XQ_DEBUG
     // [X.Z. 2019-06-13] start of modification: printf message to trace fn. call of RTCP recv pkt
-    printf("Inside PacketReceiver: DeliverRtcp() => video_receive_streams_.DeliverRtcp()\n");
-    int nvstream = 0; 
+    printf("[XQ] PacketReceiver: DeliverRtcp() => video_receive_streams_.DeliverRtcp()\n");
     // [X.Z. 2019-06-13] end of modification.
+    #endif
+
+    int nvstream = 0; 
 
     ReadLockScoped read_lock(*receive_crit_);
     for (VideoReceiveStream* stream : video_receive_streams_) {
@@ -1319,9 +1328,11 @@ PacketReceiver::DeliveryStatus Call::DeliverRtcp(MediaType media_type,
         rtcp_delivered = true;
     }
 
+    #ifdef XQ_DEBUG
     // [X.Z. 2019-06-13] start of modification: printf message to trace fn. call of RTCP recv pkt
-    printf("Inside PacketReceiver: nvstream = %d\n", nvstream);
+    printf("[XQ] PacketReceiver: nvstream = %d\n", nvstream);
     // [X.Z. 2019-06-13] end of modification.
+    #endif
 
   }
   if (media_type == MediaType::ANY || media_type == MediaType::AUDIO) {
@@ -1434,9 +1445,11 @@ PacketReceiver::DeliveryStatus Call::DeliverPacket(
   //RTC_DCHECK_CALLED_SEQUENTIALLY(&configuration_sequence_checker_);
   if (RtpHeaderParser::IsRtcp(packet, length))
   {
+    #ifdef XQ_DEBUG
     // [X.Z. 2019-06-13] start of modification: printf message to trace fn. call of received RTCP pkt
-    printf("Inside PacketReceiver: DeliverPacket() => DeliverRtcp()\n");
+    printf("[XQ] PacketReceiver: DeliverPacket() => DeliverRtcp()\n");
     // [X.Z. 2019-06-13] end of modification. 
+    #endif
     
     return DeliverRtcp(media_type, packet, length);
 
