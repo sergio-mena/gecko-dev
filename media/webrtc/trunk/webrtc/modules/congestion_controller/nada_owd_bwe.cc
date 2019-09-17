@@ -291,6 +291,7 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
       if (packet_feedback.sequence_number-last_seen_seqno_ < 100) // avoid wrap-around
         nloss += packet_feedback.sequence_number-last_seen_seqno_-1; 
     }
+    last_seen_seqno_ = packet_feedback.sequence_number;
 
     printf("\t pktinfo | seqno=%6d, pktsize=%6d | creatts=%8lld, sendts=%8lld, recvts=%8lld, ackts=%8lld | d_fwd=%6.1f, dbase=%6.1f, dqueue=%6.1f ms | rtt=%6.1f, rtt_base=%6.1f, rtt_rel=%6.1fms\n",
            packet_feedback.sequence_number,
@@ -314,12 +315,26 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
   if (dup_flag)  {
      result.updated = false; 
   } else {
+
+    // TODO: use default parameters instead of hard-coded values
+
     // update delay measurements
     nada_d_fwd_ = dmin;
     nada_d_queue_ = nada_d_fwd_ - nada_d_base_;
     tmpplr = double(nloss)/(double(npkts+nloss));
     nada_plr_ += 0.1*(tmpplr - nada_plr_);  // exponential smoothing
-    nada_x_curr_ = nada_d_queue_ + 10. * (nada_plr_/0.01)*(nada_plr_/0.01);
+
+    // delay warping
+    double d_tilde = nada_d_queue_; 
+    if (nloss > 0)
+    {
+	if (nada_d_queue_ > 50.)
+	{
+	    double beta = 0.5*(nada_d_queue_-50.)/50.;
+	    d_tilde = 50.*exp(-beta); 
+	}
+    }    
+    nada_x_curr_ = d_tilde + 10. * (nada_plr_/0.01)*(nada_plr_/0.01);
 
     printf("\t pktstats | delta=%6.2f d_fwd=%6.2f, d_base=%6.2f, d_queue=%6.2f ms, rtt=%6.2f, rtt_b=%6.2f, rtt_rel=%6.2f, plr = %6.2f, %6.2f, r_recv = %6.2f, x_curr=%6.2f\n",
            nada_delta_, nada_d_fwd_, nada_d_base_, nada_d_queue_,
