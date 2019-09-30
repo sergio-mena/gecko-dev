@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 
+#include "modules/congestion_controller/delay_based_bwe_interface.h"
 #include "modules/congestion_controller/median_slope_estimator.h"
 #include "modules/congestion_controller/probe_bitrate_estimator.h"
 #include "modules/congestion_controller/trendline_estimator.h"
@@ -31,32 +32,22 @@ namespace webrtc {
 
 class RtcEventLog;
 
-class DelayBasedBwe {
+class DelayBasedBwe: public DelayBasedBweInterface {
  public:
   static const int64_t kStreamTimeOutMs = 2000;
-
-  struct Result {
-    Result();
-    Result(bool probe, uint32_t target_bitrate_bps);
-    ~Result();
-    bool updated;
-    bool probe;
-    uint32_t target_bitrate_bps;
-    bool recovered_from_overuse;
-  };
 
   DelayBasedBwe(RtcEventLog* event_log, const Clock* clock);
   virtual ~DelayBasedBwe();
 
-  Result IncomingPacketFeedbackVector(
+  virtual DelayBasedBweInterface::Result IncomingPacketFeedbackVector(
       const std::vector<PacketFeedback>& packet_feedback_vector,
-      rtc::Optional<uint32_t> acked_bitrate_bps);
-  void OnRttUpdate(int64_t avg_rtt_ms, int64_t max_rtt_ms);
-  bool LatestEstimate(std::vector<uint32_t>* ssrcs,
-                      uint32_t* bitrate_bps) const;
-  void SetStartBitrate(int start_bitrate_bps);
-  void SetMinBitrate(int min_bitrate_bps);
-  int64_t GetExpectedBwePeriodMs() const;
+      rtc::Optional<uint32_t> acked_bitrate_bps) override;
+  virtual void OnRttUpdate(int64_t avg_rtt_ms, int64_t max_rtt_ms) override;
+  virtual bool LatestEstimate(std::vector<uint32_t>* ssrcs,
+                      uint32_t* bitrate_bps) const override;
+  virtual void SetStartBitrate(int start_bitrate_bps) override;
+  virtual void SetMinBitrate(int min_bitrate_bps) override;
+  virtual int64_t GetExpectedBwePeriodMs() const override;
 
  private:
   void IncomingPacketFeedback(const PacketFeedback& packet_feedback);

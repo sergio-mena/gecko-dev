@@ -26,7 +26,7 @@ class RtcEventLog;
 // per transport, sharing the same congestion controller.
 class RtpTransportControllerSend : public RtpTransportControllerSendInterface {
  public:
-  RtpTransportControllerSend(Clock* clock, webrtc::RtcEventLog* event_log);
+  RtpTransportControllerSend(Clock* clock, webrtc::RtcEventLog* event_log, bool use_nada);
 
   // Implements RtpTransportControllerSendInterface
   PacketRouter* packet_router() override;
