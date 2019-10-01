@@ -18,7 +18,6 @@
 #include "rtc_base/constructormagic.h"
 #include "rtc_base/logging.h"
 #include "rtc_base/thread_annotations.h"
-//#include "webrtc/modules/congestion_controller/include/congestion_controller.h"
 
 #include "system_wrappers/include/field_trial.h"
 #include "system_wrappers/include/metrics.h"
@@ -166,23 +165,13 @@ uint32_t NadaOwdBwe::BitrateEstimator::bitrate_bps() const {
 
 ///  start of NadaOwdBwe (NADA One-way-delay BW Estimation) ///
 NadaOwdBwe::NadaOwdBwe(const Clock* clock)
-    : clock_(clock),
-// in_trendline_experiment_(TrendlineFilterExperimentIsEnabled()),
-//      in_median_slope_experiment_(MedianSlopeFilterExperimentIsEnabled()),
-//      inter_arrival_(),
-//      kalman_estimator_(),
-//      trendline_estimator_(),
-//      detector_(),
+    : DelayBasedBweInterface(),
+      clock_(clock),
       receiver_incoming_bitrate_(),
       last_update_ms_(-1),
       first_update_ms_(-1),
       last_seen_packet_ms_(-1),
       last_seen_seqno_(-1),
-//      uma_recorded_(false),
-//      probe_bitrate_estimator_(event_log),
-//      trendline_window_size_(kDefaultTrendlineWindowSize),
-//      trendline_smoothing_coeff_(kDefaultTrendlineSmoothingCoeff),
-//      trendline_threshold_gain_(kDefaultTrendlineThresholdGain),
       nada_rate_in_bps_(kNadaBweDefaultBitrate),
       nada_rmin_in_bps_(kNadaBweDefaultMinBitrate),
       nada_rmax_in_bps_(kNadaBweDefaultMaxBitrate),
