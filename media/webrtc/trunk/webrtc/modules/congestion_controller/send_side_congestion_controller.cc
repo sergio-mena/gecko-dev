@@ -109,7 +109,7 @@ SendSideCongestionController::SendSideCongestionController(
       event_log_(event_log),
       pacer_(pacer),
       bitrate_controller_(
-          BitrateController::CreateBitrateController(clock_, event_log)),
+          BitrateController::CreateBitrateController(clock_, event_log, use_nada)),
       acknowledged_bitrate_estimator_(
           rtc::MakeUnique<AcknowledgedBitrateEstimator>()),
       probe_controller_(new ProbeController(pacer_, clock_)),

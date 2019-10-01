@@ -44,18 +44,18 @@ const int64_t kNADAParamMinDeltaMs =  20; // Minimum value of delta for rate cal
 const int64_t kNADAParamMaxDeltaMs = 500; // Maximum value of delta for rate calculation [in ms]
 
 const int64_t kNADAParamLogwinMs = 500; // Observation time window for calculating
-					// packet summary statistics [LOGWIN: in ms]
+                                        // packet summary statistics [LOGWIN: in ms]
 const int64_t kNADAParamQepsMs = 10; 	// Threshold for determining queueing delay build-up [QEPS: in ms]
 const int64_t kNADAParamQboundMs = 50;  // Upper bound on self-inflicted queuing delay [QBOUND: in ms]
 const int64_t kNADAParamDfiltMs = 120;  // Bound on filtering delay [DFILT: in ms]
 const float   kNADAParamGammaMax =0.2;  // Upper bound on rate increase ratio for accelerated ramp-up
-					// [GAMMA_MAX: dimensionless]
+                                        // [GAMMA_MAX: dimensionless]
 const int kNADAParamRateBps =  800000;  // Default rate: 800Kbps
 const int kNADAParamRminBps =  250000;  // Min rate: 250Kbps
 const int kNADAParamRmaxBps = 2500000;  // Max rate: 2.5Mbps
 
 const int kNADALimitNumPackets = 20;    // Number of packets before packet loss calculation is
-					// considered as valid (outside the scope of NADA draft)
+                                        // considered as valid (outside the scope of NADA draft)
 
 }  // namespace
 
@@ -64,7 +64,8 @@ const int kNADALimitNumPackets = 20;    // Number of packets before packet loss 
 // TO-TRY: pass in min/max rates from external modules (e.g., about:config)
 //
 NADABandwidthEstimation::NADABandwidthEstimation(RtcEventLog* event_log)
-    : lost_packets_since_last_loss_update_Q8_(0),
+    : SendSideBandwidthEstimationInt(),
+      lost_packets_since_last_loss_update_Q8_(0),
       expected_packets_since_last_loss_update_(0),
       bitrate_(kNADAParamRateBps),
 //      min_bitrate_configured_(congestion_controller::GetMinBitrateBps()),
