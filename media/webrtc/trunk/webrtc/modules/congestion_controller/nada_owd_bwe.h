@@ -16,7 +16,7 @@
 #include <utility>
 #include <vector>
 
-#include "modules/congestion_controller/delay_based_bwe.h"  // for Result struct
+#include "modules/congestion_controller/delay_based_bwe_interface.h"
 #include "rtc_base/checks.h"
 #include "rtc_base/constructormagic.h"
 #include "rtc_base/rate_statistics.h"
@@ -26,37 +26,25 @@ namespace webrtc {
 
 class RtcEventLog;
 
-class NadaOwdBwe {
+class NadaOwdBwe: public DelayBasedBweInterface {
  public:
-  // static const int64_t kStreamTimeOutMs = 2000;
-  /*
-  struct Result {
-    Result() : updated(false), probe(false), target_bitrate_bps(0) {}
-    Result(bool probe, uint32_t target_bitrate_bps)
-        : updated(true), probe(probe), target_bitrate_bps(target_bitrate_bps) {}
-    bool updated;
-    bool probe;
-    uint32_t target_bitrate_bps;
-  };
-
-  */
 
   explicit NadaOwdBwe(const Clock* clock);
   virtual ~NadaOwdBwe();
 
   // Triggers BW estimation upon receving a new packet FB vector
-  DelayBasedBwe::Result IncomingPacketFeedbackVector(
+  virtual DelayBasedBweInterface::Result IncomingPacketFeedbackVector(
       const std::vector<PacketFeedback>& packet_feedback_vector,
-      rtc::Optional<uint32_t> acked_bitrate_bps);
+      rtc::Optional<uint32_t> acked_bitrate_bps) override;
 
   // Update local variables fed by others:  RTT, R_min
-  void OnRttUpdate(int64_t avg_rtt_ms, int64_t max_rtt_ms);
+  virtual void OnRttUpdate(int64_t avg_rtt_ms, int64_t max_rtt_ms) override;
   // Answer queries:
-  bool LatestEstimate(std::vector<uint32_t>* ssrcs,
-                      uint32_t* bitrate_bps) const;
-  void SetStartBitrate(int start_bitrate_bps);
-  void SetMinBitrate(int min_bitrate_bps);
-  int64_t GetExpectedBwePeriodMs() const;
+  virtual bool LatestEstimate(std::vector<uint32_t>* ssrcs,
+                      uint32_t* bitrate_bps) const override;
+  virtual void SetStartBitrate(int start_bitrate_bps) override;
+  virtual void SetMinBitrate(int min_bitrate_bps) override;
+  virtual int64_t GetExpectedBwePeriodMs() const override;
 
  private:
 

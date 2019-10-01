@@ -14,6 +14,8 @@
 #include <memory>
 #include <vector>
 
+#include "modules/congestion_controller/delay_based_bwe.h"
+#include "modules/congestion_controller/nada_owd_bwe.h"
 #include "modules/bitrate_controller/include/bitrate_controller.h"
 #include "modules/congestion_controller/acknowledged_bitrate_estimator.h"
 #include "modules/congestion_controller/probe_controller.h"
@@ -100,7 +102,8 @@ SendSideCongestionController::SendSideCongestionController(
     const Clock* clock,
     Observer* observer,
     RtcEventLog* event_log,
-    PacedSender* pacer)
+    PacedSender* pacer,
+    bool use_nada)
     : clock_(clock),
       observer_(observer),
       event_log_(event_log),
@@ -120,11 +123,9 @@ SendSideCongestionController::SendSideCongestionController(
       pause_pacer_(false),
       pacer_paused_(false),
       min_bitrate_bps_(congestion_controller::GetMinBitrateBps()),
-#ifdef ENABLE_NADA_OWD
-      delay_based_bwe_(new NadaOwdBwe(clock_)),
-#else
-      delay_based_bwe_(new DelayBasedBwe(event_log_, clock_)),
-#endif
+      use_nada_ (use_nada),
+      delay_based_bwe_(use_nada ? static_cast<DelayBasedBweInterface *>(new NadaOwdBwe(clock_)) :
+                                  static_cast<DelayBasedBweInterface *>(new DelayBasedBwe(event_log_, clock_))),
       in_cwnd_experiment_(CwndExperimentEnabled()),
       accepted_queue_ms_(kDefaultAcceptedQueueMs),
       was_in_alr_(false),
@@ -210,11 +211,8 @@ void SendSideCongestionController::OnNetworkRouteChanged(
     rtc::CritScope cs(&bwe_lock_);
     min_bitrate_bps_ = min_bitrate_bps;
 
-#ifdef ENABLE_NADA_OWD
-    delay_based_bwe_.reset(new NadaOwdBwe(clock_));
-#else
-    delay_based_bwe_.reset(new DelayBasedBwe(event_log_, clock_));
-#endif
+    delay_based_bwe_.reset(use_nada_ ? static_cast<DelayBasedBweInterface *>(new NadaOwdBwe(clock_)) :
+                                       static_cast<DelayBasedBweInterface *>(new DelayBasedBwe(event_log_, clock_)));
     acknowledged_bitrate_estimator_.reset(new AcknowledgedBitrateEstimator());
     delay_based_bwe_->SetStartBitrate(bitrate_bps);
     delay_based_bwe_->SetMinBitrate(min_bitrate_bps);

@@ -70,22 +70,9 @@ size_t ReadTrendlineFilterWindowSize() {
 
 namespace webrtc {
 
-DelayBasedBwe::Result::Result()
-    : updated(false),
-      probe(false),
-      target_bitrate_bps(0),
-      recovered_from_overuse(false) {}
-
-DelayBasedBwe::Result::Result(bool probe, uint32_t target_bitrate_bps)
-    : updated(true),
-      probe(probe),
-      target_bitrate_bps(target_bitrate_bps),
-      recovered_from_overuse(false) {}
-
-DelayBasedBwe::Result::~Result() {}
-
 DelayBasedBwe::DelayBasedBwe(RtcEventLog* event_log, const Clock* clock)
-    : event_log_(event_log),
+    : DelayBasedBweInterface(),
+      event_log_(event_log),
       clock_(clock),
       inter_arrival_(),
       trendline_estimator_(),

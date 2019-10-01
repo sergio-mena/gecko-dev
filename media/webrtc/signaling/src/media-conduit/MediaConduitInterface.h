@@ -321,6 +321,22 @@ class WebRtcCallWrapper : public RefCounted<WebRtcCallWrapper> {
     auto audio_state = webrtc::AudioState::Create(audio_state_config);
     webrtc::Call::Config config(&mEventLog);
     config.audio_state = audio_state;
+    config.use_nada = false;
+
+    nsresult res;
+    nsCOMPtr<nsIPrefService> prefs =
+        do_GetService("@mozilla.org/preferences-service;1", &res);
+
+    if (NS_FAILED(res)) {
+      return;
+    }
+
+    nsCOMPtr<nsIPrefBranch> branch = do_QueryInterface(prefs);
+    if (!branch) {
+      return;
+    }
+
+    branch->GetBoolPref("media.navigator.video.use_nada", &config.use_nada);
     mCall.reset(webrtc::Call::Create(config));
   }
 
