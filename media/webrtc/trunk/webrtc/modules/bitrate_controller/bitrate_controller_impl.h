@@ -27,8 +27,6 @@
 #include "rtc_base/constructormagic.h"
 #include "rtc_base/criticalsection.h"
 
-#define ENABLE_NADA 1
-
 namespace webrtc {
 
 class BitrateControllerImpl : public BitrateController {
