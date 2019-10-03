@@ -104,7 +104,8 @@ bool ReadBweLossExperimentParameters(float* low_loss_threshold,
 }  // namespace
 
 SendSideBandwidthEstimation::SendSideBandwidthEstimation(RtcEventLog* event_log)
-    : lost_packets_since_last_loss_update_Q8_(0),
+    : SendSideBandwidthEstimationInt(),
+      lost_packets_since_last_loss_update_Q8_(0),
       expected_packets_since_last_loss_update_(0),
       current_bitrate_bps_(0),
       min_bitrate_configured_(congestion_controller::GetMinBitrateBps()),
