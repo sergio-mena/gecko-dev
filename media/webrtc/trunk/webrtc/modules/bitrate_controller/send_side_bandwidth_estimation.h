@@ -18,40 +18,41 @@
 #include <vector>
 
 #include "modules/rtp_rtcp/include/rtp_rtcp_defines.h"
+#include "modules/bitrate_controller/send_side_bandwidth_estimation_int.h"
 
 namespace webrtc {
 
 class RtcEventLog;
 
-class SendSideBandwidthEstimation {
+class SendSideBandwidthEstimation: public SendSideBandwidthEstimationInt {
  public:
   SendSideBandwidthEstimation() = delete;
   explicit SendSideBandwidthEstimation(RtcEventLog* event_log);
   virtual ~SendSideBandwidthEstimation();
 
-  void CurrentEstimate(int* bitrate, uint8_t* loss, int64_t* rtt) const;
+  virtual void CurrentEstimate(int* bitrate, uint8_t* loss, int64_t* rtt) const override;
 
   // Call periodically to update estimate.
-  void UpdateEstimate(int64_t now_ms);
+  virtual void UpdateEstimate(int64_t now_ms) override;
 
   // Call when we receive a RTCP message with TMMBR or REMB.
-  void UpdateReceiverEstimate(int64_t now_ms, uint32_t bandwidth);
+  virtual void UpdateReceiverEstimate(int64_t now_ms, uint32_t bandwidth) override;
 
   // Call when a new delay-based estimate is available.
-  void UpdateDelayBasedEstimate(int64_t now_ms, uint32_t bitrate_bps);
+  virtual void UpdateDelayBasedEstimate(int64_t now_ms, uint32_t bitrate_bps) override;
 
   // Call when we receive a RTCP message with a ReceiveBlock.
-  void UpdateReceiverBlock(uint8_t fraction_loss,
-                           int64_t rtt,
-                           int number_of_packets,
-                           int64_t now_ms);
+  virtual void UpdateReceiverBlock(uint8_t fraction_loss,
+                                   int64_t rtt,
+                                   int number_of_packets,
+                                   int64_t now_ms) override;
 
-  void SetBitrates(int send_bitrate,
-                   int min_bitrate,
-                   int max_bitrate);
-  void SetSendBitrate(int bitrate);
-  void SetMinMaxBitrate(int min_bitrate, int max_bitrate);
-  int GetMinBitrate() const;
+  virtual void SetBitrates(int send_bitrate,
+                           int min_bitrate,
+                           int max_bitrate) override;
+  virtual void SetSendBitrate(int bitrate) override;
+  virtual void SetMinMaxBitrate(int min_bitrate, int max_bitrate) override;
+  virtual int GetMinBitrate() const override;
 
  private:
   enum UmaState { kNoUpdate, kFirstDone, kDone };

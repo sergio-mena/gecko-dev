@@ -68,7 +68,7 @@ class BitrateControllerTest : public ::testing::Test {
 
   virtual void SetUp() {
     controller_.reset(BitrateController::CreateBitrateController(
-        &clock_, &bitrate_observer_, &event_log_));
+        &clock_, &bitrate_observer_, &event_log_, false));
     controller_->SetStartBitrate(kStartBitrateBps);
     EXPECT_EQ(kStartBitrateBps, bitrate_observer_.last_bitrate_);
     controller_->SetMinMaxBitrate(kMinBitrateBps, kMaxBitrateBps);

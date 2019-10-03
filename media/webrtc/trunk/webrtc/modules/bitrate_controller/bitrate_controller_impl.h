@@ -27,8 +27,6 @@
 #include "rtc_base/constructormagic.h"
 #include "rtc_base/criticalsection.h"
 
-#define ENABLE_NADA 1
-
 namespace webrtc {
 
 class BitrateControllerImpl : public BitrateController {
@@ -37,7 +35,8 @@ class BitrateControllerImpl : public BitrateController {
   // |observer| is left for project that is not yet updated.
   BitrateControllerImpl(const Clock* clock,
                         BitrateObserver* observer,
-                        RtcEventLog* event_log);
+                        RtcEventLog* event_log,
+                        bool use_nada);
   virtual ~BitrateControllerImpl() {}
 
   bool AvailableBandwidth(uint32_t* bandwidth) const override;
@@ -98,12 +97,8 @@ class BitrateControllerImpl : public BitrateController {
   std::map<uint32_t, uint32_t> ssrc_to_last_received_extended_high_seq_num_
       RTC_GUARDED_BY(critsect_);
 
-#ifdef ENABLE_NADA
-  NADABandwidthEstimation bandwidth_estimation_ RTC_GUARDED_BY(critsect_);
-#else
-  SendSideBandwidthEstimation bandwidth_estimation_ RTC_GUARDED_BY(critsect_);
-#endif
-
+  bool use_nada_;
+  std::unique_ptr<SendSideBandwidthEstimationInt> bandwidth_estimation_ RTC_GUARDED_BY(critsect_);
   uint32_t reserved_bitrate_bps_ RTC_GUARDED_BY(critsect_);
 
   uint32_t last_bitrate_bps_ RTC_GUARDED_BY(critsect_);
