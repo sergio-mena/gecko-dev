@@ -68,7 +68,21 @@ class DelayBasedBwe: public DelayBasedBweInterface {
   std::unique_ptr<InterArrival> inter_arrival_;
   std::unique_ptr<TrendlineEstimator> trendline_estimator_;
   OveruseDetector detector_;
-  int64_t last_seen_packet_ms_;
+  int64_t first_seen_packet_ms_;    // [XZ 2019-10-21 logging of relative time]
+  int64_t last_seen_packet_ms_;     // [XZ 2019-10-21 logging of FB interval]
+  int64_t feedback_interval_ms_;    // [XZ 2019-10-21 logging of FB interval]
+  int64_t last_seen_seqno_;         // [XZ 2019-10-21 logging of pkt seq #]
+  int default_bwe_npkts_;           // [XZ 2019-10-21 logging of # of ACKed pkts]
+  int default_bwe_ploss_;           // [XZ 2019-10-21 logging of pkt loss count]
+  double default_bwe_plr_;          // [XZ 2019-10-21 logging of pkt loss ratio]
+  uint64_t default_bwe_rtt_ms_;     // [XZ 2019-10-21 logging of per-pkt RTT]
+  uint64_t default_bwe_dqel_ms_;    // [XZ 2019-10-21 logging of queuing delay] 
+  int64_t default_bwe_dbase_ms_;   // [XZ 2019-10-21 logging of baseline one-way delay]
+  int default_bwe_nbytes_;        // [XZ 2019-10-21 logging of receiving rate]
+  double default_bwe_rrate_;      // [XZ 2019-10-21 logging of receiving rate]
+  int64_t last_arrival_time_ms_;   // [XZ 2019-10-21 logging of receiving rate]
+  uint64_t curr_arrival_time_ms_;   // [XZ 2019-10-21 logging of receiving rate]
+
   bool uma_recorded_;
   AimdRateControl rate_control_;
   ProbeBitrateEstimator probe_bitrate_estimator_;

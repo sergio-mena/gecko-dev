@@ -16,8 +16,6 @@
  *
 */
 
-
-
 #ifndef MODULES_BITRATE_CONTROLLER_NADA_BANDWIDTH_ESTIMATION_H_
 #define MODULES_BITRATE_CONTROLLER_NADA_BANDWIDTH_ESTIMATION_H_
 
@@ -118,7 +116,7 @@ class NADABandwidthEstimation: public SendSideBandwidthEstimationInt {
   // congestion level
   float nada_x_curr_;   // current congestion level  | x_curr in draft
   float nada_x_prev_;   // previous congestion level | x_prev in draft
-
+  uint64_t nada_relrtt_;  // relative RTT 
   //
   // inherited from SenderSideBandwidthEstimation
   //
@@ -131,7 +129,7 @@ class NADABandwidthEstimation: public SendSideBandwidthEstimationInt {
   int64_t last_round_trip_time_ms_;
   int64_t min_round_trip_time_ms_;
 
-  uint32_t bwe_incoming_; 		// receiver-estimated bandwidth, not used
+  uint32_t bwe_incoming_; 		        // receiver-estimated bandwidth, not used
   uint32_t delay_based_bitrate_bps_;	// delay-based bandwidth estimation, not used
 
   // int64_t time_last_decrease_ms_;
