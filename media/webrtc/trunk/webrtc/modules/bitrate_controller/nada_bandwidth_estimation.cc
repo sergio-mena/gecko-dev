@@ -50,15 +50,14 @@ const int64_t kNADAParamQboundMs = 50;  // Upper bound on self-inflicted queuing
 const int64_t kNADAParamDfiltMs = 120;  // Bound on filtering delay [DFILT: in ms]
 const float   kNADAParamGammaMax =0.2;  // Upper bound on rate increase ratio for accelerated ramp-up
                                         // [GAMMA_MAX: dimensionless]
-const int kNADAParamRateBps =  800000;  // Default rate: 800Kbps
-const int kNADAParamRminBps =  250000;  // Min rate: 250Kbps
-const int kNADAParamRmaxBps = 2500000;  // Max rate: 2.5Mbps
+const int kNADAParamRateBps =  600000;  // Default rate: 800Kbps
+const int kNADAParamRminBps =  300000;  // Min rate: 250Kbps
+const int kNADAParamRmaxBps = 3000000;  // Max rate: 2.5Mbps
 
 const int kNADALimitNumPackets = 20;    // Number of packets before packet loss calculation is
                                         // considered as valid (outside the scope of NADA draft)
 
 }  // namespace
-
 
 //
 // TO-TRY: pass in min/max rates from external modules (e.g., about:config)
@@ -79,6 +78,7 @@ NADABandwidthEstimation::NADABandwidthEstimation(RtcEventLog* event_log)
       delta_(kNADAParamDeltaMs),
       nada_x_curr_(kNADAParamXDefault),
       nada_x_prev_(kNADAParamXDefault),
+      nada_relrtt_(0),
       // last_packet_report_ms_(-1),
       // last_timeout_ms_(-1),
       last_fraction_loss_(0),
@@ -170,7 +170,7 @@ int NADABandwidthEstimation::GetMinBitrate() const {
 }
 
 
-
+//
 // [XZ 2019-03-07 Report query of currently estimated bitrate]
 //
 void NADABandwidthEstimation::CurrentEstimate(int* bitrate,
@@ -191,8 +191,14 @@ void NADABandwidthEstimation::CurrentEstimate(int* bitrate,
 printf("NADA CurrentEstimate: rtt-based: %8.2f, owd-based: %8.2f | rate = %.2f Kbps, loss = %d, rtt = %ld ms\n",
 	bitrate_/1000., delay_based_bitrate_bps_/1000.,
 	*bitrate/1000.,  *loss, *rtt);
-
 */
+
+  RTC_LOG(LS_INFO) << "NADA CurrentEstimate: " 
+                   << " | delay_based_rate:  " << delay_based_bitrate_bps_/1000 << " Kbps"
+                   << " | sender_estimated_rate: " << bitrate_/1000. << " Kbps"
+                   << " | reported rate: " << *bitrate/1000. << " Kbps"
+                   << " | loss: " << *loss*100 << " %"
+                   << " | rtt: "  << *rtt << " ms"  << std::endl;
 }
 
 
@@ -269,9 +275,10 @@ void NADABandwidthEstimation::UpdateReceiverBlock(uint8_t fraction_loss,
   // -- compound (warped OWD + loss)
   // ...
   //
-  // Update x_curr_ as RTT value
-  nada_x_curr_ = rtt;
-//  nada_x_curr_ = rtt-min_round_trip_time_ms_+1;
+  // Update x_curr_ as relative RTT value
+  // nada_x_curr_ = rtt;
+  nada_relrtt_ = rtt-min_round_trip_time_ms_; 
+  nada_x_curr_ = rtt-min_round_trip_time_ms_;
 
 
   // Check sequence number diff and weight loss report
@@ -362,9 +369,6 @@ void NADABandwidthEstimation::AcceleratedRampUp(const int64_t now_ms) {
 	float gamma = kNADAParamQboundMs /(rtt + kNADAParamDeltaMs + kNADAParamDfiltMs);
 	if (gamma > kNADAParamGammaMax) gamma = kNADAParamGammaMax;
 
-	// float rnew = (1+gamma)* bwe_incoming_;
-	// if (rnew > bitrate_)	bitrate_ = rnew;
-
 	bitrate_ = (1+gamma)*bitrate_;
 }
 
@@ -408,7 +412,6 @@ void NADABandwidthEstimation::GradualRateUpdate(const int64_t now_ms) {
 
 //	bitrate_ = 800000;  // for debugging
 }
-
 
 void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
 
@@ -464,7 +467,7 @@ void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
       GradualRateUpdate(now_ms);
 
     ClipBitrate();
-
+/*
     RTC_LOG(LS_INFO) << "NADA UpdateEstimate | "
                      << " ts: " << now_ms-first_report_time_ms_
                      << " fbint: " << feedback_interval_ms_
@@ -476,13 +479,35 @@ void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
                      << " rmin: "  << min_bitrate_configured_/1000
                      << " rmax: "  << max_bitrate_configured_/1000
                      << std::endl;
+    */
 
-     printf("NADA UpdateEstimate triggered by FB: ts = %lld, fbint = %lld ms, rmode = %d, xcurr = %4.2f, rate = %6d Kbps\n",
+    printf("NADA UpdateEstimate triggered by FB: ts = %lld, fbint = %lld ms, rmode = %d, xcurr = %4.2f, rate = %6d Kbps\n",
             now_ms-first_report_time_ms_, feedback_interval_ms_, rmode, nada_x_curr_, bitrate_/1000);
+
+    std::ostringstream os;
+    os << std::fixed;
+    os.precision(2);
+
+    RTC_LOG(LS_INFO) << " NADA UpdateEstimate | algo:nada_rtt "                     // 1) CC algorithm flavor
+                     << " | ts: "     << now_ms-first_report_time_ms_ << " ms"      // 2) timestamp
+                     << " | fbint: "  << feedback_interval_ms_ << " ms"             // 3) feedback interval
+                     << " | relrtt: " << nada_relrtt_ << " ms"                      // 4) relative RTT
+                     << " | rtt: "    << last_round_trip_time_ms_ << " ms"          // 5) RTT
+                     << " | ploss: "  << lost_packets_since_last_loss_update_Q8_    // 6) packet loss count
+                     << " | plr: "    << last_fraction_loss_*100  << " %"           // 7) temporallysmoothed packet loss ratio
+                     << " | rmode: "  << rmode                                      // 8) rate update mode: accelerated ramp-up or gradual 
+                     << " | xcurr: "  << nada_x_curr_ << " ms"                      // 9) aggregated congestion signal 
+                     << " | rrate: "  << bwe_incoming_/1000. << " Kbps"             // 10) receiving rate 
+                     << " | srate: "  << bitrate_/1000. << " Kbps"                  // 11) sending rate
+                     << " | rmin: "    << min_bitrate_configured_/1000. << " Kbps"   // 12) minimum rate 
+                     << " | rmax: "    << max_bitrate_configured_/1000. << " Kbps"   // 13) maximum rate
+                     << std::endl;
 
     } else {
 
       // [XZ 2018-12-20] Currently, no rate update in between feedback reports
+     printf("NADA UpdateEstimate triggered by local timer: ts = %lld, rate = %6d Kbps\n",
+            now_ms-first_report_time_ms_, bitrate_/1000);
 
       // TODO: trigger timeout when needed
       RTC_LOG(LS_VERBOSE) << "NADA UpdateEstimate: triggered by sender local timer -- "

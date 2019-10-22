@@ -28,7 +28,7 @@ class DelayBasedBweInterface {
     ~Result();
     bool updated;
     bool probe;
-    uint32_t target_bitrate_bps;
+    uint32_t target_bitrate_bps;  
     bool recovered_from_overuse;
   };
 

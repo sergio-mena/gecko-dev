@@ -39,9 +39,9 @@ constexpr float kNadaBweParamKappa = 0.5;   // scaling parameter for gradual rat
 constexpr float kNadaBweParamEta  = 2.0;  // scaling parameter for gradual rate update [ETA: dimensionless]
 constexpr float kNadaBweParamTau = 500.;  // Upper bound of RTT for gradual rate update [TAU: in ms]
 
-constexpr uint32_t kNadaBweDefaultBitrate = 600000;  // 600 Kbps
-constexpr uint32_t kNadaBweDefaultMinBitrate =  300000;  //  200 Kbps
-constexpr uint32_t kNadaBweDefaultMaxBitrate = 3000000;  // 2000 Kbps
+constexpr uint32_t kNadaBweDefaultBitrate = 600000;      // 600 Kbps
+constexpr uint32_t kNadaBweDefaultMinBitrate =  300000;  //  300 Kbps
+constexpr uint32_t kNadaBweDefaultMaxBitrate = 3000000;  // 3000 Kbps
 
 constexpr int64_t kNadaBweParamDeltaMs = 100; // Target interval for feedback and/or rate update [DELTA: in ms]
 constexpr int64_t kNadaBweParamMinDeltaMs =  20; // Minimum value of delta for rate calculation [in ms]
@@ -220,10 +220,11 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
          now_ms, now_ms - first_update_ms_,
          nfb, nada_delta_);
 
-  RTC_LOG(LS_INFO) << "NADA IncomingPacketFeedbackVector: t = " << now_ms 
-                   << "t_rel = " <<  now_ms-first_update_ms_
-                   << "nfb = " << nfb
-                   << "fbint = " << nada_delta_ << "ms" << std::endl; 
+  RTC_LOG(LS_INFO) << "NADA IncomingPacketFBVector" 
+                   << " | t = " << now_ms 
+                   << " | t_rel = " <<  now_ms-first_update_ms_
+                   << " | nfb = " << nfb
+                   << " | fbint = " << nada_delta_ << "ms" << std::endl; 
 
 
   RTC_DCHECK_RUNS_SERIALIZED(&network_race_);
@@ -254,8 +255,9 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
     if (packet_feedback.send_time_ms < 0) {
       dup_flag = true; 
       printf("\t detected duplicate FB vectors for %6d\n", packet_feedback.sequence_number);
-      RTC_LOG(LS_VERBOSE) << "\t Detected duplicate FB vectors for pkt no. " 
-                       << packet_feedback.sequence_number << std::endl; 
+
+      RTC_LOG(LS_VERBOSE) << "NADA IncomingPacketFBVector | Detected duplicate FB vectors for pkt no. " 
+                          << packet_feedback.sequence_number << std::endl; 
 
       break; 
     }
@@ -302,7 +304,7 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
            nada_rtt_rel_in_ms_);
 
 
-    RTC_LOG(LS_VERBOSE) << " NADA IncomingPacketFB | pktinfo " 
+    RTC_LOG(LS_VERBOSE) << " NADA IncomingPacketFBVector | pktinfo " 
                       << "| seqno=" <<  packet_feedback.sequence_number
                       << ", pktsize=" <<  packet_feedback.payload_size
                       << "| creatts=" << packet_feedback.creation_time_ms
@@ -355,7 +357,7 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
            nada_recv_in_bps_/1000.0, 
            nada_x_curr_);
 
-    RTC_LOG(LS_INFO) << " NADA IncomingPacketFB | pktstats "
+    RTC_LOG(LS_INFO) << " NADA IncomingPacketFBVector | pktstats "
                      << "| delta="    << nada_delta_
                      << ", d_fwd="    << nada_d_fwd_
                      << ", d_base="   << nada_d_base_
@@ -395,8 +397,8 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
            nada_rtt_rel_in_ms_,
            nada_x_curr_,
            nada_recv_in_bps_/1000.);
-
-    RTC_LOG(LS_INFO) << " NADA Updated "
+/*
+    RTC_LOG(LS_INFO) << " NADA Rate Updated "
                      << "| t= " << now_ms - first_update_ms_ << " ms"
                      << "| mode=" << rmode 
                      << "| rtt_rel= " << nada_rtt_rel_in_ms_
@@ -405,6 +407,24 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
                      << ", r_curr=" << nada_rate_in_bps_/1000 
                      << ", r_min="  << nada_rmin_in_bps_/1000.
                      << ", r_max="  << nada_rmax_in_bps_/1000. << " Kbps" << std::endl;
+                     */
+        std::ostringstream os;
+        os << std::fixed;
+        os.precision(2);
+        RTC_LOG(LS_INFO) << " NADA IncomingPacketFBVector | algo:nada_owd "                                   // 1) CC algorithm flavor
+                     << " | ts: "     << now_ms - first_update_ms_ << " ms"     // 2) timestamp
+                     << " | fbint: "  << nada_delta_ << " ms"                   // 3) feedback interval
+                     << " | qdel: "   << nada_d_queue_ << " ms"                 // 4) queuing delay 
+                     << " | rtt: "    << nada_rtt_in_ms_ << " ms"               // 5) RTT
+                     << " | ploss: "  << nloss                                  // 6) packet loss count
+                     << " | plr: "    << nada_plr_*100  << " %"                 // 7) temporallysmoothed packet loss ratio
+                     << " | rmode: "  << rmode                                  // 8) rate update mode: accelerated ramp-up or gradual 
+                     << " | xcurr: "  << nada_x_curr_ << " ms"                  // 9) aggregated congestion signal 
+                     << " | rrate: "  << nada_recv_in_bps_/1000. << " Kbps"     // 10) receiving rate 
+                     << " | srate: "  << nada_rate_in_bps_/1000. << " Kbps"     // 11) sending rate
+                     << " | rmin: "    << nada_rmin_in_bps_/1000. << " Kbps"     // 12) minimum rate 
+                     << " | rmax: "    << nada_rmax_in_bps_/1000. << " Kbps"     // 13) maximum rate
+                     << std::endl;
 
     last_seen_packet_ms_ = now_ms;
     last_update_ms_ = now_ms;
@@ -481,7 +501,7 @@ void NadaOwdBwe::AcceleratedRampUp(const int64_t now_ms) {
 	printf("\t NadaOwdBwe::AcceleratedRampUp:  ramp-up ratio gamma = %4.2f, r_curr = %6.2f Kbps\n", gamma, nada_rate_in_bps_/1000.);
 
 
-  RTC_LOG(LS_VERBOSE) << "Nada: AcceleratedRampUp "
+  RTC_LOG(LS_VERBOSE) << "NADA AcceleratedRampUp "
                       << "| ramp-up ratio gamma=" << gamma
                       << ", r_curr=" << nada_rate_in_bps_/1000. << " Kbps" << std::endl; 
 
@@ -539,7 +559,7 @@ void NadaOwdBwe::GradualRateUpdate(const int64_t now_ms) {
     printf("\t NadaOwdBwe::GradualRateUpdate:  x_curr = %6.2f ms | r_curr = %6.2f Kbps\n", nada_x_curr_, nada_rate_in_bps_/1000.);
 
 
-    RTC_LOG(LS_VERBOSE) << "Nada: GradualRateUpdate "
+    RTC_LOG(LS_VERBOSE) << "NADA GradualRateUpdate "
                         << "| x_curr=" << nada_x_curr_ << " ms " 
                         << "| r_curr=" << nada_rate_in_bps_/1000. << " Kbps" << std::endl; 
 
