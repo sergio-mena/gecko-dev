@@ -84,7 +84,7 @@ NADABandwidthEstimation::NADABandwidthEstimation(RtcEventLog* event_log)
       last_fraction_loss_(0),
       // last_logged_fraction_loss_(0),
       last_round_trip_time_ms_(0),
-      min_round_trip_time_ms_(0),
+      min_round_trip_time_ms_(-1),
       bwe_incoming_(0),
       delay_based_bitrate_bps_(kNADAParamRateBps),
       // time_last_decrease_ms_(0),
@@ -247,15 +247,6 @@ void NADABandwidthEstimation::UpdateReceiverBlock(uint8_t fraction_loss,
   }
 
 
-  printf("NADA UpdateReceiverBlock at %lld ms...rtt = %lld, npkts = %d\n",
-         now_ms-first_report_time_ms_, rtt, number_of_packets);
-
-  RTC_LOG(LS_INFO) << "NADA UpdateReceiverBlock: now = " << now_ms-first_report_time_ms_
-                   << " ms, fb_interval = " << feedback_interval_ms_
-                   << " ms, loss = " << int(fraction_loss)
-                   << " , rtt = " << rtt
-                   << " ms, npackets = " << number_of_packets << std::endl;
-
   if (first_report_time_ms_ == -1)
   {
     first_report_time_ms_ = now_ms;
@@ -280,6 +271,16 @@ void NADABandwidthEstimation::UpdateReceiverBlock(uint8_t fraction_loss,
   nada_relrtt_ = rtt-min_round_trip_time_ms_; 
   nada_x_curr_ = rtt-min_round_trip_time_ms_;
 
+
+  printf("NADA UpdateReceiverBlock at %lld ms...rtt = %lld, npkts = %d\n",
+         now_ms-first_report_time_ms_, rtt, number_of_packets);
+
+  RTC_LOG(LS_INFO) << "NADA UpdateReceiverBlock: now = " << now_ms-first_report_time_ms_
+                   << " ms, fb_interval = " << feedback_interval_ms_
+                   << " ms, loss = " << int(fraction_loss)
+                   << " , rtt = " << rtt
+                   << " ms, rttmin = " << min_round_trip_time_ms_
+                   << " ms, npackets = " << number_of_packets << std::endl;
 
   // Check sequence number diff and weight loss report
   if (number_of_packets > 0) {
@@ -494,9 +495,9 @@ void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
                      << " | relrtt: " << nada_relrtt_ << " ms"                      // 4) relative RTT
                      << " | rtt: "    << last_round_trip_time_ms_ << " ms"          // 5) RTT
                      << " | ploss: "  << lost_packets_since_last_loss_update_Q8_    // 6) packet loss count
-                     << " | plr: "    << last_fraction_loss_*100  << " %"           // 7) temporallysmoothed packet loss ratio
+                     << " | plr: "     << std::fixed << float(last_fraction_loss_)*100.  << " %"           // 7) temporallysmoothed packet loss ratio
                      << " | rmode: "  << rmode                                      // 8) rate update mode: accelerated ramp-up or gradual 
-                     << " | xcurr: "  << nada_x_curr_ << " ms"                      // 9) aggregated congestion signal 
+                     << " | xcurr: "   << std::fixed << nada_x_curr_ << " ms"                      // 9) aggregated congestion signal 
                      << " | rrate: "  << bwe_incoming_/1000. << " Kbps"             // 10) receiving rate 
                      << " | srate: "  << bitrate_/1000. << " Kbps"                  // 11) sending rate
                      << " | rmin: "    << min_bitrate_configured_/1000. << " Kbps"   // 12) minimum rate 

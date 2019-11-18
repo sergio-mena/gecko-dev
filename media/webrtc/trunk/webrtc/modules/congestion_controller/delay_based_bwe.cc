@@ -190,7 +190,15 @@ DelayBasedBwe::Result DelayBasedBwe::IncomingPacketFeedbackVector(
   if (last_arrival_time_ms_>0) {
     uint64_t dt = curr_arrival_time_ms_ - last_arrival_time_ms_; 
     default_bwe_rrate_ = float(default_bwe_nbytes_)*8000./double(dt); 
-  }
+    RTC_LOG(LS_INFO) << "dt: " << dt << ", nbytes: " << default_bwe_nbytes_ << std::endl; 
+
+  // reset
+  default_bwe_ploss_ = 0; 
+  default_bwe_npkts_ = 0; 
+  default_bwe_nbytes_ = 0.;
+  } 
+  last_arrival_time_ms_ = curr_arrival_time_ms_; 
+
   // [XZ 2019-10-21]
 
   if (in_sparse_update_experiment_)
@@ -232,8 +240,6 @@ void DelayBasedBwe::IncomingPacketFeedback(
 
   // [XZ 2019-10-21 added logging of FB interval, etc.]
   int64_t now_ms = clock_->TimeInMilliseconds();
-
-  // printf("\t Inside DelayBasedBwe: now_ms=%ld\n", now_ms);
   if (first_seen_packet_ms_ == -1) first_seen_packet_ms_ = now_ms; 
   // [XZ 2019-10-21]
 
@@ -296,6 +302,20 @@ void DelayBasedBwe::IncomingPacketFeedback(
         default_bwe_ploss_ += packet_feedback.sequence_number-last_seen_seqno_-1; 
     }
     last_seen_seqno_ = packet_feedback.sequence_number;
+
+    RTC_LOG(LS_INFO) << " DelayBWE IncomingPktFB | pktinfo "
+                   << " | seqno: " <<  packet_feedback.sequence_number
+                   << " | pktsize: " <<  packet_feedback.payload_size << " bytes"
+                   << " | creatts: " << packet_feedback.creation_time_ms << " ms"
+                   << " | sendts: "  << packet_feedback.send_time_ms << " ms"
+                   << " | recvts: "  << packet_feedback.arrival_time_ms << " ms"
+                   << " | ackts: "   << now_ms << " ms"
+                   << " | dqel: " << default_bwe_dqel_ms_ << " ms"
+                   << " | rtt: " << default_bwe_rtt_ms_  << " ms" 
+                   << " | ploss: " << default_bwe_ploss_ 
+                   << " | plr: " << std::fixed << default_bwe_plr_*100. << " %"
+                   << std::endl; 
+
   }
   // [XZ 2019-10-21]
 }
@@ -375,11 +395,6 @@ DelayBasedBwe::Result DelayBasedBwe::MaybeUpdateEstimate(
                      << " | srate: "    << result.target_bitrate_bps/1000. << " Kbps"     // 11) sending rate
                      << std::endl;
 
-  // reset
-  default_bwe_ploss_ = 0; 
-  default_bwe_npkts_ = 0; 
-  default_bwe_nbytes_ = 0.;
-  last_arrival_time_ms_ = now_ms; 
   // [XZ 2019-10-21]
 
   return result;
