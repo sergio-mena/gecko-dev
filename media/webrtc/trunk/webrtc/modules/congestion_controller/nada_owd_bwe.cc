@@ -304,19 +304,22 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
            nada_rtt_rel_in_ms_);
 
 
-    RTC_LOG(LS_VERBOSE) << " NADA IncomingPacketFBVector | pktinfo " 
-                      << "| seqno=" <<  packet_feedback.sequence_number
-                      << ", pktsize=" <<  packet_feedback.payload_size
-                      << "| creatts=" << packet_feedback.creation_time_ms
-                      << ", sendts="  << packet_feedback.send_time_ms
-                      << ", recvts="  << packet_feedback.arrival_time_ms
-                      << ", ackts="   << now_ms
-                      << "| d_fwd=" << dtmp
-                      << ", dbase=" << nada_d_base_
-                      << ", dqueue=" << dq << " ms"
-                      << "| rtt=" << rtt  
-                      << ", rtt_base=" << nada_rtt_base_in_ms_ 
-                      << ", rtt_rel=" << nada_rtt_rel_in_ms_ << " ms" << std::endl; 
+    RTC_LOG(LS_INFO) << " NADA IncomingPacketFBVector | pktinfo " 
+                      << " | seqno: " <<  packet_feedback.sequence_number
+                      << " | pktsize: " <<  packet_feedback.payload_size << " bytes"
+                      << " | creatts: " << packet_feedback.creation_time_ms << " ms"
+                      << " | sendts: "  << packet_feedback.send_time_ms << " ms"
+                      << " | recvts: "  << packet_feedback.arrival_time_ms << " ms"
+                      << " | ackts: "   << now_ms << " ms"
+                      << " | d_fwd: " << dtmp << " ms"
+                      << " | dbase: " << nada_d_base_ << " ms"
+                      << " | dqueue: " << dq << " ms" 
+                      << " | rtt: " << rtt  << " ms"
+                      << " | rtt_base: " << nada_rtt_base_in_ms_ << " ms"
+                      << " | rtt_rel: " << nada_rtt_rel_in_ms_ << " ms" 
+                      << " | ploss: " << nloss 
+                      << " | plr: " << std::fixed << nada_plr_*100. << " %"
+                      << std::endl; 
 
     // minimum-filtering of past [15] FB reports
     if (ipkt > nfb - nwin) {
@@ -417,9 +420,9 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
                      << " | qdel: "   << nada_d_queue_ << " ms"                 // 4) queuing delay 
                      << " | rtt: "    << nada_rtt_in_ms_ << " ms"               // 5) RTT
                      << " | ploss: "  << nloss                                  // 6) packet loss count
-                     << " | plr: "    << nada_plr_*100  << " %"                 // 7) temporallysmoothed packet loss ratio
+                     << " | plr: "    << std::fixed << nada_plr_*100.  << " %"                 // 7) temporallysmoothed packet loss ratio
                      << " | rmode: "  << rmode                                  // 8) rate update mode: accelerated ramp-up or gradual 
-                     << " | xcurr: "  << nada_x_curr_ << " ms"                  // 9) aggregated congestion signal 
+                     << " | xcurr: "   << std::fixed << nada_x_curr_ << " ms"                  // 9) aggregated congestion signal 
                      << " | rrate: "  << nada_recv_in_bps_/1000. << " Kbps"     // 10) receiving rate 
                      << " | srate: "  << nada_rate_in_bps_/1000. << " Kbps"     // 11) sending rate
                      << " | rmin: "    << nada_rmin_in_bps_/1000. << " Kbps"     // 12) minimum rate 
