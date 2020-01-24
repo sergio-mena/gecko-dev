@@ -191,12 +191,8 @@ DelayBasedBwe::Result DelayBasedBwe::IncomingPacketFeedbackVector(
     uint64_t dt = curr_arrival_time_ms_ - last_arrival_time_ms_; 
     default_bwe_rrate_ = float(default_bwe_nbytes_)*8000./double(dt); 
     RTC_LOG(LS_INFO) << "dt: " << dt << ", nbytes: " << default_bwe_nbytes_ << std::endl; 
-
-  // reset
-  default_bwe_ploss_ = 0; 
-  default_bwe_npkts_ = 0; 
-  default_bwe_nbytes_ = 0.;
   } 
+
   last_arrival_time_ms_ = curr_arrival_time_ms_; 
 
   // [XZ 2019-10-21]
@@ -215,6 +211,13 @@ DelayBasedBwe::Result DelayBasedBwe::IncomingPacketFeedbackVector(
     return MaybeUpdateEstimate(overusing, acked_bitrate_bps,
                                recovered_from_overuse);
   }
+
+
+  // reset
+  default_bwe_ploss_ = 0; 
+  default_bwe_npkts_ = 0; 
+  default_bwe_nbytes_ = 0.;
+  
   return Result();
 }
 
