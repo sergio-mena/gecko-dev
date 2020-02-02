@@ -30,7 +30,7 @@
 #include "rtc_base/timeutils.h"
 #include "system_wrappers/include/field_trial.h"
 
-#define XQ_DEBUG // [2019-09-03] macro for toggling debugging logs
+// #define XQ_DEBUG // [2019-09-03] macro for toggling debugging logs
 
 namespace webrtc {
 namespace {

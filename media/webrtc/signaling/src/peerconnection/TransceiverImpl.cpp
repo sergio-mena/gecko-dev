@@ -171,10 +171,6 @@ nsresult TransceiverImpl::UpdateTransport() {
     }
   }
 
-  printf("[semena] ZZZZZZ transport id %s, this %p, mReceivePipeline %p, mTransmitPipeline %p\n",
-         mJsepTransceiver->mTransport.mTransportId.c_str(), this,
-         mReceivePipeline.get(), mTransmitPipeline.get());
-
   mReceivePipeline->UpdateTransport_m(mJsepTransceiver->mTransport.mTransportId,
                                       filter);
   mTransmitPipeline->UpdateTransport_m(

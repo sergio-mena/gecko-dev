@@ -60,7 +60,7 @@
 #define DEFAULT_VIDEO_MAX_FRAMERATE 30
 #define INVALID_RTP_PAYLOAD 255  // valid payload types are 0 to 127
 
-#define XQ_DEBUG // [2019-09-03] macro for toggling debugging logs
+// #define XQ_DEBUG // [2019-09-03] macro for toggling debugging logs
 
 namespace mozilla {
 
