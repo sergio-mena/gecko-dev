@@ -54,7 +54,7 @@ static_assert((WEBRTC_MAX_SAMPLE_RATE / 100) * sizeof(uint16_t) * 2 <=
                   AUDIO_SAMPLE_BUFFER_MAX_BYTES,
               "AUDIO_SAMPLE_BUFFER_MAX_BYTES is not large enough");
 
-#define XQ_DEBUG // [X.Z. 2019-09-03] macro for toggling debugging logs
+// #define XQ_DEBUG // [X.Z. 2019-09-03] macro for toggling debugging logs
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -339,8 +339,6 @@ void MediaPipeline::UpdateTransport_s(const std::string& aTransportId,
         this, &MediaPipeline::EncryptedPacketSending);
     mTransportHandler->SignalPacketReceived.connect(
         this, &MediaPipeline::PacketReceived);
-    printf("[semena] YYYYYYYY Connecting signals. This %p, mTransportHandler %p\n",
-           this, &(mTransportHandler->SignalPacketReceived));
     mSignalsConnected = true;
   }
 
@@ -638,9 +636,7 @@ void MediaPipeline::RtcpPacketReceived(MediaPacket& packet) {
 
 #ifdef XQ_DEBUG
   // [X.Z. 2019-06-13] start of modification: printf message to trace path of received RTCP packet
-  printf("------------\n");
-  printf("[XQ] XXXXX MediaPipeline: RtcpPacketReceived() => ReceivedRTCPPacket(), this %p\n",
-         this);
+  printf("[XQ] MediaPipeline: RtcpPacketReceived() => ReceivedRTCPPacket()\n");
   // [X.Z. 2019-06-13] end of modification.
 #endif
   (void)mConduit->ReceivedRTCPPacket(packet.data(),
@@ -666,8 +662,7 @@ void MediaPipeline::PacketReceived(const std::string& aTransportId,
     case MediaPacket::RTCP:
     #ifdef XQ_DEBUG
       // [X.Z. 2019-06-13] start of modification: printf message to trace fn. call for received RTCP pkt
-      printf("[XQ] MediaPipeline: PacketReceived() => RtcpPacketReceived(), trans_id %s, packet %p\n",
-          aTransportId.c_str(), &packet);
+      printf("[XQ] MediaPipeline: PacketReceived() => RtcpPacketReceived()\n");
       // [X.Z. 2019-06-13] end of modification.
       #endif
 

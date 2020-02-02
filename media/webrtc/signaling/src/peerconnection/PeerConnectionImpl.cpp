@@ -979,8 +979,6 @@ already_AddRefed<TransceiverImpl> PeerConnectionImpl::CreateTransceiverImpl(
 
   aRv = mMedia->AddTransceiver(aJsepTransceiver, *receiveTrack, aSendTrack,
                                &transceiverImpl);
-  printf("AAAAAAA AddTransceiver this %p, transceiverImpl %p, jsep %p\n",
-         this, transceiverImpl.get(), aJsepTransceiver);
 
   return transceiverImpl.forget();
 }
@@ -1001,7 +999,6 @@ already_AddRefed<TransceiverImpl> PeerConnectionImpl::CreateTransceiverImpl(
 
   RefPtr<JsepTransceiver> jsepTransceiver = new JsepTransceiver(type);
 
-  printf("[semena] BBBBBBBBBB jsepTransceiver %p, type %d\n", jsepTransceiver.get(), type);
   RefPtr<TransceiverImpl> transceiverImpl =
       CreateTransceiverImpl(jsepTransceiver, aSendTrack, jrv);
 
