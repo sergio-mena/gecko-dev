@@ -590,6 +590,10 @@ void MediaPipeline::RtpPacketReceived(MediaPacket& packet) {
 }
 
 void MediaPipeline::RtcpPacketReceived(MediaPacket& packet) {
+  if (mDirection == DirectionType::RECEIVE) {
+    return;
+  }
+
   if (!mTransport->Pipeline()) {
     MOZ_LOG(gMediaPipelineLog, LogLevel::Debug,
             ("Discarding incoming packet; transport disconnected"));
