@@ -43,7 +43,7 @@
 #include "rtc_base/trace_event.h"
 #include "system_wrappers/include/ntp_time.h"
 
-// #define XQ_DEBUG // [X.Z. 2019-09-03] macro for toggling debugging logs
+#define XQ_DEBUG // [X.Z. 2019-09-03] macro for toggling debugging logs
 
 namespace webrtc {
 namespace {
@@ -326,6 +326,7 @@ bool RTCPReceiver::ParseCompoundPacket(const uint8_t* packet_begin,
     if (packet_type_counter_.first_packet_time_ms == -1)
       packet_type_counter_.first_packet_time_ms = clock_->TimeInMilliseconds();
 
+    printf("[semena] (%lld) RTCP packet type: %d\n", clock_->TimeInMilliseconds(), rtcp_block.type());
     switch (rtcp_block.type()) {
       case rtcp::SenderReport::kPacketType:
         HandleSenderReport(rtcp_block, packet_information);
@@ -343,6 +344,7 @@ bool RTCPReceiver::ParseCompoundPacket(const uint8_t* packet_begin,
         HandleBye(rtcp_block);
         break;
       case rtcp::Rtpfb::kPacketType:
+        printf("[semena] RTCP block fmt type: %d\n", rtcp_block.fmt());
         switch (rtcp_block.fmt()) {
           case rtcp::Nack::kFeedbackMessageType:
             HandleNack(rtcp_block, packet_information);
@@ -1024,6 +1026,9 @@ void RTCPReceiver::TriggerCallbacksFromRtcpPacket(
 	  rtp_rtcp_->OnReceivedRtcpReportBlocks(packet_information.report_blocks);
   }
 
+  printf("[semena] RTCP_Receiver::TriggerCallbacksFromRtcpPacket. Before checking for TBObserver (%p), this (%p)\n",
+         transport_feedback_observer_, this);
+
   if (transport_feedback_observer_ &&
       (packet_information.packet_type_flags & kRtcpTransportFeedback)) {
 
@@ -1036,6 +1041,8 @@ void RTCPReceiver::TriggerCallbacksFromRtcpPacket(
         packet_information.transport_feedback->media_ssrc();
     if (media_source_ssrc == local_ssrc ||
         registered_ssrcs.find(media_source_ssrc) != registered_ssrcs.end()) {
+      printf("[semena] RTCP_Receiver::TriggerCallbacksFromRtcpPacket. Calling OnTransportFeedback."
+             "media_ssrc %x, local_ssrc %x\n", media_source_ssrc, local_ssrc);
       transport_feedback_observer_->OnTransportFeedback(
           *packet_information.transport_feedback);
     }
