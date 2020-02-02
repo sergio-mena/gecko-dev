@@ -50,9 +50,9 @@ const int64_t kNADAParamQboundMs = 50;  // Upper bound on self-inflicted queuing
 const int64_t kNADAParamDfiltMs = 120;  // Bound on filtering delay [DFILT: in ms]
 const float   kNADAParamGammaMax =0.2;  // Upper bound on rate increase ratio for accelerated ramp-up
                                         // [GAMMA_MAX: dimensionless]
-const int kNADAParamRateBps =  600000;  // Default rate: 800Kbps
-const int kNADAParamRminBps =  300000;  // Min rate: 250Kbps
-const int kNADAParamRmaxBps = 3000000;  // Max rate: 2.5Mbps
+const int kNADAParamRateBps =  600000;  // Default rate: 600Kbps
+const int kNADAParamRminBps =  300000;  // Min rate: 300Kbps
+const int kNADAParamRmaxBps = 3000000;  // Max rate: 3Mbps
 
 const int kNADALimitNumPackets = 20;    // Number of packets before packet loss calculation is
                                         // considered as valid (outside the scope of NADA draft)
