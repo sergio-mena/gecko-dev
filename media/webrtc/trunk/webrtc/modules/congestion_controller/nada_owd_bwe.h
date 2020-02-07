@@ -103,7 +103,6 @@ class NadaOwdBwe: public DelayBasedBweInterface {
   float  nada_rtt_in_ms_;    // measured RTT used for Accelerated Ramp Up calculation
   float  nada_rtt_base_in_ms_;   // baseline RTT
   float  nada_rtt_rel_in_ms_;    // relative RTT
-  float  nada_rtt_avg_in_ms_;    // average RTT fed by others
 
   float nada_x_curr_;   // current congestion level:  x_curr in draft
   float nada_x_prev_;   // previous congestion level: x_prev in draft
@@ -112,8 +111,6 @@ class NadaOwdBwe: public DelayBasedBweInterface {
   float nada_d_base_;   // baseline forward one-way-delay along path: d_base in draft
   float nada_d_queue_;  // queuing delay: d_queue in draft
   float nada_plr_; 	// packet loss ratio:  XXX in draft
-
-  int64_t probing_interval_in_ms_;
 
   RTC_DISALLOW_IMPLICIT_CONSTRUCTORS(NadaOwdBwe);
 };
