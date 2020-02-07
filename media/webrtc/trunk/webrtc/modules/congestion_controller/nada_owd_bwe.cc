@@ -179,22 +179,19 @@ NadaOwdBwe::NadaOwdBwe(const Clock* clock)
       nada_rtt_in_ms_(kNadaBweDefaultRttMs),
       nada_rtt_base_in_ms_(-1.),
       nada_rtt_rel_in_ms_(0.),
-      nada_rtt_avg_in_ms_(0.),
       nada_x_curr_(kNadaBweParamXDefault),
       nada_x_prev_(kNadaBweParamXDefault),
       nada_delta_(kNadaBweParamDeltaMs),
       nada_d_fwd_(-1.),
       nada_d_base_(-1.),
       nada_d_queue_(-1.),
-      nada_plr_(0.),
-      probing_interval_in_ms_(kDefaultProbingIntervalinMs) {
+      nada_plr_(0.) {
 }
 
 NadaOwdBwe::~NadaOwdBwe() {}
 
 
-// TODO: figure out why we encounter duplicate FB vectors
-// 
+
 // TODO:  more elegant way of handling packet delay logs and duplicate FB vectors: 
 // keep a local log (list) of "raw" pkt one-way-delay info along with seqno, etc. 
 // decouple rate calculation from per-pkt stats update 
@@ -207,7 +204,6 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
                             packet_feedback_vector.end(),
                             PacketFeedbackComparator()));
 
-  // [X.Z. 2019-03-07] add time stamp info
   int64_t now_ms = clock_->TimeInMilliseconds();
   int nfb = int(packet_feedback_vector.size());
   if (last_update_ms_ > 0)
@@ -333,12 +329,13 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
      result.updated = false; 
   } else {
 
-    // TODO: use default parameters instead of hard-coded values
 
     // update delay measurements
     nada_d_fwd_ = dmin;
     nada_d_queue_ = nada_d_fwd_ - nada_d_base_;
     tmpplr = double(nloss)/(double(npkts+nloss));
+
+    // TODO: use default parameters instead of hard-coded values
     nada_plr_ += 0.1*(tmpplr - nada_plr_);  // exponential smoothing
 
     // non-linear delay warping
@@ -400,17 +397,7 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
            nada_rtt_rel_in_ms_,
            nada_x_curr_,
            nada_recv_in_bps_/1000.);
-/*
-    RTC_LOG(LS_INFO) << " NADA Rate Updated "
-                     << "| t= " << now_ms - first_update_ms_ << " ms"
-                     << "| mode=" << rmode 
-                     << "| rtt_rel= " << nada_rtt_rel_in_ms_
-                     << ", x_curr=" << nada_x_curr_ << " ms" 
-                     << "| r_recv=" << nada_recv_in_bps_/1000.  
-                     << ", r_curr=" << nada_rate_in_bps_/1000 
-                     << ", r_min="  << nada_rmin_in_bps_/1000.
-                     << ", r_max="  << nada_rmax_in_bps_/1000. << " Kbps" << std::endl;
-                     */
+
         std::ostringstream os;
         os << std::fixed;
         os.precision(2);
@@ -571,7 +558,7 @@ void NadaOwdBwe::GradualRateUpdate(const int64_t now_ms) {
 }
 
 
-//////////////////// Auxilliary Functions ///////////////
+//////////////////// Auxiliary Functions ///////////////
 void NadaOwdBwe::ClipBitrate() {
 
     if (nada_rate_in_bps_ < nada_rmin_in_bps_)
@@ -644,13 +631,7 @@ void NadaOwdBwe::UpdatePlrHistory(int64_t now_ms) {
 //////////////////// Set Local Variables Upon Request ///////////////
 
 void NadaOwdBwe::OnRttUpdate(int64_t avg_rtt_ms, int64_t max_rtt_ms) {
-
-   //  if (nada_rtt_base_in_ms_ < 0 || avg_rtt_ms < nada_rtt_base_in_ms_)
-   //	    nada_rtt_base_in_ms_ = avg_rtt_ms;
-   //
-   // nada_rtt_in_ms_ = avg_rtt_ms;
-
-   nada_rtt_avg_in_ms_ = avg_rtt_ms;
+  // Sergio: NOOP: we calculate RTT from OWD info
 }
 
 void NadaOwdBwe::SetStartBitrate(int start_bitrate_bps) {
@@ -669,12 +650,6 @@ void NadaOwdBwe::SetMinBitrate(int min_bitrate_bps) {
 
 }
 
-
-////////////// Anwsering Queries ///////////////////
-
-//
-// [XZ 2019-03-07]  TODO: check where & why this is called
-//
 bool NadaOwdBwe::LatestEstimate(std::vector<uint32_t>* ssrcs,
                                 uint32_t* bitrate_bps) const {
 
@@ -685,22 +660,13 @@ bool NadaOwdBwe::LatestEstimate(std::vector<uint32_t>* ssrcs,
   RTC_DCHECK(ssrcs);
   RTC_DCHECK(bitrate_bps);
 
-//  if (!rate_control_.ValidEstimate())
-//    return false;
-
   *ssrcs = {kNadaOwdFixedSsrc};
   *bitrate_bps = nada_rate_in_bps_;
-  // *bitrate_bps = rate_control_.LatestEstimate();
   return true;
 }
 
-//
-// [XQ 2019-03-07]  figure out where & why this is called
-//
 int64_t NadaOwdBwe::GetExpectedBwePeriodMs() const {
-
-  return probing_interval_in_ms_;
-  //return rate_control_.GetExpectedBandwidthPeriodMs();
+  return kDefaultProbingIntervalinMs;
 }
 
 }  // namespace webrtc
