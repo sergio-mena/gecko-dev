@@ -63,7 +63,7 @@
 #include "video/video_receive_stream.h"
 #include "video/video_send_stream.h"
 
-// #define XQ_DEBUG // [X.Z. 2019-09-03] macro for toggling debugging logs
+#define XQ_DEBUG // [X.Z. 2019-09-03] macro for toggling debugging logs
 
 
 namespace webrtc {
@@ -1345,7 +1345,11 @@ PacketReceiver::DeliveryStatus Call::DeliverRtcp(MediaType media_type,
   }
   if (media_type == MediaType::ANY || media_type == MediaType::VIDEO) {
     ReadLockScoped read_lock(*send_crit_);
+    int s_str = 0;
+    printf("[semena] PacketReceiver: send_streans_for\n");
     for (VideoSendStream* stream : video_send_streams_) {
+      s_str++;
+      printf("[semena] PacketReceiver: send_streans_ iteration = %d\n", s_str);
       if (stream->DeliverRtcp(packet, length))
         rtcp_delivered = true;
     }
@@ -1448,7 +1452,7 @@ PacketReceiver::DeliveryStatus Call::DeliverPacket(
   {
     #ifdef XQ_DEBUG
     // [X.Z. 2019-06-13] start of modification: printf message to trace fn. call of received RTCP pkt
-    printf("[XQ] PacketReceiver: DeliverPacket() => DeliverRtcp()\n");
+    printf("[XQ] PacketReceiver: DeliverPacket() => DeliverRtcp(). type: %d, pkt %p\n", media_type, packet);
     // [X.Z. 2019-06-13] end of modification. 
     #endif
     

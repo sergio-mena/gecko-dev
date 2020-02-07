@@ -367,7 +367,9 @@ class TransportFeedbackProxy : public TransportFeedbackObserver {
   void OnTransportFeedback(const rtcp::TransportFeedback& feedback) override {
     RTC_DCHECK(network_thread_.CalledOnValidThread());
     rtc::CritScope lock(&crit_);
+    printf("[semena] TransportFeedbackProxy::OnTransportFeedback\n");
     if (feedback_observer_)
+      printf("[semena] TransportFeedbackProxy::OnTransportFeedback. Calling OnTransportFeedback\n");
       feedback_observer_->OnTransportFeedback(feedback);
   }
   std::vector<PacketFeedback> GetTransportFeedbackVector() const override {
@@ -1326,6 +1328,7 @@ int32_t Channel::ReceivedRTCPPacket(const uint8_t* data, size_t length) {
   UpdatePlayoutTimestamp(true);
 
   // Deliver RTCP packet to RTP/RTCP module for parsing
+  printf("[semena] Channel::ReceivedRTCPPacket => _rtpRtcpModule->IncomingRtcpPacket\n");
   _rtpRtcpModule->IncomingRtcpPacket(data, length);
 
   int64_t rtt = GetRTT(true);

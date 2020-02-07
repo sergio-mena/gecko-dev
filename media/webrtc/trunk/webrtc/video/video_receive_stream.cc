@@ -40,7 +40,7 @@
 #include "video/call_stats.h"
 #include "video/receive_statistics_proxy.h"
 
-// #define XQ_DEBUG // [2019-09-03] macro for toggling debugging logs
+#define XQ_DEBUG // [2019-09-03] macro for toggling debugging logs
 
 namespace webrtc {
 
@@ -163,7 +163,7 @@ bool VideoReceiveStream::DeliverRtcp(const uint8_t* packet, size_t length) {
   
   #ifdef XQ_DEBUG
   // [X.Z. 2019-06-13] start of modification: printf message for tracing fn. call of received RTCP
-  printf("[XQ] VideoReceiveStream: DeliverRtcp() => tp_video_stream_receiver_.DeliverRtcp(...)\n");  
+  printf("[XQ] VideoReceiveStream: DeliverRtcp() => tp_video_stream_receiver_.DeliverRtcp(....)\n");
   // [X.Z. 2019-06-13] end of modification.
   #endif 
 
