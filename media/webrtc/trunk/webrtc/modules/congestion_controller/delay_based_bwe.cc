@@ -167,10 +167,6 @@ DelayBasedBwe::Result DelayBasedBwe::IncomingPacketFeedbackVector(
     delayed_feedback = false;
     IncomingPacketFeedback(packet_feedback);
 
-    //  TODO Sergio: interface of IncomingPacketFeedback is now "void"
-    //  printf("\t\t Inside DelayBasedBwe | update based on pkt %d, result = %d\n",
-    //      packet_info.sequence_number, result.updated);
-
     if (!in_sparse_update_experiment_)
       overusing |= (detector_.State() == BandwidthUsage::kBwOverusing);
     if (prev_detector_state == BandwidthUsage::kBwUnderusing &&
@@ -181,15 +177,15 @@ DelayBasedBwe::Result DelayBasedBwe::IncomingPacketFeedbackVector(
   }
 
   // [XZ 2019-10-21  added logging of pkt loss ratio, etc]
-  if (default_bwe_npkts_>0)  {
+  if (default_bwe_npkts_ > 0) {
     double tmpplr = double(default_bwe_ploss_)/(double(default_bwe_npkts_+default_bwe_ploss_));
     default_bwe_plr_ += 0.1*(tmpplr - default_bwe_plr_);  // exponential smoothing
     printf("DelayBasedBwe: plr = %.2f | %.2f\n", tmpplr, default_bwe_plr_);
   }
 
-  if (last_arrival_time_ms_>0) {
+  if (last_arrival_time_ms_ > 0) {
     uint64_t dt = curr_arrival_time_ms_ - last_arrival_time_ms_; 
-    default_bwe_rrate_ = float(default_bwe_nbytes_)*8000./double(dt); 
+    default_bwe_rrate_ = float(default_bwe_nbytes_) * 8000. / double(dt);
     RTC_LOG(LS_INFO) << "dt: " << dt << ", nbytes: " << default_bwe_nbytes_ << std::endl; 
   } 
 
@@ -211,7 +207,6 @@ DelayBasedBwe::Result DelayBasedBwe::IncomingPacketFeedbackVector(
     return MaybeUpdateEstimate(overusing, acked_bitrate_bps,
                                recovered_from_overuse);
   }
-
 
   // reset
   default_bwe_ploss_ = 0; 
@@ -297,8 +292,8 @@ void DelayBasedBwe::IncomingPacketFeedback(
 
     // update loss info: ploss, plr
     default_bwe_npkts_ ++; 
-    default_bwe_nbytes_ += packet_feedback.payload_size; 
-    curr_arrival_time_ms_ = packet_feedback.arrival_time_ms; 
+    default_bwe_nbytes_ += packet_feedback.payload_size;
+    curr_arrival_time_ms_ = packet_feedback.arrival_time_ms;
     if (last_seen_seqno_>0 && packet_feedback.sequence_number > last_seen_seqno_+1)
     {
       if (packet_feedback.sequence_number-last_seen_seqno_ < 1000) // avoid wrap-around
