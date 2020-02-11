@@ -39,7 +39,7 @@
 #include "system_wrappers/include/timestamp_extrapolator.h"
 #include "video/receive_statistics_proxy.h"
 
-#define XQ_DEBUG // [2019-09-03] macro for toggling debugging logs
+// #define XQ_DEBUG // [2019-09-03] macro for toggling debugging logs
 
 namespace webrtc {
 
@@ -557,7 +557,7 @@ bool RtpVideoStreamReceiver::DeliverRtcp(const uint8_t* rtcp_packet,
 
 #ifdef XQ_DEBUG
   // [X.Z. 2019-06-13] start of modification: printf message for tracing fn. call on recv path
-  printf("[XQ] RtpVideoStreamReceiver: DeliverRtcp()=>IncomingRtcpPacket(). pkt %p, this %p\n", rtcp_packet, this);
+  printf("[XQ] RtpVideoStreamReceiver: DeliverRtcp()=>IncomingRtcpPacket()\n");
   // [X.Z. 2019-06-13] end of modification. 
 #endif
 
