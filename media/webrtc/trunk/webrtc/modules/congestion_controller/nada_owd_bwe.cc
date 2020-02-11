@@ -26,12 +26,10 @@
 namespace {
 
 /*
- *
  * Default parameter values for the NADA algorithm.
  * See Fig. 3 in https://tools.ietf.org/html/draft-ietf-rmcat-nada-10
  * for more details.
- *
-*/
+ */
 constexpr float kNadaBweParamPrio  = 1.0;   // weight of priority for the flow [PRIO: dimensionless]
 constexpr float kNadaBweParamXref  = 10.0;  // reference congestion level  [XREF: in ms]
 constexpr float kNadaBweParamXDefault = 20.0;  // default congestion level [in ms]
@@ -46,14 +44,15 @@ constexpr uint32_t kNadaBweDefaultMaxBitrate = 3000000;  // 3000 Kbps
 constexpr int64_t kNadaBweParamDeltaMs = 100; // Target interval for feedback and/or rate update [DELTA: in ms]
 constexpr int64_t kNadaBweParamMinDeltaMs =  20; // Minimum value of delta for rate calculation [in ms]
 constexpr int64_t kNadaBweParamMaxDeltaMs = 200; // Maximum value of delta for rate calculation [in ms]
-constexpr int64_t kNadaBweParamLogwinMs  = 500; 	 // Observation time window for calculating
-constexpr int64_t kNadaBweParamLogwinMs2 = 3000; 	 // Observation time window for long-term minimal baseline forward delay value [in ms]
-constexpr int64_t  kNadaBweDefaultRttMs = 50.;   	// in ms
-constexpr int64_t  kNadaBweParamQepsMs = 10;   	// Threshold for determining queueing delay build-up [QEPS: in ms]
+constexpr int64_t kNadaBweParamLogwinMs  = 500;  // Observation time window for calculating
+constexpr int64_t kNadaBweParamLogwinMs2 = 3000; // Observation time window for long-term minimal baseline forward delay value [in ms]
+constexpr int64_t  kNadaBweDefaultRttMs = 50.;   // in ms
+constexpr int64_t  kNadaBweParamQepsMs = 10;    // Threshold for determining queueing delay build-up [QEPS: in ms]
 constexpr int64_t  kNadaBweParamQboundMs = 50;  // Upper bound on self-inflicted queuing delay [QBOUND: in ms]
 constexpr int64_t  kNadaBweParamDfiltMs = 120;  // Bound on filtering delay [DFILT: in ms]
-constexpr float    kNadaBweParamGammaMax =0.2;  // Upper bound on rate increase ratio for accelerated ramp-up
+constexpr float    kNadaBweParamGammaMax = 0.2;  // Upper bound on rate increase ratio for accelerated ramp-up
                                                 // [GAMMA_MAX: dimensionless]
+constexpr float    kNadaBweParamPlrSmooth = 0.1;  // Smoothing factor for EMA of packet loss ratio
 
 constexpr float    kNadaBweParamQthMs =50.;    // Delay threshold for invoking non-linear warping (QTH: in ms)
 constexpr float    kNadaBweParamLambda =0.5;   // Scaling parameter in the exponent of non-linear warping (LAMBDA: dimensionless)
@@ -62,7 +61,7 @@ constexpr float    kNadaBweParamDLossMs =10.;  // Reference delay penalty for lo
                                                // (DLOSS: dimensionless)
 
 constexpr int64_t kDefaultProbingIntervalinMs = 100;  // in ms
-constexpr int64_t kStreamTimeOutMs = 2000;   	// in ms
+constexpr int64_t kStreamTimeOutMs = 2000;            // in ms
 
 // This ssrc is used to fulfill the current API but will be removed
 // after the API has been changed.
@@ -76,128 +75,36 @@ constexpr int kRateEstmWindowMs = 150;
 
 namespace webrtc {
 
-///// start of BitrateEstimator subclass /////
-NadaOwdBwe::BitrateEstimator::BitrateEstimator()
-    : sum_(0),
-      current_win_ms_(0),
-      prev_time_ms_(-1),
-      bitrate_estimate_(-1.0f),
-      bitrate_estimate_var_(50.0f),
-      old_estimator_(kBitrateWindowMs, 8000) {}
-
-void NadaOwdBwe::BitrateEstimator::Update(int64_t now_ms, int bytes) {
-
-  old_estimator_.Update(bytes, now_ms);
-  rtc::Optional<uint32_t> rate = old_estimator_.Rate(now_ms);
-  bitrate_estimate_ = -1.0f;
-  if (rate)
-    bitrate_estimate_ = *rate / 1000.0f;
-  return;
-
-  int rate_window_ms = kRateEstmWindowMs;
-
-  // We use a larger window at the beginning to get a more stable sample that
-  // we can use to initialize the estimate.
-  if (bitrate_estimate_ < 0.f)
-    rate_window_ms = kInitialRateEstmWindowMs;
-  float bitrate_sample = UpdateWindow(now_ms, bytes, rate_window_ms);
-  if (bitrate_sample < 0.0f)
-    return;
-  if (bitrate_estimate_ < 0.0f) {
-    // This is the very first sample we get. Use it to initialize the estimate.
-    bitrate_estimate_ = bitrate_sample;
-    return;
-  }
-  // Define the sample uncertainty as a function of how far away it is from the
-  // current estimate.
-  float sample_uncertainty =
-      10.0f * std::abs(bitrate_estimate_ - bitrate_sample) / bitrate_estimate_;
-  float sample_var = sample_uncertainty * sample_uncertainty;
-  // Update a bayesian estimate of the rate, weighting it lower if the sample
-  // uncertainty is large.
-  // The bitrate estimate uncertainty is increased with each update to model
-  // that the bitrate changes over time.
-  float pred_bitrate_estimate_var = bitrate_estimate_var_ + 5.f;
-  bitrate_estimate_ = (sample_var * bitrate_estimate_ +
-                       pred_bitrate_estimate_var * bitrate_sample) /
-                      (sample_var + pred_bitrate_estimate_var);
-  bitrate_estimate_var_ = sample_var * pred_bitrate_estimate_var /
-                          (sample_var + pred_bitrate_estimate_var);
-}
-
-float NadaOwdBwe::BitrateEstimator::UpdateWindow(int64_t now_ms,
-                                                    int bytes,
-                                                    int rate_window_ms) {
-  // Reset if time moves backwards.
-  if (now_ms < prev_time_ms_) {
-    prev_time_ms_ = -1;
-    sum_ = 0;
-    current_win_ms_ = 0;
-  }
-  if (prev_time_ms_ >= 0) {
-    current_win_ms_ += now_ms - prev_time_ms_;
-    // Reset if nothing has been received for more than a full window.
-    if (now_ms - prev_time_ms_ > rate_window_ms) {
-      sum_ = 0;
-      current_win_ms_ %= rate_window_ms;
-    }
-  }
-  prev_time_ms_ = now_ms;
-  float bitrate_sample = -1.0f;
-  if (current_win_ms_ >= rate_window_ms) {
-    bitrate_sample = 8.0f * sum_ / static_cast<float>(rate_window_ms);
-    current_win_ms_ -= rate_window_ms;
-    sum_ = 0;
-  }
-  sum_ += bytes;
-  return bitrate_sample;
-}
-
-uint32_t NadaOwdBwe::BitrateEstimator::bitrate_bps() const {
-
-  if (bitrate_estimate_ < 0.f)
-    return 0;
-
-  return (uint32_t)(bitrate_estimate_ * 1000);
-}
-///// end of BitrateEstimator subclass /////
-
-
 ///  start of NadaOwdBwe (NADA One-way-delay BW Estimation) ///
 NadaOwdBwe::NadaOwdBwe(const Clock* clock)
     : DelayBasedBweInterface(),
       clock_(clock),
-      receiver_incoming_bitrate_(),
       last_update_ms_(-1),
       first_update_ms_(-1),
       last_seen_packet_ms_(-1),
       last_seen_seqno_(-1),
+      last_arrival_time_ms_(-1),
       nada_rate_in_bps_(kNadaBweDefaultBitrate),
       nada_rmin_in_bps_(kNadaBweDefaultMinBitrate),
       nada_rmax_in_bps_(kNadaBweDefaultMaxBitrate),
-      nada_recv_in_bps_(kNadaBweDefaultBitrate),
       nada_rtt_in_ms_(kNadaBweDefaultRttMs),
       nada_rtt_base_in_ms_(-1.),
       nada_rtt_rel_in_ms_(0.),
-      nada_rtt_avg_in_ms_(0.),
       nada_x_curr_(kNadaBweParamXDefault),
       nada_x_prev_(kNadaBweParamXDefault),
       nada_delta_(kNadaBweParamDeltaMs),
       nada_d_fwd_(-1.),
       nada_d_base_(-1.),
       nada_d_queue_(-1.),
-      nada_plr_(0.),
-      probing_interval_in_ms_(kDefaultProbingIntervalinMs) {
+      nada_plr_(0.) {
 }
 
 NadaOwdBwe::~NadaOwdBwe() {}
 
-
-// TODO: figure out why we encounter duplicate FB vectors
-// 
-// TODO:  more elegant way of handling packet delay logs and duplicate FB vectors: 
-// keep a local log (list) of "raw" pkt one-way-delay info along with seqno, etc. 
-// decouple rate calculation from per-pkt stats update 
+// TODO:  An alternative way of handling packet delay logs and duplicate
+// FB vectors would be:
+// * keep a local log (list) of "raw" pkt one-way-delay info along with seqno, etc.
+// * decouple rate calculation from per-pkt stats update
 
 // Main API for BW estimation, triggered by receiving transport FB vectors
 DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
@@ -207,14 +114,12 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
                             packet_feedback_vector.end(),
                             PacketFeedbackComparator()));
 
-  // [X.Z. 2019-03-07] add time stamp info
   int64_t now_ms = clock_->TimeInMilliseconds();
   int nfb = int(packet_feedback_vector.size());
   if (last_update_ms_ > 0)
     nada_delta_ = now_ms - last_update_ms_;
   if (first_update_ms_ < 0)
     first_update_ms_ = now_ms;
-
 
   printf("NadaOwdBwe::IncomingPacketFeedbackVector | t=%lld (%lld) ms, nfb = %d, fbint = %6.2f ms\n",
          now_ms, now_ms - first_update_ms_,
@@ -229,6 +134,8 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
 
   RTC_DCHECK_RUNS_SERIALIZED(&network_race_);
 
+
+  // [TODO Xiaoqing to decide if this is worth doing]
   // TODO: replace loop below with NADA calculation:
   // Step 1)  FB Vector => per-pkt <seqno, owd> info *
   //
@@ -246,25 +153,20 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
   int nwin = 5;  // TODO: should make this dynamically tunable but how? [XZ-2019-03-08]
   double rtt = 0.;
   double dq  = 0.;
-  bool dup_flag = false; // [X.Z. 2019-07-05] handle duplicate FB vectors
   int nloss = 0;
   int npkts = 0; 
+  int nbytes = 0;
+  uint64_t curr_arrival_time_ms = 0;
   double tmpplr = 0.0; 
   for (const auto& packet_feedback : packet_feedback_vector) {
-
     if (packet_feedback.send_time_ms < 0) {
-      dup_flag = true; 
-      printf("\t detected duplicate FB vectors for %6d\n", packet_feedback.sequence_number);
-
+      // Handle duplicate FB vectors, possibly due to duplicated packets.
+      // Bypass rest of delay statistics update
       RTC_LOG(LS_VERBOSE) << "NADA IncomingPacketFBVector | Detected duplicate FB vectors for pkt no. " 
                           << packet_feedback.sequence_number << std::endl; 
-
-      break; 
+      result.updated = false;
+      return result;
     }
-
-    // update rate info: r_recv
-    receiver_incoming_bitrate_.Update(packet_feedback.arrival_time_ms, packet_feedback.payload_size);
-    nada_recv_in_bps_ = receiver_incoming_bitrate_.bitrate_bps();
 
     // update delay info: d_fwd, d_base, d_queue, rtt
     dtmp = packet_feedback.arrival_time_ms - packet_feedback.send_time_ms;
@@ -283,9 +185,11 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
 
     dq = dtmp - nada_d_base_;
 
+    npkts ++;
+    nbytes += packet_feedback.payload_size;
+    curr_arrival_time_ms = packet_feedback.arrival_time_ms;
     // update pkt loss info
-    npkts ++; 
-    if (last_seen_seqno_>0 && packet_feedback.sequence_number > last_seen_seqno_+1)
+    if (last_seen_seqno_ > 0 && packet_feedback.sequence_number > last_seen_seqno_ + 1)
     {
       if (packet_feedback.sequence_number-last_seen_seqno_ < 1000) // avoid wrap-around
         nloss += packet_feedback.sequence_number-last_seen_seqno_-1; 
@@ -328,114 +232,103 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
     ipkt ++;
   }
 
-  // [X.Z. 2019-07-05] handle duplicate FB vectors, bypass rest of delay statistics update
-  if (dup_flag)  {
-     result.updated = false; 
-  } else {
+  // update delay measurements
+  nada_d_fwd_ = dmin;
+  nada_d_queue_ = nada_d_fwd_ - nada_d_base_;
+  tmpplr = double(nloss)/(double(npkts+nloss));
 
-    // TODO: use default parameters instead of hard-coded values
+  nada_plr_ += kNadaBweParamPlrSmooth * (tmpplr - nada_plr_);  // exponential smoothing
 
-    // update delay measurements
-    nada_d_fwd_ = dmin;
-    nada_d_queue_ = nada_d_fwd_ - nada_d_base_;
-    tmpplr = double(nloss)/(double(npkts+nloss));
-    nada_plr_ += 0.1*(tmpplr - nada_plr_);  // exponential smoothing
+  // non-linear delay warping
+  double d_tilde = nada_d_queue_;
+  if (nloss > 0)
+  {
+    if (nada_d_queue_ > kNadaBweParamQthMs)
+   {
+     double beta = kNadaBweParamLambda*(nada_d_queue_-kNadaBweParamQthMs)/kNadaBweParamQthMs;
+     d_tilde = kNadaBweParamQthMs*exp(-beta);
+   }
+  }
+  nada_x_curr_ = d_tilde +  kNadaBweParamDLossMs * (nada_plr_/kNadaBweParamPlrRef)*(nada_plr_/kNadaBweParamPlrRef);
 
-    // non-linear delay warping
-    double d_tilde = nada_d_queue_; 
-    if (nloss > 0)
-    {
-      if (nada_d_queue_ > kNadaBweParamQthMs)
-     {
-       double beta = kNadaBweParamLambda*(nada_d_queue_-kNadaBweParamQthMs)/kNadaBweParamQthMs;
-       d_tilde = kNadaBweParamQthMs*exp(-beta); 
-     }
-   }    
-   nada_x_curr_ = d_tilde +  kNadaBweParamDLossMs * (nada_plr_/kNadaBweParamPlrRef)*(nada_plr_/kNadaBweParamPlrRef);
-
-    printf("\t pktstats | delta=%6.2f d_fwd=%6.2f, d_base=%6.2f, d_queue=%6.2f ms, rtt=%6.2f, rtt_b=%6.2f, rtt_rel=%6.2f, plr = %6.2f, %6.2f, r_recv = %6.2f, x_curr=%6.2f\n",
-           nada_delta_, nada_d_fwd_, nada_d_base_, nada_d_queue_,
-           nada_rtt_in_ms_, nada_rtt_base_in_ms_, nada_rtt_rel_in_ms_,
-           tmpplr*100, nada_plr_*100, 
-           nada_recv_in_bps_/1000.0, 
-           nada_x_curr_);
-
-    RTC_LOG(LS_INFO) << " NADA IncomingPacketFBVector | pktstats "
-                     << "| delta="    << nada_delta_
-                     << ", d_fwd="    << nada_d_fwd_
-                     << ", d_base="   << nada_d_base_
-                     << ", d_queue="  << nada_d_queue_ 
-                     << ", d_tilde"   << d_tilde << " ms" 
-                     << ", rtt="      << nada_rtt_in_ms_
-                     << ", rtt_b="    << nada_rtt_base_in_ms_ 
-                     << ", rtt_rel="  << nada_rtt_rel_in_ms_
-                     << ", tmpplr="   << tmpplr*100  // instantaneous PLR
-                     << ", plr="      << nada_plr_*100 // time-smoothed PLR
-                     << ", r_recv="   << nada_recv_in_bps_/1000.0 << " Kbps"
-                     << ", x_curr="   << nada_x_curr_ << " ms" << std::endl; 
-
-
-
-    // switch between Accelerated-Ramp-Up mode and
-    // Gradual-Update mode based on loss/delay observations
-    UpdateDelHistory(now_ms);
-    UpdatePlrHistory(now_ms);
-
-    int rmode = GetRampUpMode();
-
-    if (rmode == 0)
-        AcceleratedRampUp(now_ms);
-    else
-        GradualRateUpdate(now_ms);
-
-    // clip the updated rate between [rmin, rmax]
-    ClipBitrate();
-
-    printf("NadaOwdBwe: t = %lld ms mode = %d | r_curr = %6.2f => [%6.2f, %6.2f] Kbps | rtt_rel = %6.2f ms, x_curr = %6.2f ms | r_recv = %6.2f Kbps\n",
-           now_ms - first_update_ms_,
-           rmode,
-           nada_rate_in_bps_/1000.,
-           nada_rmin_in_bps_/1000.,
-           nada_rmax_in_bps_/1000.,
-           nada_rtt_rel_in_ms_,
-           nada_x_curr_,
-           nada_recv_in_bps_/1000.);
-/*
-    RTC_LOG(LS_INFO) << " NADA Rate Updated "
-                     << "| t= " << now_ms - first_update_ms_ << " ms"
-                     << "| mode=" << rmode 
-                     << "| rtt_rel= " << nada_rtt_rel_in_ms_
-                     << ", x_curr=" << nada_x_curr_ << " ms" 
-                     << "| r_recv=" << nada_recv_in_bps_/1000.  
-                     << ", r_curr=" << nada_rate_in_bps_/1000 
-                     << ", r_min="  << nada_rmin_in_bps_/1000.
-                     << ", r_max="  << nada_rmax_in_bps_/1000. << " Kbps" << std::endl;
-                     */
-        std::ostringstream os;
-        os << std::fixed;
-        os.precision(2);
-        RTC_LOG(LS_INFO) << " NADA IncomingPacketFBVector | algo:nada_owd "                                   // 1) CC algorithm flavor
-                     << " | ts: "     << now_ms - first_update_ms_ << " ms"     // 2) timestamp
-                     << " | fbint: "  << nada_delta_ << " ms"                   // 3) feedback interval
-                     << " | qdel: "   << nada_d_queue_ << " ms"                 // 4) queuing delay 
-                     << " | rtt: "    << nada_rtt_in_ms_ << " ms"               // 5) RTT
-                     << " | ploss: "  << nloss                                  // 6) packet loss count
-                     << " | plr: "    << std::fixed << nada_plr_*100.  << " %"                 // 7) temporallysmoothed packet loss ratio
-                     << " | rmode: "  << rmode                                  // 8) rate update mode: accelerated ramp-up or gradual 
-                     << " | xcurr: "   << std::fixed << nada_x_curr_ << " ms"                  // 9) aggregated congestion signal 
-                     << " | rrate: "  << nada_recv_in_bps_/1000. << " Kbps"     // 10) receiving rate 
-                     << " | srate: "  << nada_rate_in_bps_/1000. << " Kbps"     // 11) sending rate
-                     << " | rmin: "    << nada_rmin_in_bps_/1000. << " Kbps"     // 12) minimum rate 
-                     << " | rmax: "    << nada_rmax_in_bps_/1000. << " Kbps"     // 13) maximum rate
-                     << std::endl;
-
-    last_seen_packet_ms_ = now_ms;
-    last_update_ms_ = now_ms;
-
-    result.target_bitrate_bps = nada_rate_in_bps_;
-    result.updated = true;
+  float rrate = 0.;
+  if (last_arrival_time_ms_ > 0) {
+    uint64_t dt = curr_arrival_time_ms - last_arrival_time_ms_;
+    rrate = float(nbytes) * 8000. / double(dt);
+    RTC_LOG(LS_INFO) << "dt: " << dt << ", nbytes: " << nbytes << std::endl;
   }
 
+  last_arrival_time_ms_ = curr_arrival_time_ms;
+
+  printf("\t pktstats | delta=%6.2f d_fwd=%6.2f, d_base=%6.2f, d_queue=%6.2f ms, rtt=%6.2f, rtt_b=%6.2f, rtt_rel=%6.2f, plr = %6.2f, %6.2f, r_recv = %6.2f, x_curr=%6.2f\n",
+         nada_delta_, nada_d_fwd_, nada_d_base_, nada_d_queue_,
+         nada_rtt_in_ms_, nada_rtt_base_in_ms_, nada_rtt_rel_in_ms_,
+         tmpplr*100, nada_plr_*100,
+         rrate / 1000.0,
+         nada_x_curr_);
+
+  RTC_LOG(LS_INFO) << " NADA IncomingPacketFBVector | pktstats "
+                   << "| delta="    << nada_delta_
+                   << ", d_fwd="    << nada_d_fwd_
+                   << ", d_base="   << nada_d_base_
+                   << ", d_queue="  << nada_d_queue_
+                   << ", d_tilde"   << d_tilde << " ms"
+                   << ", rtt="      << nada_rtt_in_ms_
+                   << ", rtt_b="    << nada_rtt_base_in_ms_
+                   << ", rtt_rel="  << nada_rtt_rel_in_ms_
+                   << ", tmpplr="   << tmpplr*100  // instantaneous PLR
+                   << ", plr="      << nada_plr_*100 // time-smoothed PLR
+                   << ", r_recv="   << rrate / 1000.0 << " Kbps"
+                   << ", x_curr="   << nada_x_curr_ << " ms" << std::endl;
+
+  // switch between Accelerated-Ramp-Up mode and
+  // Gradual-Update mode based on loss/delay observations
+  UpdateDelHistory(now_ms);
+  UpdatePlrHistory(now_ms);
+
+  int rmode = GetRampUpMode();
+
+  if (rmode == 0)
+      AcceleratedRampUp(now_ms);
+  else
+      GradualRateUpdate(now_ms);
+
+  // clip the updated rate between [rmin, rmax]
+  ClipBitrate();
+
+  printf("NadaOwdBwe: t = %lld ms mode = %d | r_curr = %6.2f => [%6.2f, %6.2f] Kbps | rtt_rel = %6.2f ms, x_curr = %6.2f ms | r_recv = %6.2f Kbps\n",
+         now_ms - first_update_ms_,
+         rmode,
+         nada_rate_in_bps_/1000.,
+         nada_rmin_in_bps_/1000.,
+         nada_rmax_in_bps_/1000.,
+         nada_rtt_rel_in_ms_,
+         nada_x_curr_,
+         rrate / 1000.);
+
+  std::ostringstream os;
+  os << std::fixed;
+  os.precision(2);
+  RTC_LOG(LS_INFO) << " NADA IncomingPacketFBVector | algo:nada_owd "                                   // 1) CC algorithm flavor
+               << " | ts: "     << now_ms - first_update_ms_ << " ms"     // 2) timestamp
+               << " | fbint: "  << nada_delta_ << " ms"                   // 3) feedback interval
+               << " | qdel: "   << nada_d_queue_ << " ms"                 // 4) queuing delay
+               << " | rtt: "    << nada_rtt_in_ms_ << " ms"               // 5) RTT
+               << " | ploss: "  << nloss                                  // 6) packet loss count
+               << " | plr: "    << std::fixed << nada_plr_*100.  << " %"                 // 7) temporallysmoothed packet loss ratio
+               << " | rmode: "  << rmode                                  // 8) rate update mode: accelerated ramp-up or gradual
+               << " | xcurr: "   << std::fixed << nada_x_curr_ << " ms"                  // 9) aggregated congestion signal
+               << " | rrate: "  << rrate / 1000. << " Kbps"     // 10) receiving rate
+               << " | srate: "  << nada_rate_in_bps_ / 1000. << " Kbps"     // 11) sending rate
+               << " | rmin: "    << nada_rmin_in_bps_ / 1000. << " Kbps"     // 12) minimum rate
+               << " | rmax: "    << nada_rmax_in_bps_ / 1000. << " Kbps"     // 13) maximum rate
+               << std::endl;
+
+  last_seen_packet_ms_ = now_ms;
+  last_update_ms_ = now_ms;
+
+  result.target_bitrate_bps = nada_rate_in_bps_;
+  result.updated = true;
   return result;
 }
 
@@ -571,7 +464,7 @@ void NadaOwdBwe::GradualRateUpdate(const int64_t now_ms) {
 }
 
 
-//////////////////// Auxilliary Functions ///////////////
+//////////////////// Auxiliary Functions ///////////////
 void NadaOwdBwe::ClipBitrate() {
 
     if (nada_rate_in_bps_ < nada_rmin_in_bps_)
@@ -640,41 +533,21 @@ void NadaOwdBwe::UpdatePlrHistory(int64_t now_ms) {
   max_plr_history_.push_back(std::make_pair(now_ms, nada_plr_));
 }
 
-
-//////////////////// Set Local Variables Upon Request ///////////////
-
+// We ignore updates to the RTT as one way delay (OWD) information is
+// more accurate for this version of the algorithm
 void NadaOwdBwe::OnRttUpdate(int64_t avg_rtt_ms, int64_t max_rtt_ms) {
-
-   //  if (nada_rtt_base_in_ms_ < 0 || avg_rtt_ms < nada_rtt_base_in_ms_)
-   //	    nada_rtt_base_in_ms_ = avg_rtt_ms;
-   //
-   // nada_rtt_in_ms_ = avg_rtt_ms;
-
-   nada_rtt_avg_in_ms_ = avg_rtt_ms;
 }
 
+// This method can be implemented if need be, but current version of the
+// algorithm works well without it
 void NadaOwdBwe::SetStartBitrate(int start_bitrate_bps) {
-  // Sergio: by-pass for the time being...
 }
 
+// This method can be implemented if need be, but current version of the
+// algorithm works well without it
 void NadaOwdBwe::SetMinBitrate(int min_bitrate_bps) {
-
-  // Called from both the configuration thread and the network thread. Shouldn't
-  // be called from the network thread in the future.
-
-
-    // [XZ 2019-04-09: for now by pass the pass-along of Rmin, use hardcoded default instead]
-    // printf("NadaOwdBwe: minimum rate set to %d bps\n", min_bitrate_bps);
-    // nada_rmin_in_bps_ = min_bitrate_bps;
-
 }
 
-
-////////////// Anwsering Queries ///////////////////
-
-//
-// [XZ 2019-03-07]  TODO: check where & why this is called
-//
 bool NadaOwdBwe::LatestEstimate(std::vector<uint32_t>* ssrcs,
                                 uint32_t* bitrate_bps) const {
 
@@ -685,22 +558,13 @@ bool NadaOwdBwe::LatestEstimate(std::vector<uint32_t>* ssrcs,
   RTC_DCHECK(ssrcs);
   RTC_DCHECK(bitrate_bps);
 
-//  if (!rate_control_.ValidEstimate())
-//    return false;
-
   *ssrcs = {kNadaOwdFixedSsrc};
   *bitrate_bps = nada_rate_in_bps_;
-  // *bitrate_bps = rate_control_.LatestEstimate();
   return true;
 }
 
-//
-// [XQ 2019-03-07]  figure out where & why this is called
-//
 int64_t NadaOwdBwe::GetExpectedBwePeriodMs() const {
-
-  return probing_interval_in_ms_;
-  //return rate_control_.GetExpectedBandwidthPeriodMs();
+  return kDefaultProbingIntervalinMs;
 }
 
 }  // namespace webrtc

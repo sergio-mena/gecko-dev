@@ -50,9 +50,9 @@ const int64_t kNADAParamQboundMs = 50;  // Upper bound on self-inflicted queuing
 const int64_t kNADAParamDfiltMs = 120;  // Bound on filtering delay [DFILT: in ms]
 const float   kNADAParamGammaMax =0.2;  // Upper bound on rate increase ratio for accelerated ramp-up
                                         // [GAMMA_MAX: dimensionless]
-const int kNADAParamRateBps =  600000;  // Default rate: 800Kbps
-const int kNADAParamRminBps =  300000;  // Min rate: 250Kbps
-const int kNADAParamRmaxBps = 3000000;  // Max rate: 2.5Mbps
+const int kNADAParamRateBps =  600000;  // Default rate: 600Kbps
+const int kNADAParamRminBps =  300000;  // Min rate: 300Kbps
+const int kNADAParamRmaxBps = 3000000;  // Max rate: 3Mbps
 
 const int kNADALimitNumPackets = 20;    // Number of packets before packet loss calculation is
                                         // considered as valid (outside the scope of NADA draft)
@@ -177,7 +177,7 @@ void NADABandwidthEstimation::CurrentEstimate(int* bitrate,
                                               uint8_t* loss,
                                               int64_t* rtt) const {
 
-
+//TODO (sergio): What should we do here? (goal: remove the "ifdef")
 #ifdef USE_DELAY_BASED
   *bitrate = delay_based_bitrate_bps_;
 #else
@@ -394,7 +394,6 @@ void NADABandwidthEstimation::AcceleratedRampUp(const int64_t now_ms) {
  *
  */
 void NADABandwidthEstimation::GradualRateUpdate(const int64_t now_ms) {
-
     double x_ratio = float(max_bitrate_configured_)/float(bitrate_);
     double x_target = kNADAParamPrio * kNADAParamXref * x_ratio;
     double x_offset = nada_x_curr_ - x_target;
@@ -410,15 +409,9 @@ void NADABandwidthEstimation::GradualRateUpdate(const int64_t now_ms) {
     double w2 = kNADAParamEta*x_diff/kNADAParamTau;
 
     bitrate_ = bitrate_*(1-kNADAParamKappa*(w1+w2));
-
-//	bitrate_ = 800000;  // for debugging
 }
 
 void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
-
-
-//    printf("NADA invoking UpdateEstimate at %d ms...\n", now_ms-first_report_time_ms_);
-
     if (last_feedback_ms_ == -1) {
       // no feedback message yet: staying with current rate
       RTC_LOG(LS_VERBOSE) << "NADA UpdateEstimate: no feedback yet -- "
@@ -591,33 +584,5 @@ void NADABandwidthEstimation::ClipBitrate() {
     bitrate_ = max_bitrate_configured_;
   }
 }
-
-/*
- * [XZ 2018-12-20]  Inherited from the SenderSideBandwidthEstimation
- * module.  We may need it later ...
- *
-uint32_t NADABandwidthEstimation::CapBitrateToThresholds(
-    int64_t now_ms, uint32_t bitrate) {
-  if (bwe_incoming_ > 0 && bitrate > bwe_incoming_) {
-    bitrate = bwe_incoming_;
-  }
-  if (delay_based_bitrate_bps_ > 0 && bitrate > delay_based_bitrate_bps_) {
-    bitrate = delay_based_bitrate_bps_;
-  }
-  if (bitrate > max_bitrate_configured_) {
-    bitrate = max_bitrate_configured_;
-  }
-  if (bitrate < min_bitrate_configured_) {
-    if (last_low_bitrate_log_ms_ == -1 ||
-        now_ms - last_low_bitrate_log_ms_ > kLowBitrateLogPeriodMs2) {
-      LOG(LS_WARNING) << "Estimated available bandwidth " << bitrate / 1000
-                      << " kbps is below configured min bitrate "
-                      << min_bitrate_configured_ / 1000 << " kbps.";
-      last_low_bitrate_log_ms_ = now_ms;
-    }
-    bitrate = min_bitrate_configured_;
-  }
-  return bitrate;
-}  */
 
 }  // namespace webrtc
