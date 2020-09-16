@@ -10,17 +10,17 @@
  *  FEC and NACK added bitrate is handled outside class
  */
 
-#ifndef MODULES_BITRATE_CONTROLLER_SEND_SIDE_BANDWIDTH_ESTIMATION_INT_H_
-#define MODULES_BITRATE_CONTROLLER_SEND_SIDE_BANDWIDTH_ESTIMATION_INT_H_
+#ifndef MODULES_BITRATE_CONTROLLER_SEND_SIDE_BANDWIDTH_ESTIMATION_INTERFACE_H_
+#define MODULES_BITRATE_CONTROLLER_SEND_SIDE_BANDWIDTH_ESTIMATION_INTERFACE_H_
 
 namespace webrtc {
 
 class RtcEventLog;
 
-class SendSideBandwidthEstimationInt {
+class SendSideBandwidthEstimationInterface {
  public:
-  SendSideBandwidthEstimationInt();
-  virtual ~SendSideBandwidthEstimationInt();
+  SendSideBandwidthEstimationInterface();
+  virtual ~SendSideBandwidthEstimationInterface();
 
   virtual void CurrentEstimate(int* bitrate, uint8_t* loss, int64_t* rtt) const = 0;
 
@@ -47,4 +47,4 @@ class SendSideBandwidthEstimationInt {
   virtual int GetMinBitrate() const = 0;
 };
 }  // namespace webrtc
-#endif  // MODULES_BITRATE_CONTROLLER_SEND_SIDE_BANDWIDTH_ESTIMATION_INT_H_
+#endif  // MODULES_BITRATE_CONTROLLER_SEND_SIDE_BANDWIDTH_ESTIMATION_INTERFACE_H_

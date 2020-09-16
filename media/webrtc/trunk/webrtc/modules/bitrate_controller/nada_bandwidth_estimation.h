@@ -24,17 +24,15 @@
 #include <vector>
 
 #include "modules/rtp_rtcp/include/rtp_rtcp_defines.h"
-#include "modules/bitrate_controller/send_side_bandwidth_estimation_int.h"
+#include "send_side_bandwidth_estimation_interface.h"
 
 namespace webrtc {
 
 class RtcEventLog;
 
-class NADABandwidthEstimation: public SendSideBandwidthEstimationInt {
+class NADABandwidthEstimation: public SendSideBandwidthEstimationInterface {
  public:
-
-  NADABandwidthEstimation() = delete;
-  explicit NADABandwidthEstimation(RtcEventLog* event_log);
+  explicit NADABandwidthEstimation();
   virtual ~NADABandwidthEstimation();
 
   // Retrieve current estimate
@@ -58,7 +56,6 @@ class NADABandwidthEstimation: public SendSideBandwidthEstimationInt {
   virtual void SetBitrates(int send_bitrate,
                            int min_bitrate,
                            int max_bitrate) override;
-
   virtual void SetSendBitrate(int bitrate) override;
   virtual void SetMinMaxBitrate(int min_bitrate, int max_bitrate) override;
   virtual int GetMinBitrate() const override;
@@ -69,15 +66,7 @@ class NADABandwidthEstimation: public SendSideBandwidthEstimationInt {
   void AcceleratedRampUp(int64_t now_ms);
   void GradualRateUpdate(int64_t now_ms);
 
-  //
-  // [XZ 2018-12-20]  save for now ...
-  //
-  // Returns the input bitrate capped to the range
-  // between min and max bandwidth.
-  //
-  // uint32_t CapBitrateToThresholds(int64_t now_ms, uint32_t bitrate);
-
-  void ClipBitrate();  // Clip bitrate_ between [R_min, R_max] //TODO Sergio: check new method CapBitrateToThresholds
+  void ClipBitrate();  // Clip bitrate_ between [R_min, R_max]
 
   // Updates history of:
   // -- min bitrates (to be depreciated for NADA)
@@ -95,7 +84,7 @@ class NADABandwidthEstimation: public SendSideBandwidthEstimationInt {
   std::deque<std::pair<int64_t, uint8_t> > max_plr_history_;
 
   // incoming filters for calculating packet loss ratio
-  int lost_packets_since_last_loss_update_Q8_;
+  int lost_packets_since_last_loss_update_Q8_; //TODO: Sergio's question: what does "Q8" mean?
   int expected_packets_since_last_loss_update_;
 
   //
@@ -107,9 +96,7 @@ class NADABandwidthEstimation: public SendSideBandwidthEstimationInt {
   uint32_t max_bitrate_configured_;     // max rate: RMAX in draft
 
   // intervals: delta
-  // int64_t last_rate_update_ms_;      // last time updating the rate (in ms) | t_last in draft
   int64_t last_feedback_ms_;            // last time receiving a feedback (in ms) | t_last in draft
-  // int64_t rate_update_interval_ms_;  // previous rate update interval | delta = t_curr - t_last
   int64_t feedback_interval_ms_;        // previous feedback interval | delta = t_curr - t_last
   int64_t delta_;                       // update interval used for rate calculation | delta in draft
 
@@ -117,29 +104,14 @@ class NADABandwidthEstimation: public SendSideBandwidthEstimationInt {
   float nada_x_curr_;   // current congestion level  | x_curr in draft
   float nada_x_prev_;   // previous congestion level | x_prev in draft
   uint64_t nada_relrtt_;  // relative RTT 
-  //
-  // inherited from SenderSideBandwidthEstimation
-  //
-//  bool has_decreased_since_last_fraction_loss_;
-//  int64_t last_feedback_ms_;		// last time receiving a feedback
-//  int64_t last_packet_report_ms_;	//
-//  int64_t last_timeout_ms_;
   uint8_t last_fraction_loss_;
-//  uint8_t last_logged_fraction_loss_;
   int64_t last_round_trip_time_ms_;
   int64_t min_round_trip_time_ms_;
 
-  uint32_t bwe_incoming_; 		        // receiver-estimated bandwidth, not used
-  uint32_t delay_based_bitrate_bps_;	// delay-based bandwidth estimation, not used
+  uint32_t bwe_incoming_;               // receiver-estimated bandwidth, not used
+  uint32_t delay_based_bitrate_bps_;    // delay-based bandwidth estimation, not used
 
-  // int64_t time_last_decrease_ms_;
   int64_t first_report_time_ms_;
-  // int initially_lost_packets_;
-
-  RtcEventLog* event_log_;
-  int64_t last_rtc_event_log_ms_;
-
-  bool in_timeout_experiment_;
 };
 
 }  // namespace webrtc
