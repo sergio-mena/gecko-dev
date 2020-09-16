@@ -18,13 +18,13 @@
 #include <vector>
 
 #include "modules/rtp_rtcp/include/rtp_rtcp_defines.h"
-#include "modules/bitrate_controller/send_side_bandwidth_estimation_int.h"
+#include "send_side_bandwidth_estimation_interface.h"
 
 namespace webrtc {
 
 class RtcEventLog;
 
-class SendSideBandwidthEstimation: public SendSideBandwidthEstimationInt {
+class SendSideBandwidthEstimation: public SendSideBandwidthEstimationInterface {
  public:
   SendSideBandwidthEstimation() = delete;
   explicit SendSideBandwidthEstimation(RtcEventLog* event_log);

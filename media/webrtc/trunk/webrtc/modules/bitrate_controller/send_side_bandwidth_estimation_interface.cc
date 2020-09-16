@@ -8,12 +8,12 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#include "modules/bitrate_controller/send_side_bandwidth_estimation_int.h"
+#include "send_side_bandwidth_estimation_interface.h"
 
 namespace webrtc {
 
-SendSideBandwidthEstimationInt::SendSideBandwidthEstimationInt() {}
+SendSideBandwidthEstimationInterface::SendSideBandwidthEstimationInterface() {}
 
-SendSideBandwidthEstimationInt::~SendSideBandwidthEstimationInt() {}
+SendSideBandwidthEstimationInterface::~SendSideBandwidthEstimationInterface() {}
 
 }  // namespace webrtc

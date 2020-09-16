@@ -70,8 +70,8 @@ BitrateControllerImpl::BitrateControllerImpl(const Clock* clock,
       event_log_(event_log),
       use_nada_(use_nada),
       bandwidth_estimation_(use_nada ?
-              static_cast<SendSideBandwidthEstimationInt *>(new NADABandwidthEstimation(event_log_)) :
-              static_cast<SendSideBandwidthEstimationInt *>(new SendSideBandwidthEstimation(event_log_))),
+              static_cast<SendSideBandwidthEstimationInterface *>(new NADABandwidthEstimation()) :
+              static_cast<SendSideBandwidthEstimationInterface *>(new SendSideBandwidthEstimation(event_log_))),
       reserved_bitrate_bps_(0),
       last_bitrate_bps_(0),
       last_fraction_loss_(0),
@@ -124,8 +124,8 @@ void BitrateControllerImpl::ResetBitrates(int bitrate_bps,
     rtc::CritScope cs(&critsect_);
 
     bandwidth_estimation_.reset(use_nada_ ?
-         static_cast<SendSideBandwidthEstimationInt *>(new NADABandwidthEstimation(event_log_)) :
-         static_cast<SendSideBandwidthEstimationInt *>(new SendSideBandwidthEstimation(event_log_)));
+         static_cast<SendSideBandwidthEstimationInterface *>(new NADABandwidthEstimation()) :
+         static_cast<SendSideBandwidthEstimationInterface *>(new SendSideBandwidthEstimation(event_log_)));
 
     bandwidth_estimation_->SetBitrates(bitrate_bps, min_bitrate_bps,
                                        max_bitrate_bps);
