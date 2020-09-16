@@ -140,8 +140,8 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
   // Step 1)  FB Vector => per-pkt <seqno, owd> info *
   //
   // Step 2)  Rate calculation update based on OWD/loss/RTT/recv_rate **
-  // 		2.a: accelerated ramp-up (probing)
-  // 		2.b: gradual update
+  //          2.a: accelerated ramp-up (probing)
+  //          2.b: gradual update
   //
   // Step 3)  Save to result struct
 
@@ -173,7 +173,6 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
     rtt = now_ms - packet_feedback.send_time_ms;
 
     // update d_base and rtt_base
-    // if (nada_d_base_ < 0 || nada_d_base_ > dtmp) nada_d_base_ = dtmp;
     UpdateDminHistory(now_ms, dtmp);
     nada_d_base_ = dmin_history_.front().second;
 
@@ -309,19 +308,19 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
   std::ostringstream os;
   os << std::fixed;
   os.precision(2);
-  RTC_LOG(LS_INFO) << " NADA IncomingPacketFBVector | algo:nada_owd "                                   // 1) CC algorithm flavor
+  RTC_LOG(LS_INFO) << " NADA IncomingPacketFBVector | algo:nada_owd "     // 1) CC algorithm flavor
                << " | ts: "     << now_ms - first_update_ms_ << " ms"     // 2) timestamp
                << " | fbint: "  << nada_delta_ << " ms"                   // 3) feedback interval
                << " | qdel: "   << nada_d_queue_ << " ms"                 // 4) queuing delay
                << " | rtt: "    << nada_rtt_in_ms_ << " ms"               // 5) RTT
                << " | ploss: "  << nloss                                  // 6) packet loss count
-               << " | plr: "    << std::fixed << nada_plr_*100.  << " %"                 // 7) temporallysmoothed packet loss ratio
+               << " | plr: "    << std::fixed << nada_plr_*100.  << " %"  // 7) temporallysmoothed packet loss ratio
                << " | rmode: "  << rmode                                  // 8) rate update mode: accelerated ramp-up or gradual
-               << " | xcurr: "   << std::fixed << nada_x_curr_ << " ms"                  // 9) aggregated congestion signal
-               << " | rrate: "  << rrate / 1000. << " Kbps"     // 10) receiving rate
-               << " | srate: "  << nada_rate_in_bps_ / 1000. << " Kbps"     // 11) sending rate
-               << " | rmin: "    << nada_rmin_in_bps_ / 1000. << " Kbps"     // 12) minimum rate
-               << " | rmax: "    << nada_rmax_in_bps_ / 1000. << " Kbps"     // 13) maximum rate
+               << " | xcurr: "   << std::fixed << nada_x_curr_ << " ms"   // 9) aggregated congestion signal
+               << " | rrate: "  << rrate / 1000. << " Kbps"               // 10) receiving rate
+               << " | srate: "  << nada_rate_in_bps_ / 1000. << " Kbps"   // 11) sending rate
+               << " | rmin: "    << nada_rmin_in_bps_ / 1000. << " Kbps"  // 12) minimum rate
+               << " | rmax: "    << nada_rmax_in_bps_ / 1000. << " Kbps"  // 13) maximum rate
                << std::endl;
 
   last_seen_packet_ms_ = now_ms;
@@ -388,23 +387,16 @@ int NadaOwdBwe::GetRampUpMode() {
  */
 void NadaOwdBwe::AcceleratedRampUp(const int64_t now_ms) {
 
-        // float rtt = float(nada_rtt_in_ms_);
-
-	// calculate multiplicative ramp-up ratio
-        float gamma = kNadaBweParamQboundMs /(nada_rtt_in_ms_ + kNadaBweParamDeltaMs + kNadaBweParamDfiltMs);
-        if (gamma > kNadaBweParamGammaMax) gamma = kNadaBweParamGammaMax;
-
-	printf("\t NadaOwdBwe::AcceleratedRampUp:  ramp-up ratio gamma = %4.2f, r_curr = %6.2f Kbps\n", gamma, nada_rate_in_bps_/1000.);
-
+  // calculate multiplicative ramp-up ratio
+  float gamma = kNadaBweParamQboundMs /(nada_rtt_in_ms_ + kNadaBweParamDeltaMs + kNadaBweParamDfiltMs);
+  if (gamma > kNadaBweParamGammaMax) gamma = kNadaBweParamGammaMax;
+  printf("\t NadaOwdBwe::AcceleratedRampUp:  ramp-up ratio gamma = %4.2f, r_curr = %6.2f Kbps\n", gamma, nada_rate_in_bps_/1000.);
 
   RTC_LOG(LS_VERBOSE) << "NADA AcceleratedRampUp "
                       << "| ramp-up ratio gamma=" << gamma
                       << ", r_curr=" << nada_rate_in_bps_/1000. << " Kbps" << std::endl; 
 
-        // float rnew = (1+gamma)* bwe_incoming_;
-        // if (rnew > bitrate_) bitrate_ = rnew;
-
-        nada_rate_in_bps_ = (1+gamma)*nada_rate_in_bps_;
+  nada_rate_in_bps_ = (1+gamma)*nada_rate_in_bps_;
 }
 
 
@@ -447,10 +439,11 @@ void NadaOwdBwe::GradualRateUpdate(const int64_t now_ms) {
     double w2 = kNadaBweParamEta*x_diff/kNadaBweParamTau;
 
     // avoid numerical "overflow" with uint type
-    if (kNadaBweParamKappa*(w1+w2) < 1.0)
+    if (kNadaBweParamKappa*(w1+w2) < 1.0) {
         nada_rate_in_bps_ = nada_rate_in_bps_*(1-kNadaBweParamKappa*(w1+w2));
-    else
-	     nada_rate_in_bps_ = 0;
+    } else {
+        nada_rate_in_bps_ = 0;
+    }
 
     printf("\t NadaOwdBwe::GradualRateUpdate:  x_curr = %6.2f ms | r_curr = %6.2f Kbps\n", nada_x_curr_, nada_rate_in_bps_/1000.);
 
@@ -467,11 +460,11 @@ void NadaOwdBwe::GradualRateUpdate(const int64_t now_ms) {
 //////////////////// Auxiliary Functions ///////////////
 void NadaOwdBwe::ClipBitrate() {
 
-    if (nada_rate_in_bps_ < nada_rmin_in_bps_)
-        nada_rate_in_bps_ = nada_rmin_in_bps_;
-
-    if (nada_rate_in_bps_ > nada_rmax_in_bps_) {
-        nada_rate_in_bps_ = nada_rmax_in_bps_;
+  if (nada_rate_in_bps_ < nada_rmin_in_bps_) {
+    nada_rate_in_bps_ = nada_rmin_in_bps_;
+  }
+  if (nada_rate_in_bps_ > nada_rmax_in_bps_) {
+    nada_rate_in_bps_ = nada_rmax_in_bps_;
   }
 }
 
@@ -481,11 +474,11 @@ void NadaOwdBwe::UpdateDminHistory(int64_t now_ms, float dtmp) {
   // Remove expired data points from history.
   while (!dmin_history_.empty() &&
          now_ms - dmin_history_.front().first > kNadaBweParamLogwinMs2) {
-        dmin_history_.pop_front();
+    dmin_history_.pop_front();
   }
 
   // Typical sliding-window algorithm for logging minimum values:
-  // Pop values highter than current delay value before pushing the current delay value.
+  // Pop values higher than current delay value before pushing the current delay value.
   while (!dmin_history_.empty() &&
          dtmp < dmin_history_.back().second) {
     dmin_history_.pop_back();
@@ -501,7 +494,7 @@ void NadaOwdBwe::UpdateDelHistory(int64_t now_ms) {
   // Remove expired data points from history.
   while (!max_del_history_.empty() &&
          now_ms - max_del_history_.front().first > kNadaBweParamLogwinMs) {
-        max_del_history_.pop_front();
+    max_del_history_.pop_front();
   }
 
   // Typical sliding-window algorithm for logging maximum values:
@@ -520,7 +513,7 @@ void NadaOwdBwe::UpdatePlrHistory(int64_t now_ms) {
   while (!max_plr_history_.empty() &&
          now_ms - max_plr_history_.front().first > kNadaBweParamLogwinMs) {
 
-        max_plr_history_.pop_front();
+    max_plr_history_.pop_front();
   }
 
   // Typical sliding-window algorithm for logging maximum values:

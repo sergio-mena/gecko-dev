@@ -31,7 +31,7 @@ namespace {
  * See Fig. 3 in https://tools.ietf.org/html/draft-ietf-rmcat-nada-09
  * for more details.
  *
-*/
+ */
 const float kNADAParamPrio  = 1.0;   // weight of priority for the flow [PRIO: dimensionless]
 const float kNADAParamXref  = 10.0;  // reference congestion level  [XREF: in ms]
 const float kNADAParamXDefault = 20.0;  // default congestion level [in ms]
