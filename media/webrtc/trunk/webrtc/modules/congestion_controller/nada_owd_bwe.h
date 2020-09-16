@@ -19,7 +19,6 @@
 #include "modules/congestion_controller/delay_based_bwe_interface.h"
 #include "rtc_base/checks.h"
 #include "rtc_base/constructormagic.h"
-#include "rtc_base/rate_statistics.h"
 #include "rtc_base/race_checker.h"
 
 namespace webrtc {
@@ -36,10 +35,9 @@ class NadaOwdBwe: public DelayBasedBweInterface {
   virtual DelayBasedBweInterface::Result IncomingPacketFeedbackVector(
       const std::vector<PacketFeedback>& packet_feedback_vector,
       rtc::Optional<uint32_t> acked_bitrate_bps) override;
-
   // Update local variables fed by others:  RTT, R_min
   virtual void OnRttUpdate(int64_t avg_rtt_ms, int64_t max_rtt_ms) override;
-  // Answer queries:
+  // Getters and setters
   virtual bool LatestEstimate(std::vector<uint32_t>* ssrcs,
                       uint32_t* bitrate_bps) const override;
   virtual void SetStartBitrate(int start_bitrate_bps) override;
@@ -47,7 +45,6 @@ class NadaOwdBwe: public DelayBasedBweInterface {
   virtual int64_t GetExpectedBwePeriodMs() const override;
 
  private:
-
   // Core NADA BW Estimation Calculations
    int GetRampUpMode();
   void AcceleratedRampUp(int64_t now_ms);
@@ -57,10 +54,10 @@ class NadaOwdBwe: public DelayBasedBweInterface {
   rtc::RaceChecker network_race_;
   const Clock* const clock_;
 
-  int64_t last_update_ms_;			      // timestamp for last rate update: t_last in draft
-  int64_t first_update_ms_;			      // timestamp for first rate update: t_init
-  int64_t last_seen_packet_ms_;			  // timestamp for last seen packet: t_last in draft (?)
-  int64_t last_seen_seqno_;            // seqnuence number for last seen packet, for plr estimation
+  int64_t last_update_ms_;           // timestamp for last rate update: t_last in draft
+  int64_t first_update_ms_;          // timestamp for first rate update: t_init
+  int64_t last_seen_packet_ms_;      // timestamp for last seen packet: t_last in draft (?)
+  int64_t last_seen_seqno_;          // seqnuence number for last seen packet, for plr estimation
 
   // history of plr and dfwd
   void UpdateDminHistory(int64_t now_ms, float dtmp);

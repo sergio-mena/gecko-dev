@@ -124,20 +124,16 @@ DelayBasedBwe::Result DelayBasedBwe::IncomingPacketFeedbackVector(
   if (last_seen_packet_ms_ > 0)
     feedback_interval_ms_ = now_ms - last_seen_packet_ms_; 
 
-  printf("DelayBasedBwe::IncomingPktFBVector | t=%lld (%lld) ms, nfb = %d, fbint = %d\n",
-  //  acked_rate = %d bps\n",
+  printf("DelayBasedBwe::IncomingPktFBVector | t=%lld (%lld) ms, nfb = %d, fbint = %lld\n",
          now_ms, 
          now_ms - first_seen_packet_ms_, 
          nfb, 
          feedback_interval_ms_); 
-         // acked_bitrate_bps);
 
   RTC_LOG(LS_INFO) << "DelayBasedBwe IncomingPacketFBVector" 
                    << " | t = "     << now_ms 
                    << " | t_rel = " <<  now_ms-first_seen_packet_ms_
-                   << " | nfb = " << nfb 
-                   // << " | acked_rate = "  << acked_bitrate_bps << " bps" 
-                   << std::endl; 
+                   << " | nfb = " << nfb << std::endl;
   // [XZ 2019-10-21]
 
   RTC_DCHECK_RUNS_SERIALIZED(&network_race_);
@@ -283,26 +279,28 @@ void DelayBasedBwe::IncomingPacketFeedback(
   }
 
   // [XZ 2019-10-21 added logging of per-pkt loss/delay, etc.]
-  if (packet_feedback.send_time_ms > 0) {
-    // update delay info: d_fwd, d_base, d_queue, rtt
-    default_bwe_rtt_ms_ = now_ms - packet_feedback.send_time_ms;
-    uint64_t dtmp = packet_feedback.arrival_time_ms - packet_feedback.send_time_ms;
-    if (default_bwe_dbase_ms_ < 0 || default_bwe_dbase_ms_ > dtmp) default_bwe_dbase_ms_ = dtmp;
-    default_bwe_dqel_ms_ = dtmp - default_bwe_dbase_ms_; 
+  RTC_CHECK_GT(packet_feedback.send_time_ms, 0);  // It is ensure by the caller
+  // update delay info: d_fwd, d_base, d_queue, rtt
+  RTC_CHECK_LE(packet_feedback.send_time_ms, now_ms); // Make sure default_bwe_rtt_ms_ doesn't wrap
+  default_bwe_rtt_ms_ = now_ms - packet_feedback.send_time_ms;
+  RTC_CHECK_LE(packet_feedback.send_time_ms, packet_feedback.arrival_time_ms); // Make sure dtmp isn't negative
+  int64_t dtmp = packet_feedback.arrival_time_ms - packet_feedback.send_time_ms;
+  if (default_bwe_dbase_ms_ < 0 || default_bwe_dbase_ms_ > dtmp) default_bwe_dbase_ms_ = dtmp;
+  default_bwe_dqel_ms_ = dtmp - default_bwe_dbase_ms_;
 
-    // update loss info: ploss, plr
-    default_bwe_npkts_ ++; 
-    default_bwe_nbytes_ += packet_feedback.payload_size;
-    curr_arrival_time_ms_ = packet_feedback.arrival_time_ms;
-    if (last_seen_seqno_>0 && packet_feedback.sequence_number > last_seen_seqno_+1)
-    {
-      if (packet_feedback.sequence_number-last_seen_seqno_ < 1000) // avoid wrap-around
-        default_bwe_ploss_ += packet_feedback.sequence_number-last_seen_seqno_-1; 
-    }
-    last_seen_seqno_ = packet_feedback.sequence_number;
+  // update loss info: ploss, plr
+  default_bwe_npkts_ ++;
+  default_bwe_nbytes_ += packet_feedback.payload_size;
+  curr_arrival_time_ms_ = packet_feedback.arrival_time_ms;
+  if (last_seen_seqno_>0 && packet_feedback.sequence_number > last_seen_seqno_+1)
+  {
+    if (packet_feedback.sequence_number-last_seen_seqno_ < 1000) // avoid wrap-around
+    default_bwe_ploss_ += packet_feedback.sequence_number-last_seen_seqno_-1;
+  }
+  last_seen_seqno_ = packet_feedback.sequence_number;
 
-    RTC_LOG(LS_INFO) << " DelayBWE IncomingPktFB | pktinfo "
-                   << " | seqno: " <<  packet_feedback.sequence_number
+  RTC_LOG(LS_INFO) << " DelayBWE IncomingPktFB | pktinfo "
+                               << " | seqno: " <<  packet_feedback.sequence_number
                    << " | pktsize: " <<  packet_feedback.payload_size << " bytes"
                    << " | creatts: " << packet_feedback.creation_time_ms << " ms"
                    << " | sendts: "  << packet_feedback.send_time_ms << " ms"
@@ -313,8 +311,6 @@ void DelayBasedBwe::IncomingPacketFeedback(
                    << " | ploss: " << default_bwe_ploss_ 
                    << " | plr: " << std::fixed << default_bwe_plr_*100. << " %"
                    << std::endl; 
-
-  }
   // [XZ 2019-10-21]
 }
 
