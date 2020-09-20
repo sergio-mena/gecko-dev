@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "modules/congestion_controller/delay_based_bwe_interface.h"
+#include "modules/remote_bitrate_estimator/include/nada_core.h"
 #include "rtc_base/checks.h"
 #include "rtc_base/constructormagic.h"
 #include "rtc_base/race_checker.h"
@@ -85,6 +86,7 @@ class NadaOwdBwe: public DelayBasedBweInterface {
   float nada_d_base_;   // baseline forward one-way-delay along path: d_base in draft
   float nada_d_queue_;  // queuing delay: d_queue in draft
   float nada_plr_; 	// packet loss ratio:  XXX in draft
+  NadaCore core_;  // core calculations for NADA algorithm
 
   RTC_DISALLOW_IMPLICIT_CONSTRUCTORS(NadaOwdBwe);
 };

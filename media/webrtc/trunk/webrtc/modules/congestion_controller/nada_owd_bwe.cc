@@ -96,7 +96,8 @@ NadaOwdBwe::NadaOwdBwe(const Clock* clock)
       nada_d_fwd_(-1.),
       nada_d_base_(-1.),
       nada_d_queue_(-1.),
-      nada_plr_(0.) {
+      nada_plr_(0.),
+      core_() {
 }
 
 NadaOwdBwe::~NadaOwdBwe() {}
@@ -258,6 +259,8 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
   }
 
   last_arrival_time_ms_ = curr_arrival_time_ms;
+
+  core_.TestFunction("NADA owd");
 
   printf("\t pktstats | delta=%6.2f d_fwd=%6.2f, d_base=%6.2f, d_queue=%6.2f ms, rtt=%6.2f, rtt_b=%6.2f, rtt_rel=%6.2f, plr = %6.2f, %6.2f, r_recv = %6.2f, x_curr=%6.2f\n",
          nada_delta_, nada_d_fwd_, nada_d_base_, nada_d_queue_,

@@ -74,7 +74,8 @@ NADABandwidthEstimation::NADABandwidthEstimation()
       min_round_trip_time_ms_(-1),
       bwe_incoming_(0),
       delay_based_bitrate_bps_(kNADAParamRateBps),
-      first_report_time_ms_(-1) {
+      first_report_time_ms_(-1),
+      core_() {
 
   printf("Initializing the NADA BW Estimation Module\n");
 
@@ -434,6 +435,8 @@ void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
 
     printf("NADA UpdateEstimate triggered by FB: ts = %lld, fbint = %lld ms, rmode = %d, xcurr = %4.2f, rate = %6d Kbps\n",
             now_ms-first_report_time_ms_, feedback_interval_ms_, rmode, nada_x_curr_, bitrate_/1000);
+
+    core_.TestFunction("NADA rtt");
 
     std::ostringstream os;
     os << std::fixed;

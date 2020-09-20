@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "modules/rtp_rtcp/include/rtp_rtcp_defines.h"
+#include "modules/remote_bitrate_estimator/include/nada_core.h"
 #include "send_side_bandwidth_estimation_interface.h"
 
 namespace webrtc {
@@ -112,6 +113,8 @@ class NADABandwidthEstimation: public SendSideBandwidthEstimationInterface {
   uint32_t delay_based_bitrate_bps_;    // delay-based bandwidth estimation, not used
 
   int64_t first_report_time_ms_;
+
+  NadaCore core_;  // core calculations for NADA algorithm
 };
 
 }  // namespace webrtc
