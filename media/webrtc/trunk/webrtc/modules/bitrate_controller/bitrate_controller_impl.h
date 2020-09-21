@@ -98,7 +98,7 @@ class BitrateControllerImpl : public BitrateController {
       RTC_GUARDED_BY(critsect_);
 
   bool use_nada_;
-  std::unique_ptr<SendSideBandwidthEstimationInt> bandwidth_estimation_ RTC_GUARDED_BY(critsect_);
+  std::unique_ptr<SendSideBandwidthEstimationInterface> bandwidth_estimation_ RTC_GUARDED_BY(critsect_);
   uint32_t reserved_bitrate_bps_ RTC_GUARDED_BY(critsect_);
 
   uint32_t last_bitrate_bps_ RTC_GUARDED_BY(critsect_);

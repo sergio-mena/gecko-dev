@@ -16,7 +16,6 @@
 
 #include "common_types.h"  // NOLINT(build/include)
 #include "modules/congestion_controller/delay_based_bwe_interface.h"
-#include "modules/congestion_controller/nada_owd_bwe.h"
 #include "modules/congestion_controller/transport_feedback_adapter.h"
 #include "modules/include/module.h"
 #include "modules/include/module_common_types.h"
