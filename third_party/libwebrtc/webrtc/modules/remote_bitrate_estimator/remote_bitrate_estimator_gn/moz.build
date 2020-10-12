@@ -35,6 +35,7 @@ UNIFIED_SOURCES += [
     "/third_party/libwebrtc/webrtc/modules/remote_bitrate_estimator/aimd_rate_control.cc",
     "/third_party/libwebrtc/webrtc/modules/remote_bitrate_estimator/bwe_defines.cc",
     "/third_party/libwebrtc/webrtc/modules/remote_bitrate_estimator/inter_arrival.cc",
+    "/third_party/libwebrtc/webrtc/modules/remote_bitrate_estimator/nada_core.cc",
     "/third_party/libwebrtc/webrtc/modules/remote_bitrate_estimator/overuse_detector.cc",
     "/third_party/libwebrtc/webrtc/modules/remote_bitrate_estimator/overuse_estimator.cc",
     "/third_party/libwebrtc/webrtc/modules/remote_bitrate_estimator/remote_bitrate_estimator_abs_send_time.cc",

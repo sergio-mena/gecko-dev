@@ -113,6 +113,7 @@ class Call {
     // RtcEventLog to use for this call. Required.
     // Use webrtc::RtcEventLog::CreateNull() for a null implementation.
     RtcEventLog* event_log = nullptr;
+    bool use_nada;
   };
 
   struct Stats {

@@ -423,8 +423,9 @@ pref("media.videocontrols.picture-in-picture.video-toggle.has-used", false);
 #ifdef MOZ_WEBRTC
   pref("media.navigator.video.enabled", true);
   pref("media.navigator.video.default_fps",30);
-  pref("media.navigator.video.use_remb", true);
+  pref("media.navigator.video.use_remb", false);
   pref("media.navigator.video.use_transport_cc", true);
+  pref("media.navigator.video.use_nada", true);
   pref("media.peerconnection.video.use_rtx", true);
   pref("media.peerconnection.video.use_rtx.blocklist", "");
   pref("media.navigator.video.use_tmmbr", false);

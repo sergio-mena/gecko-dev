@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "modules/bitrate_controller/send_side_bandwidth_estimation.h"
+#include "modules/bitrate_controller/nada_bandwidth_estimation.h"
 #include "rtc_base/constructormagic.h"
 #include "rtc_base/criticalsection.h"
 
@@ -34,7 +35,8 @@ class BitrateControllerImpl : public BitrateController {
   // |observer| is left for project that is not yet updated.
   BitrateControllerImpl(const Clock* clock,
                         BitrateObserver* observer,
-                        RtcEventLog* event_log);
+                        RtcEventLog* event_log,
+                        bool use_nada);
   virtual ~BitrateControllerImpl() {}
 
   bool AvailableBandwidth(uint32_t* bandwidth) const override;
@@ -94,7 +96,9 @@ class BitrateControllerImpl : public BitrateController {
   rtc::CriticalSection critsect_;
   std::map<uint32_t, uint32_t> ssrc_to_last_received_extended_high_seq_num_
       RTC_GUARDED_BY(critsect_);
-  SendSideBandwidthEstimation bandwidth_estimation_ RTC_GUARDED_BY(critsect_);
+
+  bool use_nada_;
+  std::unique_ptr<SendSideBandwidthEstimationInterface> bandwidth_estimation_ RTC_GUARDED_BY(critsect_);
   uint32_t reserved_bitrate_bps_ RTC_GUARDED_BY(critsect_);
 
   uint32_t last_bitrate_bps_ RTC_GUARDED_BY(critsect_);

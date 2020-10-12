@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 
+#include "modules/congestion_controller/delay_based_bwe_interface.h"
 #include "modules/congestion_controller/median_slope_estimator.h"
 #include "modules/congestion_controller/probe_bitrate_estimator.h"
 #include "modules/congestion_controller/trendline_estimator.h"
@@ -31,32 +32,22 @@ namespace webrtc {
 
 class RtcEventLog;
 
-class DelayBasedBwe {
+class DelayBasedBwe: public DelayBasedBweInterface {
  public:
   static const int64_t kStreamTimeOutMs = 2000;
-
-  struct Result {
-    Result();
-    Result(bool probe, uint32_t target_bitrate_bps);
-    ~Result();
-    bool updated;
-    bool probe;
-    uint32_t target_bitrate_bps;
-    bool recovered_from_overuse;
-  };
 
   DelayBasedBwe(RtcEventLog* event_log, const Clock* clock);
   virtual ~DelayBasedBwe();
 
-  Result IncomingPacketFeedbackVector(
+  virtual DelayBasedBweInterface::Result IncomingPacketFeedbackVector(
       const std::vector<PacketFeedback>& packet_feedback_vector,
-      rtc::Optional<uint32_t> acked_bitrate_bps);
-  void OnRttUpdate(int64_t avg_rtt_ms, int64_t max_rtt_ms);
-  bool LatestEstimate(std::vector<uint32_t>* ssrcs,
-                      uint32_t* bitrate_bps) const;
-  void SetStartBitrate(int start_bitrate_bps);
-  void SetMinBitrate(int min_bitrate_bps);
-  int64_t GetExpectedBwePeriodMs() const;
+      rtc::Optional<uint32_t> acked_bitrate_bps) override;
+  virtual void OnRttUpdate(int64_t avg_rtt_ms, int64_t max_rtt_ms) override;
+  virtual bool LatestEstimate(std::vector<uint32_t>* ssrcs,
+                      uint32_t* bitrate_bps) const override;
+  virtual void SetStartBitrate(int start_bitrate_bps) override;
+  virtual void SetMinBitrate(int min_bitrate_bps) override;
+  virtual int64_t GetExpectedBwePeriodMs() const override;
 
  private:
   void IncomingPacketFeedback(const PacketFeedback& packet_feedback);
@@ -77,7 +68,21 @@ class DelayBasedBwe {
   std::unique_ptr<InterArrival> inter_arrival_;
   std::unique_ptr<TrendlineEstimator> trendline_estimator_;
   OveruseDetector detector_;
-  int64_t last_seen_packet_ms_;
+  int64_t first_seen_packet_ms_;    // [XZ 2019-10-21 logging of relative time]
+  int64_t last_seen_packet_ms_;     // [XZ 2019-10-21 logging of FB interval]
+  int64_t feedback_interval_ms_;    // [XZ 2019-10-21 logging of FB interval]
+  int64_t last_seen_seqno_;         // [XZ 2019-10-21 logging of pkt seq #]
+  int default_bwe_npkts_;           // [XZ 2019-10-21 logging of # of ACKed pkts]
+  int default_bwe_ploss_;           // [XZ 2019-10-21 logging of pkt loss count]
+  double default_bwe_plr_;          // [XZ 2019-10-21 logging of pkt loss ratio]
+  uint64_t default_bwe_rtt_ms_;     // [XZ 2019-10-21 logging of per-pkt RTT]
+  uint64_t default_bwe_dqel_ms_;    // [XZ 2019-10-21 logging of queuing delay] 
+  int64_t default_bwe_dbase_ms_;   // [XZ 2019-10-21 logging of baseline one-way delay]
+  int default_bwe_nbytes_;        // [XZ 2019-10-21 logging of receiving rate]
+  double default_bwe_rrate_;      // [XZ 2019-10-21 logging of receiving rate]
+  int64_t last_arrival_time_ms_;   // [XZ 2019-10-21 logging of receiving rate]
+  uint64_t curr_arrival_time_ms_;   // [XZ 2019-10-21 logging of receiving rate]
+
   bool uma_recorded_;
   AimdRateControl rate_control_;
   ProbeBitrateEstimator probe_bitrate_estimator_;

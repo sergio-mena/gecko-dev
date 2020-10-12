@@ -27,13 +27,17 @@ void SendTimeHistory::AddAndRemoveOld(const PacketFeedback& packet) {
   // Remove old.
   while (!history_.empty() &&
          now_ms - history_.begin()->second.creation_time_ms >
-             packet_age_limit_ms_) {
+         packet_age_limit_ms_) {
     // TODO(sprang): Warn if erasing (too many) old items?
     history_.erase(history_.begin());
   }
 
   // Add new.
   int64_t unwrapped_seq_num = seq_num_unwrapper_.Unwrap(packet.sequence_number);
+
+//  printf("\t\t XZXZXZ adding pkt (seqno = %d->%ld) to history, sendtime unassigned\n",
+//    packet.sequence_number, unwrapped_seq_num);
+
   history_.insert(std::make_pair(unwrapped_seq_num, packet));
 }
 
@@ -52,12 +56,18 @@ bool SendTimeHistory::GetFeedback(PacketFeedback* packet_feedback,
   RTC_DCHECK(packet_feedback);
   int64_t unwrapped_seq_num =
       seq_num_unwrapper_.Unwrap(packet_feedback->sequence_number);
+
+  // printf("\t\t XZXZXZ looking up packet (seqno = %ld -> %ld) in history\n",
+  //     packet_feedback->sequence_number, unwrapped_seq_num);
+
   latest_acked_seq_num_.emplace(
       std::max(unwrapped_seq_num, latest_acked_seq_num_.value_or(0)));
   RTC_DCHECK_GE(*latest_acked_seq_num_, 0);
   auto it = history_.find(unwrapped_seq_num);
   if (it == history_.end())
     return false;
+
+  // printf("\t\t still here ...\n");
 
   // Save arrival_time not to overwrite it.
   int64_t arrival_time_ms = packet_feedback->arrival_time_ms;
@@ -66,6 +76,10 @@ bool SendTimeHistory::GetFeedback(PacketFeedback* packet_feedback,
 
   if (remove)
     history_.erase(it);
+
+  // printf("\t\t still here ... returning true, send_time = %d, arrival_time = %d\n",
+  // 	  packet_info->send_time_ms, packet_info->arrival_time_ms);
+
   return true;
 }
 

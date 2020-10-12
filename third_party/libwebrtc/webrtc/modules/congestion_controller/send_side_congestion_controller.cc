@@ -14,6 +14,8 @@
 #include <memory>
 #include <vector>
 
+#include "modules/congestion_controller/delay_based_bwe.h"
+#include "modules/congestion_controller/nada_owd_bwe.h"
 #include "modules/bitrate_controller/include/bitrate_controller.h"
 #include "modules/congestion_controller/acknowledged_bitrate_estimator.h"
 #include "modules/congestion_controller/probe_controller.h"
@@ -27,6 +29,8 @@
 #include "rtc_base/socket.h"
 #include "rtc_base/timeutils.h"
 #include "system_wrappers/include/field_trial.h"
+
+// #define XQ_DEBUG // [2019-09-03] macro for toggling debugging logs
 
 namespace webrtc {
 namespace {
@@ -98,13 +102,14 @@ SendSideCongestionController::SendSideCongestionController(
     const Clock* clock,
     Observer* observer,
     RtcEventLog* event_log,
-    PacedSender* pacer)
+    PacedSender* pacer,
+    bool use_nada)
     : clock_(clock),
       observer_(observer),
       event_log_(event_log),
       pacer_(pacer),
       bitrate_controller_(
-          BitrateController::CreateBitrateController(clock_, event_log)),
+          BitrateController::CreateBitrateController(clock_, event_log, use_nada)),
       acknowledged_bitrate_estimator_(
           rtc::MakeUnique<AcknowledgedBitrateEstimator>()),
       probe_controller_(new ProbeController(pacer_, clock_)),
@@ -118,7 +123,9 @@ SendSideCongestionController::SendSideCongestionController(
       pause_pacer_(false),
       pacer_paused_(false),
       min_bitrate_bps_(congestion_controller::GetMinBitrateBps()),
-      delay_based_bwe_(new DelayBasedBwe(event_log_, clock_)),
+      use_nada_ (use_nada),
+      delay_based_bwe_(use_nada ? static_cast<DelayBasedBweInterface *>(new NadaOwdBwe(clock_)) :
+                                  static_cast<DelayBasedBweInterface *>(new DelayBasedBwe(event_log_, clock_))),
       in_cwnd_experiment_(CwndExperimentEnabled()),
       accepted_queue_ms_(kDefaultAcceptedQueueMs),
       was_in_alr_(false),
@@ -175,6 +182,13 @@ void SendSideCongestionController::SetBweBitrates(int min_bitrate_bps,
     min_bitrate_bps_ = min_bitrate_bps;
     delay_based_bwe_->SetMinBitrate(min_bitrate_bps_);
   }
+
+  #ifdef XQ_DEBUG
+  // [X.Z. 2019-06-13] start of modification: printf for tracking modules
+  printf("[XQ] SendSideCongestionController: SetBweBitrates => MaybeTriggerOnNetworkChanged\n");
+  // [X.Z. 2019-06-13] end of modification
+  #endif 
+
   MaybeTriggerOnNetworkChanged();
 }
 
@@ -196,7 +210,9 @@ void SendSideCongestionController::OnNetworkRouteChanged(
   {
     rtc::CritScope cs(&bwe_lock_);
     min_bitrate_bps_ = min_bitrate_bps;
-    delay_based_bwe_.reset(new DelayBasedBwe(event_log_, clock_));
+
+    delay_based_bwe_.reset(use_nada_ ? static_cast<DelayBasedBweInterface *>(new NadaOwdBwe(clock_)) :
+                                       static_cast<DelayBasedBweInterface *>(new DelayBasedBwe(event_log_, clock_)));
     acknowledged_bitrate_estimator_.reset(new AcknowledgedBitrateEstimator());
     delay_based_bwe_->SetStartBitrate(bitrate_bps);
     delay_based_bwe_->SetMinBitrate(min_bitrate_bps);
@@ -205,6 +221,11 @@ void SendSideCongestionController::OnNetworkRouteChanged(
   probe_controller_->Reset();
   probe_controller_->SetBitrates(min_bitrate_bps, bitrate_bps, max_bitrate_bps);
 
+#ifdef XQ_DEBUG
+  // [X.Z. 2019-06-13] start of modification: printf for tracing modules
+  printf("[XQ] SendSideCongestionController: OnNetworkRouteChanged => MaybeTriggerOnNetworkChanged\n");
+  // [X.Z. 2019-06-13] end of modification.
+#endif 
   MaybeTriggerOnNetworkChanged();
 }
 
@@ -252,6 +273,12 @@ void SendSideCongestionController::SignalNetworkState(NetworkState state) {
     network_state_ = state;
   }
   probe_controller_->OnNetworkStateChanged(state);
+
+#ifdef XQ_DEBUG
+  // [X.Z. 2019-06-13] start of modification: printf for tracing modules
+  printf("[XQ] SendSideCongestionController: SignalNetworkState => MaybeTriggerOnNetworkChanged\n");
+  // [X.Z. 2019-06-13] end of modification.
+#endif
   MaybeTriggerOnNetworkChanged();
 }
 
@@ -265,6 +292,11 @@ void SendSideCongestionController::OnSentPacket(
     const rtc::SentPacket& sent_packet) {
   // We're not interested in packets without an id, which may be stun packets,
   // etc, sent on the same transport.
+
+#ifdef XQ_DEBUG
+  printf("\t\t [XQ] SendSideCongestionController:OnSentPacket: sentpkt id = %d\n", sent_packet.packet_id);
+#endif
+
   if (sent_packet.packet_id == -1)
     return;
   transport_feedback_adapter_.OnSentPacket(sent_packet.packet_id,
@@ -300,6 +332,12 @@ void SendSideCongestionController::Process() {
   }
   bitrate_controller_->Process();
   probe_controller_->Process();
+
+  #ifdef XQ_DEBUG
+  // [X.Z. 2019-06-13] start of modification: printf for tracing modules
+  printf("[XQ] SendSideCongestionController: Process() => MaybeTriggerOnNetworkChanged\n");
+  // [X.Z. 2019-06-13] end of modification
+  #endif 
   MaybeTriggerOnNetworkChanged();
 }
 
@@ -315,6 +353,14 @@ void SendSideCongestionController::AddPacket(
 void SendSideCongestionController::OnTransportFeedback(
     const rtcp::TransportFeedback& feedback) {
   RTC_DCHECK_RUNS_SERIALIZED(&worker_race_);
+
+
+  #ifdef XQ_DEBUG
+  // [X.Z. 2019-06-13] start of modification: printf for tracing modules
+  printf("[XQ] SendSideCongestionController: OnTransportFeedback() => transport_feedback_adapter_.OnTransportFeedback()\n");  
+    // [X.Z. 2019-06-13] start of modification
+  #endif 
+
   transport_feedback_adapter_.OnTransportFeedback(feedback);
   std::vector<PacketFeedback> feedback_vector = ReceivedPacketFeedbackVector(
       transport_feedback_adapter_.GetTransportFeedbackVector());
@@ -329,17 +375,43 @@ void SendSideCongestionController::OnTransportFeedback(
   }
   was_in_alr_ = currently_in_alr;
 
+  #ifdef XQ_DEBUG
+  // [X.Z. 2019-06-13] start of modification: printf for tracing modules
+  printf("[XQ] SendSideCongestionController: OnTransportFeedback() => acknowledged_bitrate_estimator_->IncomingPacketFeedbackVector()\n");  
+  // [X.Z. 2019-06-13] start of modification
+  #endif 
+
   acknowledged_bitrate_estimator_->IncomingPacketFeedbackVector(
       feedback_vector);
+
+  #ifdef XQ_DEBUG
+  // [X.Z. 2019-06-13] start of modification: printf for tracing modules
+  printf("[XQ] SendSideCongestionController: OnTransportFeedback() => delay_based_bwe_->IncomingPacketFeedbackVector()\n");    
+  // [X.Z. 2019-06-13] start of modification
+  #endif  
+
   DelayBasedBwe::Result result;
   {
     rtc::CritScope cs(&bwe_lock_);
     result = delay_based_bwe_->IncomingPacketFeedbackVector(
         feedback_vector, acknowledged_bitrate_estimator_->bitrate_bps());
   }
+
   if (result.updated) {
     bitrate_controller_->OnDelayBasedBweResult(result);
+
+  #ifdef XQ_DEBUG
+    // [X.Z. 2019-06-13] start of modification: printf for tracing modules
+    printf("[XQ] SendSideCongestionController: OnTransportFeedback(): Finished Rate Update. \n\n");    
+    // [X.Z. 2019-06-13] start of modification
+  #endif
+
     // Update the estimate in the ProbeController, in case we want to probe.
+  #ifdef XQ_DEBUG
+    // [X.Z. 2019-06-13] start of modification: printf for tracing modules
+    printf("[XQ] SendSideCongestionController: OnTransportFeedback() => MaybeTriggerOnNetworkChanged\n");  
+    // [X.Z. 2019-06-13] start of modification
+    #endif
     MaybeTriggerOnNetworkChanged();
   }
   if (result.recovered_from_overuse)
@@ -382,6 +454,13 @@ void SendSideCongestionController::MaybeTriggerOnNetworkChanged() {
   uint32_t bitrate_bps;
   uint8_t fraction_loss;
   int64_t rtt;
+
+#ifdef XQ_DEBUG
+  // [XZ 2019-06-13] start of modification: printf for tracing modules
+  printf("\t [XQ] SendSideCongestionController: MaybeTriggerOnNetworkChanged => GetNetParam\n");
+  // [XZ 2019-06-13] end of modification.
+#endif 
+
   bool estimate_changed = bitrate_controller_->GetNetworkParameters(
       &bitrate_bps, &fraction_loss, &rtt);
   if (estimate_changed) {

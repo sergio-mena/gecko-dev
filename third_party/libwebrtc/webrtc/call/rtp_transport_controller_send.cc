@@ -14,9 +14,10 @@ namespace webrtc {
 
 RtpTransportControllerSend::RtpTransportControllerSend(
     Clock* clock,
-    webrtc::RtcEventLog* event_log)
+    webrtc::RtcEventLog* event_log,
+    bool use_nada)
     : pacer_(clock, &packet_router_, event_log),
-      send_side_cc_(clock, nullptr /* observer */, event_log, &pacer_) {}
+      send_side_cc_(clock, nullptr /* observer */, event_log, &pacer_, use_nada) {}
 
 PacketRouter* RtpTransportControllerSend::packet_router() {
   return &packet_router_;

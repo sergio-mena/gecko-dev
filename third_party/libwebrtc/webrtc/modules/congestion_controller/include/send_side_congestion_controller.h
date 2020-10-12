@@ -15,7 +15,7 @@
 #include <vector>
 
 #include "common_types.h"  // NOLINT(build/include)
-#include "modules/congestion_controller/delay_based_bwe.h"
+#include "modules/congestion_controller/delay_based_bwe_interface.h"
 #include "modules/congestion_controller/transport_feedback_adapter.h"
 #include "modules/include/module.h"
 #include "modules/include/module_common_types.h"
@@ -60,7 +60,8 @@ class SendSideCongestionController : public CallStatsObserver,
   SendSideCongestionController(const Clock* clock,
                                Observer* observer,
                                RtcEventLog* event_log,
-                               PacedSender* pacer);
+                               PacedSender* pacer,
+                               bool use_nada);
   ~SendSideCongestionController() override;
 
   void RegisterPacketFeedbackObserver(PacketFeedbackObserver* observer);
@@ -148,7 +149,10 @@ class SendSideCongestionController : public CallStatsObserver,
   bool pacer_paused_;
   rtc::CriticalSection bwe_lock_;
   int min_bitrate_bps_ RTC_GUARDED_BY(bwe_lock_);
-  std::unique_ptr<DelayBasedBwe> delay_based_bwe_ RTC_GUARDED_BY(bwe_lock_);
+  bool use_nada_ RTC_GUARDED_BY(bwe_lock_);
+
+  std::unique_ptr<DelayBasedBweInterface> delay_based_bwe_ RTC_GUARDED_BY(bwe_lock_);
+
   bool in_cwnd_experiment_;
   int64_t accepted_queue_ms_;
   bool was_in_alr_;

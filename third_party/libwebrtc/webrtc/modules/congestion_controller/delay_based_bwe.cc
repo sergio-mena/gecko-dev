@@ -70,27 +70,27 @@ size_t ReadTrendlineFilterWindowSize() {
 
 namespace webrtc {
 
-DelayBasedBwe::Result::Result()
-    : updated(false),
-      probe(false),
-      target_bitrate_bps(0),
-      recovered_from_overuse(false) {}
-
-DelayBasedBwe::Result::Result(bool probe, uint32_t target_bitrate_bps)
-    : updated(true),
-      probe(probe),
-      target_bitrate_bps(target_bitrate_bps),
-      recovered_from_overuse(false) {}
-
-DelayBasedBwe::Result::~Result() {}
-
 DelayBasedBwe::DelayBasedBwe(RtcEventLog* event_log, const Clock* clock)
-    : event_log_(event_log),
+    : DelayBasedBweInterface(),
+      event_log_(event_log),
       clock_(clock),
       inter_arrival_(),
       trendline_estimator_(),
       detector_(),
+      first_seen_packet_ms_(-1),
       last_seen_packet_ms_(-1),
+      feedback_interval_ms_(0),
+      last_seen_seqno_(-1),
+      default_bwe_npkts_(0),
+      default_bwe_ploss_(0),
+      default_bwe_plr_(0.),
+      default_bwe_rtt_ms_(0),
+      default_bwe_dqel_ms_(0),
+      default_bwe_dbase_ms_(-1),
+      default_bwe_nbytes_(0),
+      default_bwe_rrate_(0.),
+      last_arrival_time_ms_(-1),
+      curr_arrival_time_ms_(0),
       uma_recorded_(false),
       probe_bitrate_estimator_(event_log),
       trendline_window_size_(
@@ -117,6 +117,25 @@ DelayBasedBwe::Result DelayBasedBwe::IncomingPacketFeedbackVector(
   RTC_DCHECK(std::is_sorted(packet_feedback_vector.begin(),
                             packet_feedback_vector.end(),
                             PacketFeedbackComparator()));
+
+  // [XZ 2019-10-21  added logging of time stamp, # of FB pkts, etc]
+  int64_t now_ms = clock_->TimeInMilliseconds();
+  int nfb = int(packet_feedback_vector.size());
+  if (last_seen_packet_ms_ > 0)
+    feedback_interval_ms_ = now_ms - last_seen_packet_ms_; 
+
+  printf("DelayBasedBwe::IncomingPktFBVector | t=%lld (%lld) ms, nfb = %d, fbint = %lld\n",
+         now_ms, 
+         now_ms - first_seen_packet_ms_, 
+         nfb, 
+         feedback_interval_ms_); 
+
+  RTC_LOG(LS_INFO) << "DelayBasedBwe IncomingPacketFBVector" 
+                   << " | t = "     << now_ms 
+                   << " | t_rel = " <<  now_ms-first_seen_packet_ms_
+                   << " | nfb = " << nfb << std::endl;
+  // [XZ 2019-10-21]
+
   RTC_DCHECK_RUNS_SERIALIZED(&network_race_);
 
   // TOOD(holmer): An empty feedback vector here likely means that
@@ -133,6 +152,7 @@ DelayBasedBwe::Result DelayBasedBwe::IncomingPacketFeedbackVector(
                               BweNames::kBweNamesMax);
     uma_recorded_ = true;
   }
+
   bool overusing = false;
   bool delayed_feedback = true;
   bool recovered_from_overuse = false;
@@ -142,6 +162,7 @@ DelayBasedBwe::Result DelayBasedBwe::IncomingPacketFeedbackVector(
       continue;
     delayed_feedback = false;
     IncomingPacketFeedback(packet_feedback);
+
     if (!in_sparse_update_experiment_)
       overusing |= (detector_.State() == BandwidthUsage::kBwOverusing);
     if (prev_detector_state == BandwidthUsage::kBwUnderusing &&
@@ -150,6 +171,24 @@ DelayBasedBwe::Result DelayBasedBwe::IncomingPacketFeedbackVector(
     }
     prev_detector_state = detector_.State();
   }
+
+  // [XZ 2019-10-21  added logging of pkt loss ratio, etc]
+  if (default_bwe_npkts_ > 0) {
+    double tmpplr = double(default_bwe_ploss_)/(double(default_bwe_npkts_+default_bwe_ploss_));
+    default_bwe_plr_ += 0.1*(tmpplr - default_bwe_plr_);  // exponential smoothing
+    printf("DelayBasedBwe: plr = %.2f | %.2f\n", tmpplr, default_bwe_plr_);
+  }
+
+  if (last_arrival_time_ms_ > 0) {
+    uint64_t dt = curr_arrival_time_ms_ - last_arrival_time_ms_; 
+    default_bwe_rrate_ = float(default_bwe_nbytes_) * 8000. / double(dt);
+    RTC_LOG(LS_INFO) << "dt: " << dt << ", nbytes: " << default_bwe_nbytes_ << std::endl; 
+  } 
+
+  last_arrival_time_ms_ = curr_arrival_time_ms_; 
+
+  // [XZ 2019-10-21]
+
   if (in_sparse_update_experiment_)
     overusing = (detector_.State() == BandwidthUsage::kBwOverusing);
 
@@ -164,6 +203,12 @@ DelayBasedBwe::Result DelayBasedBwe::IncomingPacketFeedbackVector(
     return MaybeUpdateEstimate(overusing, acked_bitrate_bps,
                                recovered_from_overuse);
   }
+
+  // reset
+  default_bwe_ploss_ = 0; 
+  default_bwe_npkts_ = 0; 
+  default_bwe_nbytes_ = 0.;
+  
   return Result();
 }
 
@@ -186,7 +231,12 @@ DelayBasedBwe::Result DelayBasedBwe::OnLongFeedbackDelay(
 
 void DelayBasedBwe::IncomingPacketFeedback(
     const PacketFeedback& packet_feedback) {
+
+  // [XZ 2019-10-21 added logging of FB interval, etc.]
   int64_t now_ms = clock_->TimeInMilliseconds();
+  if (first_seen_packet_ms_ == -1) first_seen_packet_ms_ = now_ms; 
+  // [XZ 2019-10-21]
+
   // Reset if the stream has timed out.
   if (last_seen_packet_ms_ == -1 ||
       now_ms - last_seen_packet_ms_ > kStreamTimeOutMs) {
@@ -227,6 +277,41 @@ void DelayBasedBwe::IncomingPacketFeedback(
       PacedPacketInfo::kNotAProbe) {
     probe_bitrate_estimator_.HandleProbeAndEstimateBitrate(packet_feedback);
   }
+
+  // [XZ 2019-10-21 added logging of per-pkt loss/delay, etc.]
+  RTC_CHECK_GT(packet_feedback.send_time_ms, 0);  // It is ensure by the caller
+  // update delay info: d_fwd, d_base, d_queue, rtt
+  RTC_CHECK_LE(packet_feedback.send_time_ms, now_ms); // Make sure default_bwe_rtt_ms_ doesn't wrap
+  default_bwe_rtt_ms_ = now_ms - packet_feedback.send_time_ms;
+  RTC_CHECK_LE(packet_feedback.send_time_ms, packet_feedback.arrival_time_ms); // Make sure dtmp isn't negative
+  int64_t dtmp = packet_feedback.arrival_time_ms - packet_feedback.send_time_ms;
+  if (default_bwe_dbase_ms_ < 0 || default_bwe_dbase_ms_ > dtmp) default_bwe_dbase_ms_ = dtmp;
+  default_bwe_dqel_ms_ = dtmp - default_bwe_dbase_ms_;
+
+  // update loss info: ploss, plr
+  default_bwe_npkts_ ++;
+  default_bwe_nbytes_ += packet_feedback.payload_size;
+  curr_arrival_time_ms_ = packet_feedback.arrival_time_ms;
+  if (last_seen_seqno_>0 && packet_feedback.sequence_number > last_seen_seqno_+1)
+  {
+    if (packet_feedback.sequence_number-last_seen_seqno_ < 1000) // avoid wrap-around
+    default_bwe_ploss_ += packet_feedback.sequence_number-last_seen_seqno_-1;
+  }
+  last_seen_seqno_ = packet_feedback.sequence_number;
+
+  RTC_LOG(LS_INFO) << " DelayBWE IncomingPktFB | pktinfo "
+                               << " | seqno: " <<  packet_feedback.sequence_number
+                   << " | pktsize: " <<  packet_feedback.payload_size << " bytes"
+                   << " | creatts: " << packet_feedback.creation_time_ms << " ms"
+                   << " | sendts: "  << packet_feedback.send_time_ms << " ms"
+                   << " | recvts: "  << packet_feedback.arrival_time_ms << " ms"
+                   << " | ackts: "   << now_ms << " ms"
+                   << " | dqel: " << default_bwe_dqel_ms_ << " ms"
+                   << " | rtt: " << default_bwe_rtt_ms_  << " ms" 
+                   << " | ploss: " << default_bwe_ploss_ 
+                   << " | plr: " << std::fixed << default_bwe_plr_*100. << " %"
+                   << std::endl; 
+  // [XZ 2019-10-21]
 }
 
 DelayBasedBwe::Result DelayBasedBwe::MaybeUpdateEstimate(
@@ -284,6 +369,28 @@ DelayBasedBwe::Result DelayBasedBwe::MaybeUpdateEstimate(
     prev_bitrate_ = bitrate_bps;
     prev_state_ = detector_.State();
   }
+
+  // [XZ 2019-10-21  added logging of BW estimation result]
+  std::ostringstream os;
+  os << std::fixed;
+  os.precision(2);
+
+  RTC_LOG(LS_INFO) << " DelayBasedBwe::MaybeUpdateEstimate | algo:default "       // 1) CC algorithm flavor
+                     << " | ts: "     << now_ms - first_seen_packet_ms_ << " ms"  // 2) timestamp
+                     << " | fbint: "  << feedback_interval_ms_ << " ms"              // 3) feedback interval
+                     << " | qdel: "   << default_bwe_dqel_ms_ << " ms"                 // 4) queuing delay 
+                     << " | rtt: "    << default_bwe_rtt_ms_ << " ms"               // 5) RTT
+                     << " | ploss: "  << default_bwe_ploss_                                  // 6) packet loss count
+                     << " | plr: "    << std::fixed << default_bwe_plr_*100.  << " %"                 // 7) temporally packet loss ratio
+                     << " | update: "  << result.updated                  // 9) aggregated congestion signal 
+                     << " | probe: "   << result.probe                           // 8) rate update mode: accelerated ramp-up or gradual 
+                     // << " | state: "   << prev_state_                       // 
+                     << " | rrate: "   << default_bwe_rrate_/1000. << " Kbps"     // 10) receiving rate 
+                     << " | srate: "    << result.target_bitrate_bps/1000. << " Kbps"     // 11) sending rate
+                     << std::endl;
+
+  // [XZ 2019-10-21]
+
   return result;
 }
 

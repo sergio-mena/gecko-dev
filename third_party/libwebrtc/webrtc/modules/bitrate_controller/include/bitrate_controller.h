@@ -62,10 +62,12 @@ class BitrateController : public Module, public RtcpBandwidthObserver {
   // Remove this method once other other projects does not use it.
   static BitrateController* CreateBitrateController(const Clock* clock,
                                                     BitrateObserver* observer,
-                                                    RtcEventLog* event_log);
+                                                    RtcEventLog* event_log,
+                                                    bool use_nada);
 
   static BitrateController* CreateBitrateController(const Clock* clock,
-                                                    RtcEventLog* event_log);
+                                                    RtcEventLog* event_log,
+                                                    bool use_nada);
 
   virtual ~BitrateController() {}
 
