@@ -22,31 +22,32 @@ namespace webrtc {
 
 namespace {
 
-/*
- *
- * Default parameter values for the NADA algorithm.
- * See Fig. 3 in https://tools.ietf.org/html/draft-ietf-rmcat-nada-09
- * for more details.
- *
- */
-const float kNADAParamPrio  = 1.0;   // weight of priority for the flow [PRIO: dimensionless]
-const float kNADAParamXref  = 10.0;  // reference congestion level  [XREF: in ms]
-const float kNADAParamXDefault = 20.0;  // default congestion level [in ms]
-const float kNADAParamKappa = 0.5;   // scaling parameter for gradual rate update [KAPPA: dimensionless]
-const float kNADAParamEta  = 2.0;  // scaling parameter for gradual rate update [ETA: dimensionless]
-const float kNADAParamTau = 500.;  // Upper bound of RTT for gradual rate update [TAU: in ms]
+// /*
+//  *
+//  * Default parameter values for the NADA algorithm.
+//  * See Fig. 3 in https://tools.ietf.org/html/draft-ietf-rmcat-nada-09
+//  * for more details.
+//  *
+//  */
 
-const int64_t kNADAParamDeltaMs = 100; // Target interval for feedback and/or rate update [DELTA: in ms]
-const int64_t kNADAParamMinDeltaMs =  20; // Minimum value of delta for rate calculation [in ms]
-const int64_t kNADAParamMaxDeltaMs = 500; // Maximum value of delta for rate calculation [in ms]
+// const float kNADAParamPrio  = 1.0;   // weight of priority for the flow [PRIO: dimensionless]
+// const float kNADAParamXref  = 10.0;  // reference congestion level  [XREF: in ms]
+// const float kNADAParamXDefault = 20.0;  // default congestion level [in ms]
+// const float kNADAParamKappa = 0.5;   // scaling parameter for gradual rate update [KAPPA: dimensionless]
+// const float kNADAParamEta  = 2.0;  // scaling parameter for gradual rate update [ETA: dimensionless]
+// const float kNADAParamTau = 500.;  // Upper bound of RTT for gradual rate update [TAU: in ms]
 
-const int64_t kNADAParamLogwinMs = 500; // Observation time window for calculating
-                                        // packet summary statistics [LOGWIN: in ms]
-const int64_t kNADAParamQepsMs = 10; 	// Threshold for determining queueing delay build-up [QEPS: in ms]
-const int64_t kNADAParamQboundMs = 50;  // Upper bound on self-inflicted queuing delay [QBOUND: in ms]
-const int64_t kNADAParamDfiltMs = 120;  // Bound on filtering delay [DFILT: in ms]
-const float   kNADAParamGammaMax =0.2;  // Upper bound on rate increase ratio for accelerated ramp-up
-                                        // [GAMMA_MAX: dimensionless]
+// const int64_t kNADAParamDeltaMs = 100; // Target interval for feedback and/or rate update [DELTA: in ms]
+// const int64_t kNADAParamMinDeltaMs =  20; // Minimum value of delta for rate calculation [in ms]
+// const int64_t kNADAParamMaxDeltaMs = 500; // Maximum value of delta for rate calculation [in ms]
+
+// const int64_t kNADAParamLogwinMs = 500; // Observation time window for calculating
+//                                         // packet summary statistics [LOGWIN: in ms]
+// const int64_t kNADAParamQepsMs = 10; 	// Threshold for determining queueing delay build-up [QEPS: in ms]
+// const int64_t kNADAParamQboundMs = 50;  // Upper bound on self-inflicted queuing delay [QBOUND: in ms]
+// const int64_t kNADAParamDfiltMs = 120;  // Bound on filtering delay [DFILT: in ms]
+// const float   kNADAParamGammaMax =0.2;  // Upper bound on rate increase ratio for accelerated ramp-up
+//                                         // [GAMMA_MAX: dimensionless]
 const int kNADAParamRateBps =  600000;  // Default rate: 600Kbps
 const int kNADAParamRminBps =  300000;  // Min rate: 300Kbps
 const int kNADAParamRmaxBps = 3000000;  // Max rate: 3Mbps
@@ -65,13 +66,13 @@ NADABandwidthEstimation::NADABandwidthEstimation()
       max_bitrate_configured_(kNADAParamRmaxBps),
       last_feedback_ms_(-1),
       feedback_interval_ms_(0),
-      delta_(kNADAParamDeltaMs),
-      nada_x_curr_(kNADAParamXDefault),
-      nada_x_prev_(kNADAParamXDefault),
-      nada_relrtt_(0),
+      // delta_(kNADAParamDeltaMs),
+      // nada_x_curr_(kNADAParamXDefault),
+      // nada_x_prev_(kNADAParamXDefault),
       last_fraction_loss_(0),
       last_round_trip_time_ms_(0),
       min_round_trip_time_ms_(-1),
+      relative_rtt_(0),
       bwe_incoming_(0),
       delay_based_bitrate_bps_(kNADAParamRateBps),
       first_report_time_ms_(-1),
@@ -80,9 +81,10 @@ NADABandwidthEstimation::NADABandwidthEstimation()
   printf("Initializing the NADA BW Estimation Module\n");
 
   RTC_LOG(LS_INFO) << "Initializing the NADA BW Estimation Module" ;
-  RTC_LOG(LS_INFO) << "NADA initial stats: delta = " << delta_
-                   << "ms, x_curr = " << nada_x_curr_
-                   << "ms, rate = "   << bitrate_/1000
+  // RTC_LOG(LS_INFO) << "NADA initial stats: delta = " << delta_
+  //                  << "ms, x_curr = " << nada_x_curr_
+  //                 << "ms, rate = "   << bitrate_/1000
+  RTC_LOG(LS_INFO) << "NADA initial stats: rate = " << bitrate_/1000
                    << "Kbps, rmin = " << min_bitrate_configured_/1000
                    << "Kbps, rmax = " << max_bitrate_configured_/1000
                    << "Kbps" << std::endl;
@@ -115,7 +117,8 @@ void NADABandwidthEstimation::SetSendBitrate(int bitrate) {
 
   // Clear last sent bitrate history so the new value can be used directly
   // and not capped.
-  min_bitrate_history_.clear();
+  // min_bitrate_history_.clear();
+  core_.ClearRminHistory(); 
 
   RTC_LOG(LS_INFO) << "NADA SetSendBitrate: bitrate_ = " << bitrate_/1000
                    << "Kbps." << std::endl;
@@ -229,6 +232,7 @@ void NADABandwidthEstimation::UpdateReceiverBlock(uint8_t fraction_loss,
   // Update RTT and base-RTT
   last_round_trip_time_ms_ = rtt;
   if (rtt < min_round_trip_time_ms_) min_round_trip_time_ms_ = rtt;
+  relative_rtt_ = rtt-min_round_trip_time_ms_; 
 
   // TODO: switch how congestion signal (x_curr) is calculated
   // based on a macro-defined mode:
@@ -241,8 +245,10 @@ void NADABandwidthEstimation::UpdateReceiverBlock(uint8_t fraction_loss,
   //
   // Update x_curr_ as relative RTT value
   // nada_x_curr_ = rtt;  //TODO Sergio's question: Reason for not removing this?
-  nada_relrtt_ = rtt-min_round_trip_time_ms_; 
-  nada_x_curr_ = rtt-min_round_trip_time_ms_;
+  // nada_relrtt_ = rtt-min_round_trip_time_ms_; 
+  // nada_x_curr_ = rtt-min_round_trip_time_ms_;
+
+  core_.UpdateCongestion(relative_rtt_); 
 
 
   printf("NADA UpdateReceiverBlock at %lld ms...rtt = %lld, npkts = %d\n",
@@ -302,87 +308,89 @@ void NADABandwidthEstimation::UpdateReceiverBlock(uint8_t fraction_loss,
  *
  *
  */
-int NADABandwidthEstimation::getRampUpMode() {
 
-    uint32_t rate_min = min_bitrate_history_.front().second;
-    int64_t rtt_max = max_rtt_history_.front().second;
-    uint8_t plr_max = max_plr_history_.front().second;
+// int NADABandwidthEstimation::getRampUpMode() {
+
+//     uint32_t rate_min = min_bitrate_history_.front().second;
+//     int64_t rtt_max = max_rtt_history_.front().second;
+//     uint8_t plr_max = max_plr_history_.front().second;
 
 
-    RTC_LOG(LS_VERBOSE) << "NADA getRampUpMode: rmin = " << rate_min/1000
-                        << " Kbps, rtt_min = " << min_round_trip_time_ms_
-                        << " ms, rtt_max = "   << rtt_max
-                        << " ms, plr_max = "   << int(plr_max) << std::endl;
+//     RTC_LOG(LS_VERBOSE) << "NADA getRampUpMode: rmin = " << rate_min/1000
+//                         << " Kbps, rtt_min = " << min_round_trip_time_ms_
+//                         << " ms, rtt_max = "   << rtt_max
+//                         << " ms, plr_max = "   << int(plr_max) << std::endl;
 
-    if (plr_max > 0.)	  return 1;  // loss exists, gradual-update
+//     if (plr_max > 0.)	  return 1;  // loss exists, gradual-update
 
-    if (rtt_max - min_round_trip_time_ms_ > kNADAParamQepsMs) return 1;
+//     if (rtt_max - min_round_trip_time_ms_ > kNADAParamQepsMs) return 1;
 
-    return 0;
-}
+//     return 0;
+// }
 
-/*
- * https://tools.ietf.org/html/draft-ietf-rmcat-nada-09
- *
- * In accelerated ramp-up mode, the rate r_ref is updated as follows:
- *
- *                             QBOUND
- * gamma = min(GAMMA_MAX, ------------------)     (3)
- *                        rtt+DELTA+DFILT
- *
- *
- * r_ref = max(r_ref, (1+gamma) r_recv)           (4)
- *
- */
-void NADABandwidthEstimation::AcceleratedRampUp(const int64_t now_ms) {
 
-    float rtt = float(last_round_trip_time_ms_);
+//  * https://tools.ietf.org/html/draft-ietf-rmcat-nada-09
+//  *
+//  * In accelerated ramp-up mode, the rate r_ref is updated as follows:
+//  *
+//  *                             QBOUND
+//  * gamma = min(GAMMA_MAX, ------------------)     (3)
+//  *                        rtt+DELTA+DFILT
+//  *
+//  *
+//  * r_ref = max(r_ref, (1+gamma) r_recv)           (4)
+//  *
+ 
+// void NADABandwidthEstimation::AcceleratedRampUp(const int64_t now_ms) {
 
-    float gamma = kNADAParamQboundMs /(rtt + kNADAParamDeltaMs + kNADAParamDfiltMs);
-    if (gamma > kNADAParamGammaMax) gamma = kNADAParamGammaMax;
+//     float rtt = float(last_round_trip_time_ms_);
 
-    bitrate_ = (1+gamma)*bitrate_;
-}
+//     float gamma = kNADAParamQboundMs /(rtt + kNADAParamDeltaMs + kNADAParamDfiltMs);
+//     if (gamma > kNADAParamGammaMax) gamma = kNADAParamGammaMax;
 
-/*
- * https://tools.ietf.org/html/draft-ietf-rmcat-nada-09
- *
- *
- * In gradual update mode, the rate r_ref is updated as:
- *
- *
- * x_offset = x_curr - PRIO*XREF*RMAX/r_ref          (5)
- *
- * x_diff   = x_curr - x_prev                        (6)
- *
- *                       delta    x_offset
- * r_ref = r_ref - KAPPA*-------*------------*r_ref
- *                        TAU       TAU
- *
- *                             x_diff
- *               - KAPPA*ETA*---------*r_ref         (7)
- *                             TAU
- *
- */
-void NADABandwidthEstimation::GradualRateUpdate(const int64_t now_ms) {
-    double x_ratio = float(max_bitrate_configured_)/float(bitrate_);
-    double x_target = kNADAParamPrio * kNADAParamXref * x_ratio;
-    double x_offset = nada_x_curr_ - x_target;
-    double x_diff = nada_x_curr_ - nada_x_prev_;
+//     bitrate_ = (1+gamma)*bitrate_;
+// }
 
-    // cache current observation as x_prev
-    nada_x_prev_ = nada_x_curr_;
+// /*
+//  * https://tools.ietf.org/html/draft-ietf-rmcat-nada-09
+//  *
+//  *
+//  * In gradual update mode, the rate r_ref is updated as:
+//  *
+//  *
+//  * x_offset = x_curr - PRIO*XREF*RMAX/r_ref          (5)
+//  *
+//  * x_diff   = x_curr - x_prev                        (6)
+//  *
+//  *                       delta    x_offset
+//  * r_ref = r_ref - KAPPA*-------*------------*r_ref
+//  *                        TAU       TAU
+//  *
+//  *                             x_diff
+//  *               - KAPPA*ETA*---------*r_ref         (7)
+//  *                             TAU
+//  *
+//  */
+// void NADABandwidthEstimation::GradualRateUpdate(const int64_t now_ms) {
+//     double x_ratio = float(max_bitrate_configured_)/float(bitrate_);
+//     double x_target = kNADAParamPrio * kNADAParamXref * x_ratio;
+//     double x_offset = nada_x_curr_ - x_target;
+//     double x_diff = nada_x_curr_ - nada_x_prev_;
 
-    // calculate updated rate per equations above
-    double w1 = float(delta_)/kNADAParamTau;
-    w1 = w1*x_offset/kNADAParamTau;
+//     // cache current observation as x_prev
+//     nada_x_prev_ = nada_x_curr_;
 
-    double w2 = kNADAParamEta*x_diff/kNADAParamTau;
+//     // calculate updated rate per equations above
+//     double w1 = float(delta_)/kNADAParamTau;
+//     w1 = w1*x_offset/kNADAParamTau;
 
-    bitrate_ = bitrate_*(1-kNADAParamKappa*(w1+w2));
-}
+//     double w2 = kNADAParamEta*x_diff/kNADAParamTau;
+
+//     bitrate_ = bitrate_*(1-kNADAParamKappa*(w1+w2));
+// }
 
 void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
+
     if (last_feedback_ms_ == -1) {
       // no feedback message yet: staying with current rate
       RTC_LOG(LS_VERBOSE) << "NADA UpdateEstimate: no feedback yet -- "
@@ -394,10 +402,11 @@ void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
                           << "rate: " << bitrate_/1000 << " Kbps "
                           << "feedback interval: " << feedback_interval_ms_ << " ms. " << std::endl;
 
-    // triggered by feedback update
-    delta_ = feedback_interval_ms_;
-    if (delta_ < kNADAParamMinDeltaMs) delta_ = kNADAParamMinDeltaMs;
-    if (delta_ > kNADAParamMaxDeltaMs) delta_ = kNADAParamMaxDeltaMs;
+    // // triggered by feedback update
+    // delta_ = feedback_interval_ms_;
+    // if (delta_ < kNADAParamMinDeltaMs) delta_ = kNADAParamMinDeltaMs;
+    // if (delta_ > kNADAParamMaxDeltaMs) delta_ = kNADAParamMaxDeltaMs;
+    core_.UpdateDelta(feedback_interval_ms_); 
 
 /*
  * TODO (Xiaoqing: worth it?): re-visit the logic of how feedback intervals are logged/updated
@@ -418,39 +427,49 @@ void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
     }
 */
     // update history logs of R_min | RTT | PlR
-    UpdateMinHistory(now_ms);
-    UpdateRttHistory(now_ms);
-    UpdatePlrHistory(now_ms);
+    // UpdateMinHistory(now_ms);
+    // UpdateRttHistory(now_ms);
+    // UpdatePlrHistory(now_ms);
+
+    core_.UpdateRminHistory(now_ms, bitrate_);
+    core_.UpdateRttHistory(now_ms, last_round_trip_time_ms_);
+    core_.UpdatePlrHistory(now_ms, last_fraction_loss_);
 
     // switch between Accelerated-Ramp-Up mode and
     // Gradual-Update mode based on loss/delay observations
-    int rmode = getRampUpMode();
+    int rmode = core_.getRampUpMode(min_round_trip_time_ms_);
 
     if (rmode == 0)
-      AcceleratedRampUp(now_ms);
+      // AcceleratedRampUp(now_ms);
+      bitrate_ = core_.AcceleratedRampUp(now_ms, 
+                                         last_round_trip_time_ms_, 
+                                         bitrate_);
     else
-      GradualRateUpdate(now_ms);
+      bitrate_ = core_.GradualRateUpdate(now_ms, 
+                                         max_bitrate_configured_, 
+                                         bitrate_);
 
     ClipBitrate();
 
+
+    float xcurr = core_.GetCongestion();  
     printf("NADA UpdateEstimate triggered by FB: ts = %lld, fbint = %lld ms, rmode = %d, xcurr = %4.2f, rate = %6d Kbps\n",
-            now_ms-first_report_time_ms_, feedback_interval_ms_, rmode, nada_x_curr_, bitrate_/1000);
+            now_ms-first_report_time_ms_, feedback_interval_ms_, rmode, xcurr, bitrate_/1000);
 
     core_.TestFunction("NADA rtt");
 
     std::ostringstream os;
     os << std::fixed;
     os.precision(2);
-
     RTC_LOG(LS_INFO) << " NADA UpdateEstimate | algo:nada_rtt "                     // 1) CC algorithm flavor
                      << " | ts: "     << now_ms-first_report_time_ms_ << " ms"      // 2) timestamp
                      << " | fbint: "  << feedback_interval_ms_ << " ms"             // 3) feedback interval
-                     << " | relrtt: " << nada_relrtt_ << " ms"                      // 4) relative RTT
+                     << " | relrtt: " << relative_rtt_ << " ms"                      // 4) relative RTT
                      << " | rtt: "    << last_round_trip_time_ms_ << " ms"          // 5) RTT
                      << " | ploss: "  << lost_packets_since_last_loss_update_Q8_    // 6) packet loss count
                      << " | plr: "     << std::fixed << float(last_fraction_loss_)*100.  << " %"  // 7) temporally smoothed packet loss ratio
-                     << " | rmode: "  << rmode                                      // 8) rate update mode: accelerated ramp-up or gradual 
-                     << " | xcurr: "   << std::fixed << nada_x_curr_ << " ms"       // 9) aggregated congestion signal
+                     << " | rmode: "   << rmode                                      // 8) rate update mode: accelerated ramp-up or gradual 
+                     << " | xcurr: "   << std::fixed << xcurr << " ms"       // 9) aggregated congestion signal
                      << " | rrate: "  << bwe_incoming_/1000. << " Kbps"             // 10) receiving rate 
                      << " | srate: "  << bitrate_/1000. << " Kbps"                  // 11) sending rate
                      << " | rmin: "    << min_bitrate_configured_/1000. << " Kbps"  // 12) minimum rate
@@ -470,69 +489,69 @@ void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
     }
 }
 
-/*
- *
- * Update history records for Rmin, RTT, PLR
- *
- */
-void NADABandwidthEstimation::UpdateMinHistory(int64_t now_ms) {
+// /*
+//  *
+//  * Update history records for Rmin, RTT, PLR
+//  *
+//  */
+// void NADABandwidthEstimation::UpdateMinHistory(int64_t now_ms) {
 
-  // Remove old data points from history.
-  // Since history precision is in ms, add one so it is able to increase
-  // bitrate if it is off by as little as 0.5ms.
-  while (!min_bitrate_history_.empty() &&
-         now_ms - min_bitrate_history_.front().first + 1 > kNADAParamLogwinMs) {
+//   // Remove old data points from history.
+//   // Since history precision is in ms, add one so it is able to increase
+//   // bitrate if it is off by as little as 0.5ms.
+//   while (!min_bitrate_history_.empty() &&
+//          now_ms - min_bitrate_history_.front().first + 1 > kNADAParamLogwinMs) {
 
-    min_bitrate_history_.pop_front();
-  }
+//     min_bitrate_history_.pop_front();
+//   }
 
-  // Typical minimum sliding-window algorithm: Pop values higher than current
-  // bitrate before pushing it.
-  while (!min_bitrate_history_.empty() &&
-         bitrate_ <= min_bitrate_history_.back().second) {
-    min_bitrate_history_.pop_back();
-  }
+//   // Typical minimum sliding-window algorithm: Pop values higher than current
+//   // bitrate before pushing it.
+//   while (!min_bitrate_history_.empty() &&
+//          bitrate_ <= min_bitrate_history_.back().second) {
+//     min_bitrate_history_.pop_back();
+//   }
 
-  min_bitrate_history_.push_back(std::make_pair(now_ms, bitrate_));
-}
+//   min_bitrate_history_.push_back(std::make_pair(now_ms, bitrate_));
+// }
 
-void NADABandwidthEstimation::UpdateRttHistory(int64_t now_ms) {
+// void NADABandwidthEstimation::UpdateRttHistory(int64_t now_ms) {
 
-  // Remove expired data points from history.
-  while (!max_rtt_history_.empty() &&
-         now_ms - max_rtt_history_.front().first > kNADAParamLogwinMs) {
+//   // Remove expired data points from history.
+//   while (!max_rtt_history_.empty() &&
+//          now_ms - max_rtt_history_.front().first > kNADAParamLogwinMs) {
 
-      max_rtt_history_.pop_front();
-  }
+//       max_rtt_history_.pop_front();
+//   }
 
-  // Typical sliding-window algorithm for logging maximum values:
-  // Pop values lower than current RTT before pushing the current RTT.
-  while (!max_rtt_history_.empty() &&
-         last_round_trip_time_ms_ >= max_rtt_history_.back().second) {
-    max_rtt_history_.pop_back();
-  }
+//   // Typical sliding-window algorithm for logging maximum values:
+//   // Pop values lower than current RTT before pushing the current RTT.
+//   while (!max_rtt_history_.empty() &&
+//          last_round_trip_time_ms_ >= max_rtt_history_.back().second) {
+//     max_rtt_history_.pop_back();
+//   }
 
-  max_rtt_history_.push_back(std::make_pair(now_ms, last_round_trip_time_ms_));
-}
+//   max_rtt_history_.push_back(std::make_pair(now_ms, last_round_trip_time_ms_));
+// }
 
-void NADABandwidthEstimation::UpdatePlrHistory(int64_t now_ms) {
+// void NADABandwidthEstimation::UpdatePlrHistory(int64_t now_ms) {
 
-  // Remove expired data points from history.
-  while (!max_plr_history_.empty() &&
-         now_ms - max_plr_history_.front().first > kNADAParamLogwinMs) {
+//   // Remove expired data points from history.
+//   while (!max_plr_history_.empty() &&
+//          now_ms - max_plr_history_.front().first > kNADAParamLogwinMs) {
 
-    max_plr_history_.pop_front();
-  }
+//     max_plr_history_.pop_front();
+//   }
 
-  // Typical sliding-window algorithm for logging maximum values:
-  // Pop values lower than current PLR before pushing the current PLR
-  while (!max_plr_history_.empty() &&
-         last_fraction_loss_ >= max_plr_history_.back().second) {
-    max_plr_history_.pop_back();
-  }
+//   // Typical sliding-window algorithm for logging maximum values:
+//   // Pop values lower than current PLR before pushing the current PLR
+//   while (!max_plr_history_.empty() &&
+//          last_fraction_loss_ >= max_plr_history_.back().second) {
+//     max_plr_history_.pop_back();
+//   }
 
-  max_plr_history_.push_back(std::make_pair(now_ms, last_fraction_loss_));
-}
+//   max_plr_history_.push_back(std::make_pair(now_ms, last_fraction_loss_));
+// }
 
 
 void NADABandwidthEstimation::ClipBitrate() {
