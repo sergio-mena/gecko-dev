@@ -30,24 +30,6 @@ namespace {
 //  *
 //  */
 
-// const float kNADAParamPrio  = 1.0;   // weight of priority for the flow [PRIO: dimensionless]
-// const float kNADAParamXref  = 10.0;  // reference congestion level  [XREF: in ms]
-// const float kNADAParamXDefault = 20.0;  // default congestion level [in ms]
-// const float kNADAParamKappa = 0.5;   // scaling parameter for gradual rate update [KAPPA: dimensionless]
-// const float kNADAParamEta  = 2.0;  // scaling parameter for gradual rate update [ETA: dimensionless]
-// const float kNADAParamTau = 500.;  // Upper bound of RTT for gradual rate update [TAU: in ms]
-
-// const int64_t kNADAParamDeltaMs = 100; // Target interval for feedback and/or rate update [DELTA: in ms]
-// const int64_t kNADAParamMinDeltaMs =  20; // Minimum value of delta for rate calculation [in ms]
-// const int64_t kNADAParamMaxDeltaMs = 500; // Maximum value of delta for rate calculation [in ms]
-
-// const int64_t kNADAParamLogwinMs = 500; // Observation time window for calculating
-//                                         // packet summary statistics [LOGWIN: in ms]
-// const int64_t kNADAParamQepsMs = 10; 	// Threshold for determining queueing delay build-up [QEPS: in ms]
-// const int64_t kNADAParamQboundMs = 50;  // Upper bound on self-inflicted queuing delay [QBOUND: in ms]
-// const int64_t kNADAParamDfiltMs = 120;  // Bound on filtering delay [DFILT: in ms]
-// const float   kNADAParamGammaMax =0.2;  // Upper bound on rate increase ratio for accelerated ramp-up
-//                                         // [GAMMA_MAX: dimensionless]
 const int kNADAParamRateBps =  600000;  // Default rate: 600Kbps
 const int kNADAParamRminBps =  300000;  // Min rate: 300Kbps
 const int kNADAParamRmaxBps = 3000000;  // Max rate: 3Mbps
@@ -433,11 +415,11 @@ void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
 
     core_.UpdateRminHistory(now_ms, bitrate_);
     core_.UpdateRttHistory(now_ms, last_round_trip_time_ms_);
-    core_.UpdatePlrHistory(now_ms, last_fraction_loss_);
+    core_.UpdatePlrHistory(now_ms, float(last_fraction_loss_));
 
     // switch between Accelerated-Ramp-Up mode and
     // Gradual-Update mode based on loss/delay observations
-    int rmode = core_.getRampUpMode(min_round_trip_time_ms_);
+    int rmode = core_.GetRampUpMode(min_round_trip_time_ms_);
 
     if (rmode == 0)
       // AcceleratedRampUp(now_ms);

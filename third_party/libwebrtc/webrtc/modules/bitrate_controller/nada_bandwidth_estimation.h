@@ -63,26 +63,7 @@ class NADABandwidthEstimation: public SendSideBandwidthEstimationInterface {
 
  private:
 
-  // int getRampUpMode();
-  // void AcceleratedRampUp(int64_t now_ms);
-  void GradualRateUpdate(int64_t now_ms);
-
   void ClipBitrate();  // Clip bitrate_ between [R_min, R_max]
-
-  // // Updates history of:
-  // // -- min bitrates (to be depreciated for NADA)
-  // // -- max rtt/owd
-  // // -- max plr
-  // //
-  // // After this method returns xxx_history_.front().second contains the
-  // // min/max value used during last logging window Logwin.
-  // //
-  // void UpdateMinHistory(int64_t now_ms);
-  // void UpdateRttHistory(int64_t now_ms);
-  // void UpdatePlrHistory(int64_t now_ms);
-  // std::deque<std::pair<int64_t, uint32_t> > min_bitrate_history_;
-  // std::deque<std::pair<int64_t, int64_t> > max_rtt_history_;
-  // std::deque<std::pair<int64_t, uint8_t> > max_plr_history_;
 
   // incoming filters for calculating packet loss ratio
   int lost_packets_since_last_loss_update_Q8_; //TODO: Sergio's question: what does "Q8" mean?
@@ -101,10 +82,6 @@ class NADABandwidthEstimation: public SendSideBandwidthEstimationInterface {
   int64_t feedback_interval_ms_;        // previous feedback interval | delta = t_curr - t_last
   // int64_t delta_;                       // update interval used for rate calculation | delta in draft
 
-  // congestion level
-  // float nada_x_curr_;   // current congestion level  | x_curr in draft
-  // float nada_x_prev_;   // previous congestion level | x_prev in draft
-  
   uint8_t last_fraction_loss_;
   int64_t last_round_trip_time_ms_;
   int64_t min_round_trip_time_ms_;

@@ -33,20 +33,30 @@ class NadaCore {
   	// After this method returns xxx_history_.front().second contains the
   	// min/max value used during last logging window Logwin.
   	//
+
+  	std::deque<std::pair<int64_t, uint32_t> > min_bitrate_history_;
+  	std::deque<std::pair<int64_t, int64_t> > max_rtt_history_;
+  	std::deque<std::pair<int64_t, float> > max_plr_history_;
+  	std::deque<std::pair<int64_t, float> > dmin_history_;
+  	std::deque<std::pair<int64_t, float> > max_del_history_;
+
   	void ClearRminHistory(); 
   	void UpdateRminHistory(int64_t now_ms, uint32_t rate_curr); 
   	void UpdateRttHistory(int64_t now_ms, int64_t rtt); 
-  	void UpdatePlrHistory(int64_t now_ms, uint8_t plr); 
-  	std::deque<std::pair<int64_t, uint32_t> > min_bitrate_history_;
-  	std::deque<std::pair<int64_t, int64_t> > max_rtt_history_;
-  	std::deque<std::pair<int64_t, uint8_t> > max_plr_history_;
+  	void UpdatePlrHistory(int64_t now_ms, float plr); 
+
+  	float GetDmin(); 
+  	void UpdateDminHistory(int64_t now_ms, float dtmp);
+  	void UpdateDelHistory(int64_t now_ms, float dfwd);
 
   	// Set/get congestion signal value
   	float GetCongestion(); 
   	void UpdateCongestion(int64_t val);  
+  	void UpdateCongestion(double dq, double plr, int nloss); 
 
   	// Core calculations for NADA algorithm
-  	int getRampUpMode(int64_t rtt_min);
+  	int GetRampUpMode();
+  	int GetRampUpMode(int64_t rtt_min);
   	uint32_t AcceleratedRampUp(const int64_t now_ms, 
 							   const int64_t rtt_curr, 
 							   uint32_t rate_curr); 
@@ -54,9 +64,10 @@ class NadaCore {
 							   const uint32_t rate_max, 
 							   uint32_t rate_curr); 
 
-	void LogUpdate(); 
+	// void LogUpdate(); 
 
  private: 
+
  	int64_t delta_;  // update interval used for rate calculation | delta in draft
   	float nada_x_curr_;   // current congestion level  | x_curr in draft
   	float nada_x_prev_;   // previous congestion level | x_prev in draft

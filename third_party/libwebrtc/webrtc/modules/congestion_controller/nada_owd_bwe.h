@@ -47,9 +47,6 @@ class NadaOwdBwe: public DelayBasedBweInterface {
 
  private:
   // Core NADA BW Estimation Calculations
-   int GetRampUpMode();
-  void AcceleratedRampUp(int64_t now_ms);
-  void GradualRateUpdate(int64_t now_ms);
   void ClipBitrate();  // Clip bitrate_ between [R_min, R_max]
 
   rtc::RaceChecker network_race_;
@@ -58,15 +55,7 @@ class NadaOwdBwe: public DelayBasedBweInterface {
   int64_t last_update_ms_;           // timestamp for last rate update: t_last in draft
   int64_t first_update_ms_;          // timestamp for first rate update: t_init
   int64_t last_seen_packet_ms_;      // timestamp for last seen packet: t_last in draft (?)
-  int64_t last_seen_seqno_;          // seqnuence number for last seen packet, for plr estimation
-
-  // history of plr and dfwd
-  void UpdateDminHistory(int64_t now_ms, float dtmp);
-  void UpdateDelHistory(int64_t now_ms);
-  void UpdatePlrHistory(int64_t now_ms);
-  std::deque<std::pair<int64_t, float> > dmin_history_;
-  std::deque<std::pair<int64_t, int64_t> > max_del_history_;
-  std::deque<std::pair<int64_t, uint8_t> > max_plr_history_;
+  int64_t last_seen_seqno_;          // sequence number for last seen packet, for plr estimation
 
   int64_t last_arrival_time_ms_;
 
@@ -75,16 +64,10 @@ class NadaOwdBwe: public DelayBasedBweInterface {
   uint32_t nada_rmin_in_bps_;  // configured minimum rate: RMIN in draft
   uint32_t nada_rmax_in_bps_;  // configured maximum rate: RMAX in draft
 
-  float  nada_rtt_in_ms_;    // measured RTT used for Accelerated Ramp Up calculation
+  // float  nada_rtt_in_ms_;    // measured RTT used for Accelerated Ramp Up calculation
   float  nada_rtt_base_in_ms_;   // baseline RTT
   float  nada_rtt_rel_in_ms_;    // relative RTT
 
-  float nada_x_curr_;   // current congestion level:  x_curr in draft
-  float nada_x_prev_;   // previous congestion level: x_prev in draft
-  float nada_delta_; 	// update interval:  delta in draft
-  float nada_d_fwd_;    // current forward one-way-delay:  d_fwd in draft
-  float nada_d_base_;   // baseline forward one-way-delay along path: d_base in draft
-  float nada_d_queue_;  // queuing delay: d_queue in draft
   float nada_plr_; 	// packet loss ratio:  XXX in draft
   NadaCore core_;  // core calculations for NADA algorithm
 
