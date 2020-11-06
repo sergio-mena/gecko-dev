@@ -19,7 +19,6 @@
 #ifndef MODULES_BITRATE_CONTROLLER_NADA_BANDWIDTH_ESTIMATION_H_
 #define MODULES_BITRATE_CONTROLLER_NADA_BANDWIDTH_ESTIMATION_H_
 
-// #include <deque>
 #include <utility>
 #include <vector>
 
@@ -63,7 +62,7 @@ class NADABandwidthEstimation: public SendSideBandwidthEstimationInterface {
 
  private:
 
-  void ClipBitrate();  // Clip bitrate_ between [R_min, R_max]
+  // void ClipBitrate();  // Clip bitrate_ between [R_min, R_max]
 
   // incoming filters for calculating packet loss ratio
   int lost_packets_since_last_loss_update_Q8_; //TODO: Sergio's question: what does "Q8" mean?
@@ -73,21 +72,18 @@ class NADABandwidthEstimation: public SendSideBandwidthEstimationInterface {
   // key variables for NADA rate calculation
   //
   // rates: r_ref, RMIN, RMAX
-  uint32_t bitrate_;                    // key variable holding calculated bandwidth: r_ref in draft
-  uint32_t min_bitrate_configured_;     // min rate: RMIN in draft
-  uint32_t max_bitrate_configured_;     // max rate: RMAX in draft
+  int bitrate_;                    // key variable holding calculated bandwidth: r_ref in draft
 
   // intervals: delta
   int64_t last_feedback_ms_;            // last time receiving a feedback (in ms) | t_last in draft
   int64_t feedback_interval_ms_;        // previous feedback interval | delta = t_curr - t_last
-  // int64_t delta_;                       // update interval used for rate calculation | delta in draft
 
   uint8_t last_fraction_loss_;
   int64_t last_round_trip_time_ms_;
   int64_t min_round_trip_time_ms_;
   uint64_t relative_rtt_;  // relative RTT 
 
-  uint32_t bwe_incoming_;               // receiver-estimated bandwidth, not used
+  uint32_t bwe_incoming_;               // receiver-estimated bandwidth
   uint32_t delay_based_bitrate_bps_;    // delay-based bandwidth estimation, not used
 
   int64_t first_report_time_ms_;

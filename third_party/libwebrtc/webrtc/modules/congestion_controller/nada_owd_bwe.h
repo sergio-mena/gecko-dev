@@ -47,7 +47,7 @@ class NadaOwdBwe: public DelayBasedBweInterface {
 
  private:
   // Core NADA BW Estimation Calculations
-  void ClipBitrate();  // Clip bitrate_ between [R_min, R_max]
+  // void ClipBitrate();  // Clip bitrate_ between [R_min, R_max]
 
   rtc::RaceChecker network_race_;
   const Clock* const clock_;
@@ -57,18 +57,18 @@ class NadaOwdBwe: public DelayBasedBweInterface {
   int64_t last_seen_packet_ms_;      // timestamp for last seen packet: t_last in draft (?)
   int64_t last_seen_seqno_;          // sequence number for last seen packet, for plr estimation
 
-  int64_t last_arrival_time_ms_;
+  uint64_t last_arrival_time_ms_;
 
 // variables for NADA BW estimation
-  uint32_t nada_rate_in_bps_;  // key variable holding calculated bandwidth: r_ref in draft
-  uint32_t nada_rmin_in_bps_;  // configured minimum rate: RMIN in draft
-  uint32_t nada_rmax_in_bps_;  // configured maximum rate: RMAX in draft
+  int nada_rate_in_bps_;  // key variable holding calculated bandwidth: r_ref in draft
+  // uint32_t nada_rmin_in_bps_;  // configured minimum rate: RMIN in draft
+  // uint32_t nada_rmax_in_bps_;  // configured maximum rate: RMAX in draft
 
   // float  nada_rtt_in_ms_;    // measured RTT used for Accelerated Ramp Up calculation
-  float  nada_rtt_base_in_ms_;   // baseline RTT
-  float  nada_rtt_rel_in_ms_;    // relative RTT
+  // float  nada_rtt_base_in_ms_;   // baseline RTT
+  // float  nada_rtt_rel_in_ms_;    // relative RTT
 
-  float nada_plr_; 	// packet loss ratio:  XXX in draft
+  // float nada_plr_; 	// packet loss ratio:  XXX in draft
   NadaCore core_;  // core calculations for NADA algorithm
 
   RTC_DISALLOW_IMPLICIT_CONSTRUCTORS(NadaOwdBwe);
