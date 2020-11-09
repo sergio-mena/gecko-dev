@@ -32,12 +32,14 @@ class NadaOwdBwe: public DelayBasedBweInterface {
   explicit NadaOwdBwe(const Clock* clock);
   virtual ~NadaOwdBwe();
 
-  // Triggers BW estimation upon receving a new packet FB vector
+  // Triggers BW estimation upon receiving a new packet FB vector
   virtual DelayBasedBweInterface::Result IncomingPacketFeedbackVector(
       const std::vector<PacketFeedback>& packet_feedback_vector,
       rtc::Optional<uint32_t> acked_bitrate_bps) override;
+
   // Update local variables fed by others:  RTT, R_min
   virtual void OnRttUpdate(int64_t avg_rtt_ms, int64_t max_rtt_ms) override;
+  
   // Getters and setters
   virtual bool LatestEstimate(std::vector<uint32_t>* ssrcs,
                       uint32_t* bitrate_bps) const override;
@@ -46,8 +48,6 @@ class NadaOwdBwe: public DelayBasedBweInterface {
   virtual int64_t GetExpectedBwePeriodMs() const override;
 
  private:
-  // Core NADA BW Estimation Calculations
-  // void ClipBitrate();  // Clip bitrate_ between [R_min, R_max]
 
   rtc::RaceChecker network_race_;
   const Clock* const clock_;
@@ -59,17 +59,9 @@ class NadaOwdBwe: public DelayBasedBweInterface {
 
   uint64_t last_arrival_time_ms_;
 
-// variables for NADA BW estimation
-  int nada_rate_in_bps_;  // key variable holding calculated bandwidth: r_ref in draft
-  // uint32_t nada_rmin_in_bps_;  // configured minimum rate: RMIN in draft
-  // uint32_t nada_rmax_in_bps_;  // configured maximum rate: RMAX in draft
-
-  // float  nada_rtt_in_ms_;    // measured RTT used for Accelerated Ramp Up calculation
-  // float  nada_rtt_base_in_ms_;   // baseline RTT
-  // float  nada_rtt_rel_in_ms_;    // relative RTT
-
-  // float nada_plr_; 	// packet loss ratio:  XXX in draft
-  NadaCore core_;  // core calculations for NADA algorithm
+  // for NADA BW estimation
+  int nada_rate_in_bps_;  // local cache of calculated bandwidth | r_ref in draft
+  NadaCore core_;          // core calculations for NADA algorithm
 
   RTC_DISALLOW_IMPLICIT_CONSTRUCTORS(NadaOwdBwe);
 };

@@ -28,6 +28,10 @@ class NadaCore {
 						  int max_bitrate); 
 
     void UpdateDelta(int64_t delta); 
+    void UpdateRttStats(int64_t now_ms, int64_t rtt); 
+    void UpdatePlrStats(int64_t now_ms, 
+                        int nloss, 
+                        int npkts); 
     void UpdatePktStats(int64_t now_ms, float dfwd, float rtt, int nloss, int npkts);
 
     // Updates history of:
@@ -39,28 +43,24 @@ class NadaCore {
   	// After this method returns xxx_history_.front().second contains the
   	// min/max value used during last logging window Logwin.
   	//
-
-  	std::deque<std::pair<int64_t, uint32_t> > min_bitrate_history_;
   	std::deque<std::pair<int64_t, int64_t> > max_rtt_history_;
   	std::deque<std::pair<int64_t, int64_t> > min_rtt_history_;
   	std::deque<std::pair<int64_t, float> > max_plr_history_;
-  	std::deque<std::pair<int64_t, float> > dmin_history_;
+  	std::deque<std::pair<int64_t, float> > min_del_history_;
   	std::deque<std::pair<int64_t, float> > max_del_history_;
 
-  	void ClearRminHistory(); 
-  	void UpdateRminHistory(int64_t now_ms, uint32_t rate_curr); 
+    int64_t GetRttmin(); 
+    float GetDmin(); 
+
   	void UpdateRttHistory(int64_t now_ms, int64_t rtt); 
   	void UpdatePlrHistory(int64_t now_ms, float plr); 
-
-    int64_t GetRttmin(); 
-  	float GetDmin(); 
-  	void UpdateDminHistory(int64_t now_ms, float dtmp);
-  	void UpdateDelHistory(int64_t now_ms, float dfwd);
+    void UpdateDminHistory(int64_t now_ms, float dtmp);
+    void UpdateDelHistory(int64_t now_ms, float dfwd);
 
   	// Set/get congestion signal value
   	float GetCongestion(); 
-  	void UpdateCongestion(int64_t val);  
-  	void UpdateCongestion(); 
+  	void UpdateRttCongestion();  
+  	void UpdateOwdCongestion(); 
 
   	void SetRecvRate(const uint32_t rrate); 
   	float CalcRecvRate(uint64_t curr_ts, 
@@ -68,16 +68,14 @@ class NadaCore {
   					   int nbytes); 
 
   	// Core calculations for NADA algorithm
-  	int GetRampUpMode();
-  	int GetRampUpMode(int64_t rtt_min);
+  	int GetRampUpMode(int use_rtt);
   	uint32_t AcceleratedRampUp(const int64_t now_ms, 
-							   const int64_t rtt_curr, 
-							   uint32_t rate_curr); 
+							                  uint32_t rate_curr); 
 	uint32_t GradualRateUpdate(const int64_t now_ms, 
-							   uint32_t rate_curr); 
-	int ClipBitrate(int bitrate); 
-	void LogUpdate(const char * algo, int ts); 
+							               uint32_t rate_curr); 
+	int ClipBitrate(int bitrate);
 
+	void LogUpdate(const char * algo, int ts); 
 
  private: 
 

@@ -61,13 +61,13 @@ constexpr float    kNADAParamDLossMs =10.;  	// Reference delay penalty for loss
 NadaCore::NadaCore()
     : delta_(kNADAParamDeltaMs),
       nada_dfwd_(0.),
- 	  nada_dq_(0.),  
- 	  nada_rtt_(0.),  
- 	  nada_relrtt_(0.), 
- 	  nada_nloss_(0), 
- 	  nada_plr_(0.), 
- 	  nada_rrate_(0.), 
- 	  nada_rmode_(0),  
+ 	    nada_dq_(0.),  
+ 	    nada_rtt_(0.),  
+ 	    nada_relrtt_(0.), 
+ 	    nada_nloss_(0), 
+ 	    nada_plr_(0.), 
+ 	    nada_rrate_(0.), 
+ 	    nada_rmode_(0),  
       nada_x_curr_(kNADAParamXDefault),
       nada_x_prev_(kNADAParamXDefault), 
       nada_rate_in_bps_(kNADAParamRateBps),
@@ -95,7 +95,7 @@ float NadaCore::GetCongestion() {
 }
 
 float NadaCore::GetDmin() {
-	return dmin_history_.front().second;
+	return min_del_history_.front().second;
 }
 
 int64_t NadaCore::GetRttmin() {
@@ -108,6 +108,28 @@ int64_t NadaCore::GetRttmin() {
 /* 
  * Update delay/loss states per feedback interval 
  */
+void NadaCore::UpdateRttStats(int64_t now_ms, 
+                              int64_t rtt) {
+
+    UpdateRttHistory(now_ms, rtt); 
+
+    int64_t rtt_base = min_rtt_history_.front().second; 
+    nada_rtt_ = rtt; 
+    nada_relrtt_ = rtt = rtt_base; 
+}
+
+void NadaCore::UpdatePlrStats(int64_t now_ms, 
+                              int nloss, 
+                              int npkts) {
+
+  nada_nloss_ = nloss; 
+  float tmpplr = float(nloss)/(float(npkts+nloss));
+  nada_plr_ += kNADAParamPlrSmooth * (tmpplr - nada_plr_);  // exponential smoothing
+
+  UpdatePlrHistory(now_ms, nada_plr_); 
+
+}
+
 void NadaCore::UpdatePktStats(int64_t now_ms, 
 							  float dfwd, 
 							  float rtt, 
@@ -124,10 +146,10 @@ void NadaCore::UpdatePktStats(int64_t now_ms,
 
 	nada_nloss_ = nloss; 
 	float tmpplr = float(nloss)/(float(npkts+nloss));
-  	nada_plr_ += kNADAParamPlrSmooth * (tmpplr - nada_plr_);  // exponential smoothing
+  nada_plr_ += kNADAParamPlrSmooth * (tmpplr - nada_plr_);  // exponential smoothing
 
 	UpdateDelHistory(now_ms, dfwd);
-  	UpdatePlrHistory(now_ms, nada_plr_); 
+  UpdatePlrHistory(now_ms, nada_plr_); 
 }
 
 
@@ -165,15 +187,16 @@ void NadaCore::UpdateDelta(int64_t delta) {
 /*
  * Update congestion signal (x_curr) as relative RTT
  */
+void NadaCore::UpdateRttCongestion() {
 
-void NadaCore::UpdateCongestion(int64_t val) {
-
-  nada_x_curr_ = float(val);
-
+  nada_x_curr_ = nada_relrtt_; 
 }
 
-
-void NadaCore::UpdateCongestion() {
+/*
+ * Update congestion signal (x_curr) as the composite of 
+ * warped relative one-way delay (d_tilde) and loss penalty (d_loss)
+ */
+void NadaCore::UpdateOwdCongestion() {
 
     RTC_LOG(LS_INFO) << "Updating Congestion" << std::endl;
     printf("[DEBUG] UpdateCongestion\n");
@@ -218,48 +241,55 @@ void NadaCore::UpdateCongestion() {
  *    delay samples within the observation window LOGWIN.
  *
  */
-int NadaCore::GetRampUpMode(int64_t rtt_min) {
+// int NadaCore::GetRampUpMode(int64_t rtt_min) {
 
-    // uint32_t rate_min = min_bitrate_history_.front().second;
+//     int64_t rtt_max = max_rtt_history_.front().second;
+//     float plr_max = max_plr_history_.front().second;
+
+//     RTC_LOG(LS_INFO) << "[DEBUG] NADA getRampUpMode: " 
+//                      << " rtt_min = " << rtt_min
+//                      << " ms, rtt_max = "   << rtt_max
+//                      << " ms, plr_max = "   << plr_max * 100. << std::endl;
+
+//     if (plr_max > 0.)	  return 1;  // loss exists, gradual-update
+
+//     if (rtt_max - rtt_min > kNADAParamQepsMs) return 1;
+
+//     return 0;
+// }
+
+int NadaCore::GetRampUpMode(int use_rtt) {
+
+  printf("DEBUG] inside NADA getRampUpMode\n");
+  fflush(stdout); 
+
+  int drel = 0; 
+  if (use_rtt) {
+    int64_t rtt_base = min_rtt_history_.front().second;
     int64_t rtt_max = max_rtt_history_.front().second;
-    float plr_max = max_plr_history_.front().second;
+    drel = rtt_max - rtt_base; 
+  } else {
+    float d_base = min_del_history_.front().second; 
+    float d_max = max_del_history_.front().second;
+    drel = d_max - d_base; 
+  }
+  
+  float plr_max = max_plr_history_.front().second;
 
-    RTC_LOG(LS_INFO) << "[DEBUG] NADA getRampUpMode: " 
-                     << " rtt_min = " << rtt_min
-                     << " ms, rtt_max = "   << rtt_max
-                     << " ms, plr_max = "   << plr_max * 100. << std::endl;
-
-    if (plr_max > 0.)	  return 1;  // loss exists, gradual-update
-
-    if (rtt_max - rtt_min > kNADAParamQepsMs) return 1;
-
-    return 0;
-}
-
-int NadaCore::GetRampUpMode() {
-
-    printf("DEBUG] inside NADA getRampUpMode\n");
-    fflush(stdout); 
-
-	float d_base = dmin_history_.front().second; 
-    float del_max = max_del_history_.front().second;
-    float plr_max = max_plr_history_.front().second;
-
-    // uint32_t rate_min = min_bitrate_history_.front().second;
-
-    RTC_LOG(LS_INFO) << "[DEBUG] NADA getRampUpMode: " 
-                     << " del_max = " << del_max
+  RTC_LOG(LS_INFO) << "[DEBUG] NADA GetRampUpMode: " 
+                     << " drel = " << drel
                      << " ms, plr_max = "   << plr_max * 100. << std::endl;
 
     if (plr_max > 0.)     
     	nada_rmode_ = 1;  // loss exists, gradual-update
-    else if (del_max - d_base > kNADAParamQepsMs) 
+    else if (drel > kNADAParamQepsMs) 
     	nada_rmode_ = 1;
     else
     	nada_rmode_ = 0;
 
-    printf("DEBUG] NADA getRampUpMode: rmode = %d\n", nada_rmode_);
-    fflush(stdout); 
+    printf("DEBUG] NADA GetRampUpMode: rmode = %d\n", nada_rmode_);
+    fflush(stdout);
+
     return nada_rmode_; 
 }
 
@@ -290,12 +320,12 @@ int NadaCore::GetRampUpMode() {
  *
  */
 uint32_t NadaCore::AcceleratedRampUp(const int64_t now_ms, 
-									const int64_t rtt_curr, 
+									// const int64_t rtt_curr, 
 									uint32_t rate_curr) {
 
-    float rtt = float(rtt_curr);
+    // float rtt = float(rtt_curr);
 
-    float gamma = kNADAParamQboundMs /(rtt + kNADAParamDeltaMs + kNADAParamDfiltMs);
+    float gamma = kNADAParamQboundMs /(nada_rtt_ + kNADAParamDeltaMs + kNADAParamDfiltMs);
 
     if (gamma > kNADAParamGammaMax) gamma = kNADAParamGammaMax;
     rate_curr = (1+gamma)*rate_curr;
@@ -449,6 +479,9 @@ int NadaCore::ClipBitrate(int bitrate) {
 void NadaCore::LogUpdate(const char * algo, 
 						 int ts) {
 
+  printf("NADA Update | algo: %s | ts = %lld, fbint = %lld ms, rmode = %d, xcurr = %4.2f, rate = %6d Kbps\n",
+            algo, ts, delta_, nada_rmode_, nada_x_curr_, nada_rate_in_bps_/1000);
+
   std::ostringstream os;
   os << std::fixed;
   os.precision(2);
@@ -512,30 +545,30 @@ void NadaCore::SetMinMaxBitrate(int min_bitrate,
  *
  */
 
-void NadaCore::ClearRminHistory() {
-	min_bitrate_history_.clear(); 
-}
+// void NadaCore::ClearRminHistory() {
+// 	min_bitrate_history_.clear(); 
+// }
 
-void NadaCore::UpdateRminHistory(int64_t now_ms, uint32_t rate_curr) {
+// void NadaCore::UpdateRminHistory(int64_t now_ms, uint32_t rate_curr) {
 
-  // Remove old data points from history.
-  // Since history precision is in ms, add one so it is able to increase
-  // bitrate if it is off by as little as 0.5ms.
-  while (!min_bitrate_history_.empty() &&
-         now_ms - min_bitrate_history_.front().first + 1 > kNADAParamLogwinMs) {
+//   // Remove old data points from history.
+//   // Since history precision is in ms, add one so it is able to increase
+//   // bitrate if it is off by as little as 0.5ms.
+//   while (!min_bitrate_history_.empty() &&
+//          now_ms - min_bitrate_history_.front().first + 1 > kNADAParamLogwinMs) {
 
-    min_bitrate_history_.pop_front();
-  }
+//     min_bitrate_history_.pop_front();
+//   }
 
-  // Typical minimum sliding-window algorithm: 
-  // Pop values higher than current bitrate before pushing it.
-  while (!min_bitrate_history_.empty() &&
-         rate_curr <= min_bitrate_history_.back().second) {
-    min_bitrate_history_.pop_back();
-  }
+//   // Typical minimum sliding-window algorithm: 
+//   // Pop values higher than current bitrate before pushing it.
+//   while (!min_bitrate_history_.empty() &&
+//          rate_curr <= min_bitrate_history_.back().second) {
+//     min_bitrate_history_.pop_back();
+//   }
 
-  min_bitrate_history_.push_back(std::make_pair(now_ms, rate_curr));
-}
+//   min_bitrate_history_.push_back(std::make_pair(now_ms, rate_curr));
+// }
 
 
 /*
@@ -584,19 +617,19 @@ void NadaCore::UpdateRttHistory(int64_t now_ms, int64_t rtt) {
 void NadaCore::UpdateDminHistory(int64_t now_ms, float dtmp) {
 
   // Remove expired data points from history.
-  while (!dmin_history_.empty() &&
-         now_ms - dmin_history_.front().first > kNADAParamLogwinMs2) {
-    dmin_history_.pop_front();
+  while (!min_del_history_.empty() &&
+         now_ms - min_del_history_.front().first > kNADAParamLogwinMs2) {
+    min_del_history_.pop_front();
   }
 
   // Typical sliding-window algorithm for logging minimum values:
   // Pop values higher than current delay value before pushing the current delay value.
-  while (!dmin_history_.empty() &&
-         dtmp < dmin_history_.back().second) {
-    dmin_history_.pop_back();
+  while (!min_del_history_.empty() &&
+         dtmp < min_del_history_.back().second) {
+    min_del_history_.pop_back();
   }
 
-  dmin_history_.push_back(std::make_pair(now_ms, dtmp));
+  min_del_history_.push_back(std::make_pair(now_ms, dtmp));
 }
 
 
@@ -618,7 +651,6 @@ void NadaCore::UpdateDelHistory(int64_t now_ms, float dfwd) {
 
   max_del_history_.push_back(std::make_pair(now_ms, dfwd));
 }
-
 
 /*
  *

@@ -62,31 +62,20 @@ class NADABandwidthEstimation: public SendSideBandwidthEstimationInterface {
 
  private:
 
-  // void ClipBitrate();  // Clip bitrate_ between [R_min, R_max]
+  int64_t first_report_time_ms_;      // for calculating relative time stamps for logging
 
-  // incoming filters for calculating packet loss ratio
-  int lost_packets_since_last_loss_update_Q8_; //TODO: Sergio's question: what does "Q8" mean?
-  int expected_packets_since_last_loss_update_;
-
-  //
-  // key variables for NADA rate calculation
-  //
-  // rates: r_ref, RMIN, RMAX
-  int bitrate_;                    // key variable holding calculated bandwidth: r_ref in draft
-
-  // intervals: delta
+  // feedback intervals: delta
   int64_t last_feedback_ms_;            // last time receiving a feedback (in ms) | t_last in draft
   int64_t feedback_interval_ms_;        // previous feedback interval | delta = t_curr - t_last
 
-  uint8_t last_fraction_loss_;
-  int64_t last_round_trip_time_ms_;
-  int64_t min_round_trip_time_ms_;
-  uint64_t relative_rtt_;  // relative RTT 
+  uint8_t last_fraction_loss_;        // local cache of PLR obtained from UpdateReceiverBlock 
+  int64_t last_round_trip_time_ms_;   // local cache of RTT obtained from UpdateReceiverBlock
 
-  uint32_t bwe_incoming_;               // receiver-estimated bandwidth
-  uint32_t delay_based_bitrate_bps_;    // delay-based bandwidth estimation, not used
+  uint32_t bwe_incoming_;               // receiver-estimated bandwidth | r_recv in draft 
+  uint32_t delay_based_bitrate_bps_;    // delay-based bandwidth estimation, 
+                                        // reported by NadaOwdBwe when NADA-OWD mode is on
 
-  int64_t first_report_time_ms_;
+  int bitrate_;                        // local cache of calculated bandwidth | r_ref in draft
 
   NadaCore core_;  // core calculations for NADA algorithm
 };
