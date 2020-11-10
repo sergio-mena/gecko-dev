@@ -241,7 +241,6 @@ void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
                           << "rate: " << bitrate_/1000 << " Kbps "
                           << "feedback interval: " << feedback_interval_ms_ << " ms. " << std::endl;
 
-
     // calculate reference rate via NadaCore
     int rmode = core_.GetRampUpMode(1);  // use_rtt = 1
     if (rmode == 0)

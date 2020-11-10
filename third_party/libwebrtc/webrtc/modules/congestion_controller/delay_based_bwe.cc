@@ -279,12 +279,16 @@ void DelayBasedBwe::IncomingPacketFeedback(
   }
 
   // [XZ 2019-10-21 added logging of per-pkt loss/delay, etc.]
-  RTC_CHECK_GT(packet_feedback.send_time_ms, 0);  // It is ensure by the caller
+  // RTC_CHECK_GT(packet_feedback.send_time_ms, 0);  // It is ensure by the caller
+
   // update delay info: d_fwd, d_base, d_queue, rtt
-  RTC_CHECK_LE(packet_feedback.send_time_ms, now_ms); // Make sure default_bwe_rtt_ms_ doesn't wrap
-  default_bwe_rtt_ms_ = now_ms - packet_feedback.send_time_ms;
-  RTC_CHECK_LE(packet_feedback.send_time_ms, packet_feedback.arrival_time_ms); // Make sure dtmp isn't negative
-  int64_t dtmp = packet_feedback.arrival_time_ms - packet_feedback.send_time_ms;
+  // RTC_CHECK_LE(packet_feedback.send_time_ms, now_ms); // Make sure default_bwe_rtt_ms_ doesn't wrap
+  // default_bwe_rtt_ms_ = now_ms - packet_feedback.send_time_ms;
+  default_bwe_rtt_ms_ = now_ms - packet_feedback.creation_time_ms;
+
+  // RTC_CHECK_LE(packet_feedback.send_time_ms, packet_feedback.arrival_time_ms); // Make sure dtmp isn't negative
+  // int64_t dtmp = packet_feedback.arrival_time_ms - packet_feedback.send_time_ms;
+  int64_t dtmp = packet_feedback.arrival_time_ms - packet_feedback.creation_time_ms;
   if (default_bwe_dbase_ms_ < 0 || default_bwe_dbase_ms_ > dtmp) default_bwe_dbase_ms_ = dtmp;
   default_bwe_dqel_ms_ = dtmp - default_bwe_dbase_ms_;
 
@@ -304,6 +308,7 @@ void DelayBasedBwe::IncomingPacketFeedback(
                    << " | pktsize: " <<  packet_feedback.payload_size << " bytes"
                    << " | creatts: " << packet_feedback.creation_time_ms << " ms"
                    << " | sendts: "  << packet_feedback.send_time_ms << " ms"
+                   // << " | sendts_2: " << timestamp << " ms"
                    << " | recvts: "  << packet_feedback.arrival_time_ms << " ms"
                    << " | ackts: "   << now_ms << " ms"
                    << " | dqel: " << default_bwe_dqel_ms_ << " ms"

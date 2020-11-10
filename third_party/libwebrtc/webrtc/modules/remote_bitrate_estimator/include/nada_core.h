@@ -25,72 +25,68 @@ class NadaCore {
     int GetMinBitrate() const; 
 
     void SetMinMaxBitrate(int min_bitrate, 
-						  int max_bitrate); 
+						              int max_bitrate); 
 
     void UpdateDelta(int64_t delta); 
+    void UpdateDelStats(int64_t now_ms, int64_t dfwd);
     void UpdateRttStats(int64_t now_ms, int64_t rtt); 
-    void UpdatePlrStats(int64_t now_ms, 
-                        int nloss, 
-                        int npkts); 
-    void UpdatePktStats(int64_t now_ms, float dfwd, float rtt, int nloss, int npkts);
+    void UpdatePlrStats(int64_t now_ms, int nloss, int npkts); 
 
-    // Updates history of:
-  	// -- min bitrates 
-  	// -- max rtt/owd
-  	// -- max plr
-  	// -- long term baseline rtt/owd
-  	//
-  	// After this method returns xxx_history_.front().second contains the
-  	// min/max value used during last logging window Logwin.
-  	//
-  	std::deque<std::pair<int64_t, int64_t> > max_rtt_history_;
-  	std::deque<std::pair<int64_t, int64_t> > min_rtt_history_;
-  	std::deque<std::pair<int64_t, float> > max_plr_history_;
-  	std::deque<std::pair<int64_t, float> > min_del_history_;
-  	std::deque<std::pair<int64_t, float> > max_del_history_;
-
-    int64_t GetRttmin(); 
-    float GetDmin(); 
-
-  	void UpdateRttHistory(int64_t now_ms, int64_t rtt); 
-  	void UpdatePlrHistory(int64_t now_ms, float plr); 
-    void UpdateDminHistory(int64_t now_ms, float dtmp);
-    void UpdateDelHistory(int64_t now_ms, float dfwd);
-
-  	// Set/get congestion signal value
-  	float GetCongestion(); 
+    // Update composite congestion signal (x_curr) based on OWD or RTT
   	void UpdateRttCongestion();  
   	void UpdateOwdCongestion(); 
 
   	void SetRecvRate(const uint32_t rrate); 
-  	float CalcRecvRate(uint64_t curr_ts, 
-  					   uint64_t last_ts, 
-  					   int nbytes); 
+  	void CalcRecvRate(uint64_t curr_ts, 
+  					          uint64_t last_ts, 
+  					          int nbytes); 
 
   	// Core calculations for NADA algorithm
   	int GetRampUpMode(int use_rtt);
-  	uint32_t AcceleratedRampUp(const int64_t now_ms, 
+  	
+    uint32_t AcceleratedRampUp(const int64_t now_ms, 
 							                  uint32_t rate_curr); 
-	uint32_t GradualRateUpdate(const int64_t now_ms, 
-							               uint32_t rate_curr); 
-	int ClipBitrate(int bitrate);
 
-	void LogUpdate(const char * algo, int ts); 
+    uint32_t GradualRateUpdate(const int64_t now_ms, 
+							               uint32_t rate_curr); 
+
+    int ClipBitrate(int bitrate);
+
+    void LogUpdate(const char * algo, int ts); 
 
  private: 
 
- 	int64_t delta_;  // update interval used for rate calculation | delta in draft
+    // Updates history of:
+    // -- long term baseline rtt/owd
+    // -- max rtt/owd
+    // -- max plr
+    //
+    // After this method returns xxx_history_.front().second contains the
+    // min/max value used during last logging window Logwin.
+    //
+    std::deque<std::pair<int64_t, int64_t> > min_rtt_history_;
+    std::deque<std::pair<int64_t, int64_t> > max_rtt_history_;
+    std::deque<std::pair<int64_t, float> > min_del_history_;
+    std::deque<std::pair<int64_t, float> > max_del_history_;
+    std::deque<std::pair<int64_t, float> > max_plr_history_;
 
- 	// per-interval stats
- 	float nada_dfwd_; 
- 	float nada_dq_; 
- 	float nada_rtt_; 
- 	float nada_relrtt_; 
- 	int   nada_nloss_; 
- 	float nada_plr_; 	// packet loss ratio:  XXX in draft
- 	float nada_rrate_;  // receiving rate
+    void UpdateRttHistory(int64_t now_ms, int64_t rtt); 
+    void UpdatePlrHistory(int64_t now_ms, float plr); 
+    void UpdateDelHistory(int64_t now_ms, float dfwd);  
 
- 	int nada_rmode_; 
+    int64_t delta_;  // update interval used for rate calculation | delta in draft
+
+    // per-interval stats
+ 	  float nada_dfwd_;     // one-way forward delay
+ 	  float nada_dq_;       // queuing delay
+ 	  float nada_rtt_;      // instantaneous RTT
+ 	  float nada_relrtt_;   // relative RTT
+ 	  int   nada_nloss_;    // # of losses
+ 	  float nada_plr_; 	    // packet loss ratio:  XXX in draft
+ 	  float nada_rrate_;    // receiving rate
+
+    // NADA rate calculation
+    int nada_rmode_; 
   	float nada_x_curr_;   // current congestion level  | x_curr in draft
   	float nada_x_prev_;   // previous congestion level | x_prev in draft
 

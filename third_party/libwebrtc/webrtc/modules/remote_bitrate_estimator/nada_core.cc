@@ -90,24 +90,33 @@ int NadaCore::GetMinBitrate() const {
 	return nada_rmin_in_bps_; 
 }
 
-float NadaCore::GetCongestion() {
-	return nada_x_curr_; 
-}
+// float NadaCore::GetCongestion() {
+// 	return nada_x_curr_; 
+// }
 
-float NadaCore::GetDmin() {
-	return min_del_history_.front().second;
-}
+// float NadaCore::GetDmin() {
+// 	return min_del_history_.front().second;
+// }
 
-int64_t NadaCore::GetRttmin() {
+// int64_t NadaCore::GetRttmin() {
 
-	return min_rtt_history_.front().second; 
+// 	return min_rtt_history_.front().second; 
 
-}
-
+// }
 
 /* 
  * Update delay/loss states per feedback interval 
  */
+void NadaCore::UpdateDelStats(int64_t now_ms, 
+                              int64_t dfwd) {
+
+    UpdateDelHistory(now_ms, dfwd); 
+
+    float d_base = min_del_history_.front().second; 
+    nada_dfwd_ = dfwd; 
+    nada_dq_ = dfwd - d_base; 
+}
+
 void NadaCore::UpdateRttStats(int64_t now_ms, 
                               int64_t rtt) {
 
@@ -130,46 +139,24 @@ void NadaCore::UpdatePlrStats(int64_t now_ms,
 
 }
 
-void NadaCore::UpdatePktStats(int64_t now_ms, 
-							  float dfwd, 
-							  float rtt, 
-							  int nloss, 
-							  int npkts) {
-
-	float rtt_base = GetRttmin();  // get long-term baseline RTT 
-	nada_rtt_ = rtt; 
-	nada_relrtt_ = rtt = rtt_base; 
-
-	float d_base = GetDmin(); 
-	nada_dfwd_ = dfwd; 
-	nada_dq_ = dfwd - d_base; 
-
-	nada_nloss_ = nloss; 
-	float tmpplr = float(nloss)/(float(npkts+nloss));
-  nada_plr_ += kNADAParamPlrSmooth * (tmpplr - nada_plr_);  // exponential smoothing
-
-	UpdateDelHistory(now_ms, dfwd);
-  UpdatePlrHistory(now_ms, nada_plr_); 
-}
-
-
 void NadaCore::SetRecvRate(const uint32_t rrate) {
 
 	nada_rrate_ = float(rrate); 
 }
 
-float NadaCore::CalcRecvRate(uint64_t curr_ts, 
-  					   		 uint64_t last_ts, 
-  					   		 int nbytes) {
+void NadaCore::CalcRecvRate(uint64_t curr_ts, 
+  					   		          uint64_t last_ts, 
+  					   		          int nbytes) {
 
   if (last_ts > 0) {
       uint64_t dt = curr_ts - last_ts;
       nada_rrate_ = float(nbytes) * 8000. / float(dt);
-  
-      RTC_LOG(LS_INFO) << "Updating RecvRate: dt: " << dt << ", nbytes: " << nbytes << std::endl;
-  }
 
-  return nada_rrate_; 
+      RTC_LOG(LS_INFO) << "Updating RecvRate: dt: " << dt 
+                        << ", nbytes: " << nbytes  
+                        << ", rrate: " << nada_rrate_ /1000
+                        << " Kbps"<<  std::endl;
+  }
 }
 
 /*
@@ -613,34 +600,21 @@ void NadaCore::UpdateRttHistory(int64_t now_ms, int64_t rtt) {
 }
 
 
-// maintain long-term of recent pkt delay (dfwd) records
-void NadaCore::UpdateDminHistory(int64_t now_ms, float dtmp) {
+// maintain history of recent pkt delay (dfwd) records
+void NadaCore::UpdateDelHistory(int64_t now_ms, float dfwd) {
 
-  // Remove expired data points from history.
+  // Remove expired data points from maximum delay (max_del) history.
+  while (!max_del_history_.empty() &&
+         now_ms - max_del_history_.front().first > kNADAParamLogwinMs) {
+    max_del_history_.pop_front();
+  }
+
+  // Remove expired data points from baseline delay (min_del) history 
   while (!min_del_history_.empty() &&
          now_ms - min_del_history_.front().first > kNADAParamLogwinMs2) {
     min_del_history_.pop_front();
   }
 
-  // Typical sliding-window algorithm for logging minimum values:
-  // Pop values higher than current delay value before pushing the current delay value.
-  while (!min_del_history_.empty() &&
-         dtmp < min_del_history_.back().second) {
-    min_del_history_.pop_back();
-  }
-
-  min_del_history_.push_back(std::make_pair(now_ms, dtmp));
-}
-
-
-// maintain history of recent pkt delay (dfwd) records
-void NadaCore::UpdateDelHistory(int64_t now_ms, float dfwd) {
-
-  // Remove expired data points from history.
-  while (!max_del_history_.empty() &&
-         now_ms - max_del_history_.front().first > kNADAParamLogwinMs) {
-    max_del_history_.pop_front();
-  }
 
   // Typical sliding-window algorithm for logging maximum values:
   // Pop values lower than current delay value before pushing the current delay value.
@@ -650,6 +624,15 @@ void NadaCore::UpdateDelHistory(int64_t now_ms, float dfwd) {
   }
 
   max_del_history_.push_back(std::make_pair(now_ms, dfwd));
+
+  // Typical sliding-window algorithm for logging minimum values:
+  // Pop values higher than current delay value before pushing the current delay value.
+  while (!min_del_history_.empty() &&
+         dfwd < min_del_history_.back().second) {
+    min_del_history_.pop_back();
+  }
+
+  min_del_history_.push_back(std::make_pair(now_ms, dfwd));
 }
 
 /*
