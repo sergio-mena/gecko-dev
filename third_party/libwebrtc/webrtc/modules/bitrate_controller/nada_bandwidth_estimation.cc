@@ -186,15 +186,17 @@ void NADABandwidthEstimation::UpdateReceiverBlock(uint8_t fraction_loss,
       feedback_interval_ms_ = now_ms - last_feedback_ms_;
       last_feedback_ms_ = now_ms;
   }
-    
+  
+  int64_t ts = 0;  
   if (first_report_time_ms_ == -1) {
     first_report_time_ms_ = now_ms;
-  }
+  } else 
+    ts = now_ms - first_report_time_ms_; 
 
   printf("NADA UpdateReceiverBlock at %lld ms...rtt = %lld, loss = %d, npkts = %d\n",
-         now_ms-first_report_time_ms_, rtt, fraction_loss, number_of_packets);
+         ts, rtt, fraction_loss, number_of_packets);
 
-  RTC_LOG(LS_INFO) << "NADA UpdateReceiverBlock: now = " << now_ms-first_report_time_ms_
+  RTC_LOG(LS_INFO) << "NADA UpdateReceiverBlock: now = " << ts
                    << " ms, fb_interval = " << feedback_interval_ms_
                    << " ms, loss = " << int(fraction_loss)
                    << " , rtt = " << rtt
@@ -216,7 +218,6 @@ void NADABandwidthEstimation::UpdateReceiverBlock(uint8_t fraction_loss,
     core_.UpdatePlrStats(now_ms, nloss, number_of_packets); 
 
     // call rate update calculation
-    // core_.UpdateRttCongestion();   // update aggregate congestion stats accordingly
     UpdateEstimate(now_ms);
   }
 
@@ -226,7 +227,7 @@ void NADABandwidthEstimation::UpdateReceiverBlock(uint8_t fraction_loss,
 void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
 
     int64_t ts = now_ms-first_report_time_ms_; 
-    
+
     if (last_feedback_ms_ == -1) {
 
       // no feedback message yet: staying with current rate
