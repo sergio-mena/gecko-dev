@@ -64,9 +64,8 @@ class NADABandwidthEstimation: public SendSideBandwidthEstimationInterface {
 
   int64_t first_report_time_ms_;      // for calculating relative time stamps for logging
 
-  // feedback intervals: delta
-  int64_t last_feedback_ms_;            // last time receiving a feedback (in ms) | t_last in draft
-  int64_t feedback_interval_ms_;        // previous feedback interval | delta = t_curr - t_last
+  int64_t last_feedback_ms_;          // last time receiving a feedback (in ms) | t_last in draft
+  int64_t feedback_interval_ms_;      // previous feedback interval | delta = t_curr - t_last
 
   uint8_t last_fraction_loss_;        // local cache of PLR obtained from UpdateReceiverBlock 
   int64_t last_round_trip_time_ms_;   // local cache of RTT obtained from UpdateReceiverBlock

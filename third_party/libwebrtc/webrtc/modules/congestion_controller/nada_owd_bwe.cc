@@ -149,7 +149,7 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
     last_seen_seqno_ = packet_feedback.sequence_number;
 
     // Log per-pkt info
-    printf("\t pktinfo | seqno=%6d, pktsize=%6d | creatts=%8lld, sendts=%8lld, recvts=%8lld, ackts=%8lld | d_fwd=%6.1f  ms | rtt=%8lld ms\n",
+    printf("\t pktinfo | seqno=%6d, pktsize=%6d | creatts=%8lld, sendts=%8lld, recvts=%8lld, ackts=%8lld | d_fwd=%8lld  ms | rtt=%8lld ms\n",
            packet_feedback.sequence_number,
            int(packet_feedback.payload_size),
            packet_feedback.creation_time_ms,
@@ -188,16 +188,7 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
   core_.UpdatePlrStats(now_ms, nloss, npkts); 
 
   // non-linear delay warping + loss penalty
-  core_.UpdateOwdCongestion(); 
-
-  int rmode = core_.GetRampUpMode(0); // use_rtt = 0
-  if (rmode == 0)
-    nada_rate_in_bps_ = core_.AcceleratedRampUp(now_ms, nada_rate_in_bps_); 
-  else
-    nada_rate_in_bps_ = core_.GradualRateUpdate(now_ms, nada_rate_in_bps_); 
-
-  nada_rate_in_bps_ = core_.ClipBitrate(nada_rate_in_bps_);
-
+  nada_rate_in_bps_ = core_.UpdateNadaRate(now_ms, false); 
   core_.LogUpdate("nada_owd", ts); 
 
   // update local cache and return updated rate
@@ -212,8 +203,8 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
 // more accurate for this version of the algorithm
 void NadaOwdBwe::OnRttUpdate(int64_t avg_rtt_ms, int64_t max_rtt_ms) {
 
-  printf("[DEBUG]: inside OnRttUpdate: rtt_avg = %d ms, rtt_max = %d ms\n", 
-         avg_rtt_ms, max_rtt_ms); 
+  printf("[DEBUG]: inside OnRttUpdate: rtt_avg = %8lld ms, rtt_max = %8lld ms\n", 
+          avg_rtt_ms, max_rtt_ms); 
 
   RTC_LOG(LS_INFO) << "[DEBUG]  inside OnRttUpdate: "
                    << "  rtt_avg =" << avg_rtt_ms 
@@ -268,7 +259,7 @@ bool NadaOwdBwe::LatestEstimate(std::vector<uint32_t>* ssrcs,
 
 int64_t NadaOwdBwe::GetExpectedBwePeriodMs() const {
 
-  printf("[DEBUG]: inside GetExpectedBwePeriodMs: reporting probing interval as %d ms\n", 
+  printf("[DEBUG]: inside GetExpectedBwePeriodMs: reporting probing interval as %8lld ms\n", 
          kDefaultProbingIntervalinMs); 
 
   RTC_LOG(LS_INFO) << "[DEBUG] inside GetExpectedBwePeriodMs: reporting probing interval as "

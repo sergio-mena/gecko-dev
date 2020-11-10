@@ -216,7 +216,7 @@ void NADABandwidthEstimation::UpdateReceiverBlock(uint8_t fraction_loss,
     core_.UpdatePlrStats(now_ms, nloss, number_of_packets); 
 
     // call rate update calculation
-    core_.UpdateRttCongestion();   // update aggregate congestion stats accordingly
+    // core_.UpdateRttCongestion();   // update aggregate congestion stats accordingly
     UpdateEstimate(now_ms);
   }
 
@@ -226,7 +226,7 @@ void NADABandwidthEstimation::UpdateReceiverBlock(uint8_t fraction_loss,
 void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
 
     int64_t ts = now_ms-first_report_time_ms_; 
-
+    
     if (last_feedback_ms_ == -1) {
 
       // no feedback message yet: staying with current rate
@@ -241,23 +241,14 @@ void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
                           << "rate: " << bitrate_/1000 << " Kbps "
                           << "feedback interval: " << feedback_interval_ms_ << " ms. " << std::endl;
 
-    // calculate reference rate via NadaCore
-    int rmode = core_.GetRampUpMode(1);  // use_rtt = 1
-    if (rmode == 0)
-      bitrate_ = core_.AcceleratedRampUp(now_ms, 
-                                         bitrate_);
-    else
-      bitrate_ = core_.GradualRateUpdate(now_ms, bitrate_);
-    bitrate_ = core_.ClipBitrate(bitrate_);
-
-    // float xcurr = core_.GetCongestion(); 
+    // calculate reference rate via NadaCore, in rtt-based mode (use_rtt=true)
+    bitrate_ = core_.UpdateNadaRate(now_ms, true);
     core_.LogUpdate("nada_rtt", ts); 
 
     } else {
 
       // [XZ 2018-12-20] Currently, no rate update in between feedback reports
       // TODO: trigger timeout when needed
-
       printf("NADA UpdateEstimate triggered by local timer: ts = %lld, rate = %6d Kbps\n",
             ts, bitrate_/1000);
 
