@@ -148,7 +148,7 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
     }
     last_seen_seqno_ = packet_feedback.sequence_number;
 
-    // Log per-pkt info
+    // TODO: Log per-pkt info ==> move to debug mode
     printf("\t pktinfo | seqno=%6d, pktsize=%6d | creatts=%8lld, sendts=%8lld, recvts=%8lld, ackts=%8lld | d_fwd=%8lld  ms | rtt=%8lld ms\n",
            packet_feedback.sequence_number,
            int(packet_feedback.payload_size),
@@ -178,13 +178,14 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
     ipkt ++;
   }
 
+  // per feedback interval
   if (last_arrival_time_ms_>0) {
     core_.CalcRecvRate(curr_arrival_time_ms, last_arrival_time_ms_, nbytes); 
     last_arrival_time_ms_ = curr_arrival_time_ms; 
   }
 
   // update per-interval packet stats (delay/PLR)
-  core_.UpdateDelStats(now_ms, dmin);
+  core_.UpdateOwdStats(now_ms, dmin);
   core_.UpdatePlrStats(now_ms, nloss, npkts); 
 
   // non-linear delay warping + loss penalty

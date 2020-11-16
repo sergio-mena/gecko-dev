@@ -16,7 +16,7 @@ namespace webrtc {
 
 /*
  * Default parameter values for the NADA algorithm.
- * See Fig. 3 in https://tools.ietf.org/html/draft-ietf-rmcat-nada-10
+ * See Fig. 3 in https://www.rfc-editor.org/rfc/rfc8698
  * for more details.
  */
   
@@ -24,38 +24,37 @@ constexpr int kNADAParamRateBps =  600000;  // Default rate: 600Kbps
 constexpr int kNADAParamRminBps =  300000;  // Min rate: 300Kbps
 constexpr int kNADAParamRmaxBps = 3000000;  // Max rate: 3Mbps
 
-constexpr float kNADAParamPrio  = 1.0;   // weight of priority for the flow [PRIO: dimensionless]
-constexpr float kNADAParamXref  = 10.0;  // reference congestion level  [XREF: in ms]
+constexpr float kNADAParamPrio  = 1.0;      // weight of priority for the flow [PRIO: dimensionless]
+constexpr float kNADAParamXref  = 10.0;     // reference congestion level  [XREF: in ms]
 constexpr float kNADAParamXDefault = 20.0;  // default congestion level [in ms]
-constexpr float kNADAParamKappa = 0.5;   // scaling parameter for gradual rate update [KAPPA: dimensionless]
-constexpr float kNADAParamEta  = 2.0;  // scaling parameter for gradual rate update [ETA: dimensionless]
-constexpr float kNADAParamTau = 500.;  // Upper bound of RTT for gradual rate update [TAU: in ms]
+constexpr float kNADAParamKappa = 0.5;      // scaling parameter for gradual rate update [KAPPA: dimensionless]
+constexpr float kNADAParamEta  = 2.0;       // scaling parameter for gradual rate update [ETA: dimensionless]
+constexpr float kNADAParamTau = 500.;       // Upper bound of RTT for gradual rate update [TAU: in ms]
 
-constexpr int64_t kNADAParamLogwinMs = 500; 	// Observation time window for maintaining 
+constexpr int64_t kNADAParamLogwinMs = 500; 	  // Observation time window for maintaining 
                                                 // short-term stats of rate/delay/plr [in ms]
 constexpr int64_t kNADAParamLogwinMs2 = 3000; 	// Observation time window for maintaining
                                                 // long-term minimal baseline forward delay value 
                                                 // [in ms]
 
-constexpr int64_t kNADAParamDeltaMs = 100; 		 // Target interval for feedback and/or rate update [DELTA: in ms]
+constexpr int64_t kNADAParamDeltaMs = 100; 		  // Target interval for feedback and/or rate update [DELTA: in ms]
 constexpr int64_t kNADAParamMinDeltaMs =  20; 	// Minimum value of delta for rate calculation [in ms]
 constexpr int64_t kNADAParamMaxDeltaMs = 500; 	// Maximum value of delta for rate calculation [in ms]
 
-constexpr int64_t kNADAParamQepsMs = 10; 		   // Threshold for determining queueing delay build-up [QEPS: in ms]
-constexpr int64_t kNADAParamQboundMs = 50;  	// Upper bound on self-inflicted queuing delay [QBOUND: in ms]
-constexpr int64_t kNADAParamDfiltMs = 120;  	// Bound on filtering delay [DFILT: in ms]
-constexpr float   kNADAParamGammaMax =0.2;  	// Upper bound on rate increase ratio for accelerated ramp-up
-                                            	// [GAMMA_MAX: dimensionless]
+constexpr int64_t kNADAParamQepsMs = 10; 		    // Threshold for determining queueing delay build-up [QEPS: in ms]
+constexpr int64_t kNADAParamQboundMs = 50;  	  // Upper bound on self-inflicted queuing delay [QBOUND: in ms]
+constexpr int64_t kNADAParamDfiltMs = 120;  	  // Bound on filtering delay [DFILT: in ms]
+constexpr float   kNADAParamGammaMax =0.2;  	  // Upper bound on rate increase ratio for accelerated ramp-up
+                                            	  // [GAMMA_MAX: dimensionless]
 constexpr float   kNADAParamPlrSmooth = 0.1;  	// Smoothing factor for EMA of packet loss ratio
 
-
-constexpr float    kNADAParamQthMs =50.;    	// Delay threshold for invoking non-linear warping 
-												                      // [QTH: in ms]
-constexpr float    kNADAParamLambda =0.5;   	// Scaling parameter in the exponent of non-linear warping
-												                      // [LAMBDA: dimensionless]
-constexpr float    kNADAParamPlrRef =0.01;  	// Reference packet loss ratio [PLRREF: dimensionless]
-constexpr float    kNADAParamDLossMs =10.;  	// Reference delay penalty for loss when packet loss ratio
-										                      		// is at PLRREF [DLOSS: dimensionless]
+constexpr float    kNADAParamQthMs =50.;    	  // Delay threshold for invoking non-linear warping 
+												                        // [QTH: in ms]
+constexpr float    kNADAParamLambda =0.5;   	  // Scaling parameter in the exponent of non-linear warping
+												                        // [LAMBDA: dimensionless]
+constexpr float    kNADAParamPlrRef =0.01;  	  // Reference packet loss ratio [PLRREF: dimensionless]
+constexpr float    kNADAParamDLossMs =10.;  	  // Reference delay penalty for loss when packet loss ratio
+										                      		  // is at PLRREF [DLOSS: dimensionless]
 }
 
 NadaCore::NadaCore()
@@ -69,21 +68,12 @@ NadaCore::NadaCore()
  	    nada_rrate_(0.), 
       nada_x_curr_(kNADAParamXDefault),
       nada_x_prev_(kNADAParamXDefault), 
-      nada_rmode_(NADA_RMODE_ARAMPUP),  
+      nada_rmode_(NADA_RMODE_ACCELERATED_RAMPUP),  
       nada_rate_in_bps_(kNADAParamRateBps),
       nada_rmin_in_bps_(kNADAParamRminBps),
       nada_rmax_in_bps_(kNADAParamRmaxBps)  {}
 
 NadaCore::~NadaCore() {}
-
-void NadaCore::TestFunction (const char * from) const {
-	
-    printf("[%s]: TestFunction__TestFunction__TestFunction__TestFunction__TestFunction__TestFunction\n", from);
-
-      RTC_LOG(LS_INFO) << "Initializing the NADA BW Estimation Module for " <<
-      						from << "  mode" << std::endl ;
-
-}
 
 int NadaCore::GetMinBitrate() const {
 
@@ -93,12 +83,12 @@ int NadaCore::GetMinBitrate() const {
 /* 
  * Update delay/loss states per feedback interval 
  */
-void NadaCore::UpdateDelStats(int64_t now_ms, 
+void NadaCore::UpdateOwdStats(int64_t now_ms, 
                               int64_t dfwd) {
 
-    UpdateDelHistory(now_ms, dfwd); 
+    UpdateOwdHistory(now_ms, dfwd); 
 
-    float d_base = min_del_history_.front().second; 
+    float d_base = min_owd_history_.front().second; 
     nada_dfwd_ = dfwd; 
     nada_dq_ = dfwd - d_base; 
 }
@@ -113,6 +103,28 @@ void NadaCore::UpdateRttStats(int64_t now_ms,
     nada_relrtt_ = rtt = rtt_base; 
 }
 
+/*
+ * Optional TODO:  
+ * a) Currently, the instantaneous packet loss ratio is calculated based on the 
+ *    the number of packets lost over the most recent feedback interval; instead,
+ *    one could calculate the packet loss ratio following the TFRC-style algorithm
+ *    as explained in RFC5348 (https://www.rfc-editor.org/rfc/rfc5348.html). 
+ * b) Currently, the expiration window for last observed loss is fixed to be
+ *    the same as the most recent feedback interval; instead, one could
+ *    follow the descriptions in the draft (Sec. 4.2) to implement an adaptive loss
+ *    expiration window (loss_exp) that self-scales with average packet loss 
+ *    interval (loss_int). The latter is estimated following Sec. 5.4 of the TFRC
+ *    RFC (https://www.rfc-editor.org/rfc/rfc5348#section-5.4)
+ * 
+ *  
+ * A reference implementation of the above can be found as part of
+ * the ns3-rmcat open source repo (https://github.com/cisco/ns3-rmcat).  
+ * See
+ * 
+ * https://github.com/cisco/ns3-rmcat/blob/master/model/congestion-control/sender-based-controller.cc
+ * https://github.com/cisco/ns3-rmcat/blob/master/model/congestion-control/sender-based-controller.h
+ *
+ */
 void NadaCore::UpdatePlrStats(int64_t now_ms, 
                               int nloss, 
                               int npkts) {
@@ -122,9 +134,11 @@ void NadaCore::UpdatePlrStats(int64_t now_ms,
   nada_plr_ += kNADAParamPlrSmooth * (tmpplr - nada_plr_);  // exponential smoothing
 
   UpdatePlrHistory(now_ms, nada_plr_); 
-
 }
 
+/* 
+ * Set/Update receiving rate per feedback interval 
+ */
 void NadaCore::SetRecvRate(const uint32_t rrate) {
 
 	nada_rrate_ = float(rrate); 
@@ -135,8 +149,11 @@ void NadaCore::CalcRecvRate(uint64_t curr_ts,
   					   		          int nbytes) {
 
   if (last_ts > 0) {
+      // update receiving rate calculation only if dt>0
       uint64_t dt = curr_ts - last_ts;
-      nada_rrate_ = float(nbytes) * 8000. / float(dt);
+      if (dt>0) {
+        nada_rrate_ = float(nbytes) * 8000. / float(dt);
+      }
 
       RTC_LOG(LS_INFO) << "Updating RecvRate: dt: " << dt 
                         << ", nbytes: " << nbytes  
@@ -156,64 +173,23 @@ void NadaCore::UpdateDelta(int64_t delta) {
     if (delta_ > kNADAParamMaxDeltaMs) delta_ = kNADAParamMaxDeltaMs;
 }
 
-
-/*
- * Update congestion signal (x_curr) as relative RTT
- */
-void NadaCore::UpdateRttCongestion() {
-
-  nada_x_curr_ = float(nada_relrtt_); 
-}
-
-/*
- * Update congestion signal (x_curr) as the composite of 
- * warped relative one-way delay (d_tilde) and loss penalty (d_loss)
- */
-void NadaCore::UpdateOwdCongestion() {
-
-    RTC_LOG(LS_INFO) << "Updating Congestion" << std::endl;
-    printf("[DEBUG] UpdateCongestion\n");
-
-
-  // non-linear delay warping
-  double d_tilde = nada_dq_;
-  if (nada_nloss_ > 0)  {
-
-    if (nada_dq_ > kNADAParamQthMs)  {
-
-     double beta = kNADAParamLambda*(nada_dq_-kNADAParamQthMs)/kNADAParamQthMs;
-     d_tilde = kNADAParamQthMs*exp(-beta);
-   
-   }
-  
-  }
-
-  // add loss-based penalty
-  double relplr = nada_plr_/kNADAParamPlrRef;  // relative plr
-  nada_x_curr_ = d_tilde +  kNADAParamDLossMs * relplr * relplr;
-
-}
-
-
 /////////// Core NADA Calculations /////////////
 /*
  * Implementation of core NADA congestion control algorithm
  *
- * https://tools.ietf.org/html/draft-ietf-rmcat-nada-09
+ * https://www.rfc-editor.org/rfc/rfc8698.html
  *
  */
 int NadaCore::UpdateNadaRate(const int64_t now_ms, 
                              const bool use_rtt) {
 
   // update composite congestion signal x_curr
-  if (use_rtt)
-    UpdateRttCongestion(); 
-  else 
-    UpdateOwdCongestion(); 
+  UpdateCongestion(use_rtt); 
   
   // obtain rate update mode (ramp-up vs. gradual update)
   GetRampUpMode(use_rtt); 
-  if (nada_rmode_ == NADA_RMODE_ARAMPUP)
+
+  if (nada_rmode_ == NADA_RMODE_ACCELERATED_RAMPUP)
     AcceleratedRampUp(now_ms); 
   else
     GradualRateUpdate(now_ms); 
@@ -224,17 +200,104 @@ int NadaCore::UpdateNadaRate(const int64_t now_ms,
   return nada_rate_in_bps_; 
 }
 
+/*
+ * Update congestion signal (x_curr) as the composite of 
+ * warped relative one-way delay (d_tilde) and loss penalty
+ * (d_loss). 
+ * 
+ * See Sec. 4.2 of RFC8698 
+ * 
+ * https://www.rfc-editor.org/rfc/rfc8698.html
+ * 
+ * If the last observed packet loss is within the expiration window of
+ * loss_exp (measured in terms of packet counts), the estimated queuing
+ *  delay follows a non-linear warping:
+ *
+ *             / d_queue,                   if d_queue < QTH
+ *             |
+ *  d_tilde = <                                           (1)
+ *             |                  (d_queue-QTH)
+ *             \ QTH exp(-LAMBDA ---------------) , otherwise
+ *                                   QTH
+ * 
+ * 
+ * The aggregate congestion signal is:
+ *
+ *                            / p_mark \^2        / p_loss \^2
+ *   x_curr = d_tilde + DMARK*|--------|  + DLOSS*|--------|   (2)
+ *                            \ PMRREF /          \ PLRREF /
+ *
+ * 
+ */
+void NadaCore::UpdateCongestion(const bool use_rtt) {
+
+  RTC_LOG(LS_INFO) << "[DEBUG] Updating Congestion, use_rtt = " << use_rtt << std::endl;
+  printf("[DEBUG] UpdateCongestion: use_rtt = %d\n", use_rtt);
+
+  double d_tilde = 0.0; 
+  if (use_rtt) {
+    d_tilde = double(nada_relrtt_); 
+  } else {
+    d_tilde = nada_dq_;
+  }
+
+  // non-linear delay warping
+  if (nada_nloss_ > 0)  {
+    if (d_tilde > kNADAParamQthMs)  {
+
+      RTC_LOG(LS_INFO) <<  "[DEBUG] Updating Congestion: invoking non-linear warping for "
+                       << "d_tilde = " << d_tilde << " ms" << std::endl; 
+      printf("[DEBUG] UpdateCongestion: invoking non-linear warping for d_tilde=%.2f ms\n", d_tilde);
+
+      double beta = kNADAParamLambda*(d_tilde-kNADAParamQthMs)/kNADAParamQthMs;
+      d_tilde = kNADAParamQthMs*exp(-beta);
+   }
+  
+  }
+
+  // add loss-based penalty
+  double relplr = nada_plr_/kNADAParamPlrRef;  // relative plr
+  nada_x_curr_ = d_tilde +  kNADAParamDLossMs * relplr * relplr;
+}
+
+
+/*
+ * 
+ * Determine whether the rate adaptation algorithm should operate in
+ * accelerated ramp-up mode or gradual update mode based on recently
+ * observed packet statistics.
+ * 
+ * See Sec. 4.2 of 
+ *  
+ * https://www.rfc-editor.org/rfc/rfc8698.html
+ *
+ * Given observed per-packet delay and loss information, the receiver is also
+ * in a good position to determine whether or not the network is underutilized
+ * and then recommend the corresponding rate adaptation mode for the sender. 
+ * The criteria for operating in accelerated ramp-up mode are:
+ * 
+ *  o No recent packet losses within the observation window LOGWIN; and
+ *  o No buildup of queuing delay: d_fwd-d_base < QEPS for all previous
+ *    delay samples within the observation window LOGWIN.
+ * 
+ * Otherwise, the algorithm operates in graduate update mode.
+ *
+ */
+
 void NadaCore::GetRampUpMode(const bool use_rtt) {
 
 
+  // TODO: add guard rails on retrieving from xxx_history_ lists
+  //       so that we don't retrieve from empty lists
+  // 
   int drel = 0; 
   if (use_rtt) {
     int64_t rtt_base = min_rtt_history_.front().second;
     int64_t rtt_max = max_rtt_history_.front().second;
     drel = rtt_max - rtt_base; 
   } else {
-    float d_base = min_del_history_.front().second; 
-    float d_max = max_del_history_.front().second;
+    float d_base = min_owd_history_.front().second; 
+    float d_max = max_owd_history_.front().second;
     drel = d_max - d_base; 
   }
   
@@ -245,11 +308,11 @@ void NadaCore::GetRampUpMode(const bool use_rtt) {
                      << " ms, plr_max = "   << plr_max * 100. << std::endl;
 
   if (plr_max > 0.)     
-    nada_rmode_ = NADA_RMODE_GUPDATE;   // loss exists, gradual-update
+    nada_rmode_ = NADA_RMODE_GRADUAL_UPDATE;   // loss exists, gradual-update
   else if (drel > kNADAParamQepsMs) 
-    nada_rmode_ = NADA_RMODE_GUPDATE; 
+    nada_rmode_ = NADA_RMODE_GRADUAL_UPDATE; 
   else
-    nada_rmode_ = NADA_RMODE_ARAMPUP; 
+    nada_rmode_ = NADA_RMODE_ACCELERATED_RAMPUP; 
 
   printf("DEBUG] NADA GetRampUpMode: rmode = %d\n", nada_rmode_);
   fflush(stdout);
@@ -257,7 +320,7 @@ void NadaCore::GetRampUpMode(const bool use_rtt) {
 }
 
 /*
- * https://tools.ietf.org/html/draft-ietf-rmcat-nada-10
+ * https://www.rfc-editor.org/rfc/rfc8698.html
  *
  * In accelerated ramp-up mode, the rate r_ref is updated as follows:
  *
@@ -285,7 +348,7 @@ void NadaCore::AcceleratedRampUp(const int64_t now_ms) {
 }
 
 /*
- * https://tools.ietf.org/html/draft-ietf-rmcat-nada-09
+ *  https://www.rfc-editor.org/rfc/rfc8698.html
  *
  *
  * In gradual update mode, the rate r_ref is updated as:
@@ -336,9 +399,21 @@ void NadaCore::GradualRateUpdate(const int64_t now_ms) {
                         << "| x_curr=" << nada_x_curr_ << " ms " 
                         << "| r_curr=" << nada_rate_in_bps_/1000. << " Kbps" << std::endl; 
 
-    // return rate_curr; 
 }
 
+/*
+ *  https://www.rfc-editor.org/rfc/rfc8698.html
+ *
+ *
+ * As mentioned in the sender-side algorithm, the final
+ * rate is always clipped within the dynamic range specified
+ * by the application:
+ * 
+ *   r_ref = min(r_ref, RMAX)                         (8)
+ *
+ *   r_ref = max(r_ref, RMIN)                         (9)
+ *
+ */
 void NadaCore::ClipBitrate() {
 
   int bitrate = nada_rate_in_bps_; // save pre-clipping rate 
@@ -354,7 +429,6 @@ void NadaCore::ClipBitrate() {
                          << "| rate_in  =" << bitrate/1000 << " Kbps" 
                          << "| rate_out =" << nada_rate_in_bps_/1000. << " Kbps" << std::endl; 
 
-  // return nada_rate_in_bps_; 
 }
 
 /////////// Auxiliary Functions /////////////
@@ -372,7 +446,7 @@ void NadaCore::LogUpdate(const char * algo,
                << " | ts: "     << ts << " ms"     						         // 2) relative timestamp (now - t0)
                << " | fbint: "  << delta_ << " ms"                   	  // 3) feedback interval
                << " | qdel: "   << nada_dq_ << " ms"                 	  // 4) queuing delay
-               << " | dfwd: " 	<< nada_dfwd_ << " ms"						  // 5) one-way delay 
+               << " | dfwd: " 	<< nada_dfwd_ << " ms"						     // 5) one-way delay 
                << " | relrtt: " << nada_relrtt_ << " ms"                 // 6) relative RTT
                << " | rtt: "    << nada_rtt_ << " ms"               			  // 7) RTT
                << " | nloss: "  << nada_nloss_                                  // 8) packet loss count
@@ -450,40 +524,40 @@ void NadaCore::UpdateRttHistory(int64_t now_ms, int64_t rtt) {
 /*
  *
  * Update OWD history records:
- * -- max_del_history_:  short-term max values
- * -- min_del_history_:  long-term min (baseline) values
+ * -- max_owd_history_:  short-term max values
+ * -- min_owd_history_:  long-term min (baseline) values
  *
  */
-void NadaCore::UpdateDelHistory(int64_t now_ms, float dfwd) {
+void NadaCore::UpdateOwdHistory(int64_t now_ms, float dfwd) {
 
   // Remove expired data points from maximum delay (max_del) history.
-  while (!max_del_history_.empty() &&
-         now_ms - max_del_history_.front().first > kNADAParamLogwinMs) {
-    max_del_history_.pop_front();
+  while (!max_owd_history_.empty() &&
+         now_ms - max_owd_history_.front().first > kNADAParamLogwinMs) {
+    max_owd_history_.pop_front();
   }
 
-  // Remove expired data points from baseline delay (min_del) history 
-  while (!min_del_history_.empty() &&
-         now_ms - min_del_history_.front().first > kNADAParamLogwinMs2) {
-    min_del_history_.pop_front();
+  // Remove expired data points from baseline delay (min_owd) history 
+  while (!min_owd_history_.empty() &&
+         now_ms - min_owd_history_.front().first > kNADAParamLogwinMs2) {
+    min_owd_history_.pop_front();
   }
 
 
   // Typical sliding-window algorithm for logging maximum values:
   // Pop values lower than current delay value before pushing the current delay value.
-  while (!max_del_history_.empty() &&
-         dfwd >= max_del_history_.back().second) {
-    max_del_history_.pop_back();
+  while (!max_owd_history_.empty() &&
+         dfwd >= max_owd_history_.back().second) {
+    max_owd_history_.pop_back();
   }
-  max_del_history_.push_back(std::make_pair(now_ms, dfwd));
+  max_owd_history_.push_back(std::make_pair(now_ms, dfwd));
 
   // Typical sliding-window algorithm for logging minimum values:
   // Pop values higher than current delay value before pushing the current delay value.
-  while (!min_del_history_.empty() &&
-         dfwd < min_del_history_.back().second) {
-    min_del_history_.pop_back();
+  while (!min_owd_history_.empty() &&
+         dfwd < min_owd_history_.back().second) {
+    min_owd_history_.pop_back();
   }
-  min_del_history_.push_back(std::make_pair(now_ms, dfwd));
+  min_owd_history_.push_back(std::make_pair(now_ms, dfwd));
 }
 
 /*

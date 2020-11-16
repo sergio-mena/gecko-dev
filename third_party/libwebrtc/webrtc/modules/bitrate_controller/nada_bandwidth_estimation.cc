@@ -193,6 +193,7 @@ void NADABandwidthEstimation::UpdateReceiverBlock(uint8_t fraction_loss,
   } else 
     ts = now_ms - first_report_time_ms_; 
 
+  // TODO: move logs to debug-mode only
   printf("NADA UpdateReceiverBlock at %lld ms...rtt = %lld, loss = %d, npkts = %d\n",
          ts, rtt, fraction_loss, number_of_packets);
 
