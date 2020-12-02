@@ -104,11 +104,14 @@ void NadaCore::UpdateRttStats(int64_t now_ms,
 }
 
 /*
+ * 
  * Optional TODO:  
+ * 
  * a) Currently, the instantaneous packet loss ratio is calculated based on the 
  *    the number of packets lost over the most recent feedback interval; instead,
  *    one could calculate the packet loss ratio following the TFRC-style algorithm
  *    as explained in RFC5348 (https://www.rfc-editor.org/rfc/rfc5348.html). 
+ * 
  * b) Currently, the expiration window for last observed loss is fixed to be
  *    the same as the most recent feedback interval; instead, one could
  *    follow the descriptions in the draft (Sec. 4.2) to implement an adaptive loss
@@ -119,11 +122,15 @@ void NadaCore::UpdateRttStats(int64_t now_ms,
  *  
  * A reference implementation of the above can be found as part of
  * the ns3-rmcat open source repo (https://github.com/cisco/ns3-rmcat).  
+ % 
  * See
  * 
  * https://github.com/cisco/ns3-rmcat/blob/master/model/congestion-control/sender-based-controller.cc
  * https://github.com/cisco/ns3-rmcat/blob/master/model/congestion-control/sender-based-controller.h
  *
+ * Evaluations in ns3 simulations are shown to improve algorithm performance so such
+ * changes are encouraged. 
+ * 
  */
 void NadaCore::UpdatePlrStats(int64_t now_ms, 
                               int nloss, 

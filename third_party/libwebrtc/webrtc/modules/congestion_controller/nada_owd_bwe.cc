@@ -24,15 +24,9 @@
 #include "typedefs.h"
 
 namespace {
-
-constexpr int kNadaBweDefaultBitrate = 600000;        // Default initial rate 
-constexpr int64_t kNadaBweDefaultIntervalMs = 100;    // Default feedback interval in ms 
-
-constexpr int kNadaBweMinFilterWin = 5;           // # of taps for minimum filtering on one-way-delay 
-
 // Default values to fulfill the external API calls 
 constexpr int64_t kDefaultProbingIntervalinMs = 100; 
-constexpr uint32_t kNadaOwdFixedSsrc = 0;
+constexpr uint32_t kDefaultFixedSsrc = 0;
 
 }  // namespace
 
@@ -46,7 +40,7 @@ NadaOwdBwe::NadaOwdBwe(const Clock* clock)
       last_update_ms_(-1),
       last_seen_seqno_(-1),
       last_arrival_time_ms_(-1),
-      nada_rate_in_bps_(kNadaBweDefaultBitrate),
+      nada_rate_in_bps_(kNadaDefaultBitrate),
       core_() {
 
       printf("Initializing the OWD-based NADA BW Estimation Module\n");
@@ -72,7 +66,7 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
   int64_t now_ms = clock_->TimeInMilliseconds();
   int nfb = int(packet_feedback_vector.size());
 
-  int64_t fbint = kNadaBweDefaultIntervalMs;  
+  int64_t fbint = kNadaDefaultFBIntervalMs;  
   if (last_update_ms_ > 0)
     fbint = now_ms - last_update_ms_;
 
@@ -128,11 +122,13 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
     }
 
     // [XZ-2020-11-05] Update instantaneous OWD and RTT: 
-    // switch to use creation_time_ms as sending ts 
-    // dtmp = packet_feedback.arrival_time_ms - packet_feedback.send_time_ms;
+    // switch to use creation_time_ms as sending ts since send_time_ms follows a different clock
+    // added RTC_CHECK_LE to make sure this subtraction doesn't wrap
+
+    RTC_CHECK_LE(packet_feedback.creation_time_ms, packet_feedback.arrival_time_ms);
     dtmp = packet_feedback.arrival_time_ms - packet_feedback.creation_time_ms; 
 
-    // rtt = now_ms - packet_feedback.send_time_ms;
+    RTC_CHECK_LE(packet_feedback.creation_time_ms, now_ms);
     rtt = now_ms - packet_feedback.creation_time_ms; 
     core_.UpdateRttStats(now_ms, rtt);
 
@@ -171,8 +167,8 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
                       << " | nloss: " << nloss 
                       << std::endl; 
 
-    // minimum-filtering of past [15] FB reports on one-way-delay
-    if (ipkt > nfb - kNadaBweMinFilterWin) {
+    // minimum-filtering of past per-packet one-way-delay
+    if (ipkt > nfb - kNadaMinFilterWin) {
         if (dmin < 0  || dmin > dtmp) dmin = dtmp;
     }
     ipkt ++;
@@ -235,7 +231,6 @@ void NadaOwdBwe::SetMinBitrate(int min_bitrate_bps) {
                    << min_bitrate_bps/1000 << " Kbps" << std::endl; 
 }
 
-// Note by Xiaoqing: it seems that this is uncalled so perhaps we can remove? 
 bool NadaOwdBwe::LatestEstimate(std::vector<uint32_t>* ssrcs,
                                 uint32_t* bitrate_bps) const {
 
@@ -243,10 +238,11 @@ bool NadaOwdBwe::LatestEstimate(std::vector<uint32_t>* ssrcs,
   // ModuleRtpRtcpImpl::Process()) and the configuration thread (see
   // Call::GetStats()). Should in the future only be accessed from a single
   // thread.
+
   RTC_DCHECK(ssrcs);
   RTC_DCHECK(bitrate_bps);
 
-  *ssrcs = {kNadaOwdFixedSsrc};
+  *ssrcs = {kDefaultFixedSsrc};
   *bitrate_bps = nada_rate_in_bps_;
 
   printf("[DEBUG] inside LatestEstimate: reporting bitrate as %d Kbps\n", 

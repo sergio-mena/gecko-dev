@@ -18,6 +18,16 @@ namespace webrtc {
 #define NADA_RMODE_ACCELERATED_RAMPUP 0
 #define NADA_RMODE_GRADUAL_UPDATE 1
 
+// moved from NADA-RTT module (nada_bandwidth_estimation.cc)
+constexpr int kNadaDefaultBitrate =  600000;  // Default rate: 600Kbps 
+
+// moved from NADA-OWD module (nada_owd_bwe.cc)
+// constexpr int kNadaBweDefaultBitrate = 600000;        // Default initial rate 
+constexpr int64_t kNadaDefaultFBIntervalMs = 100;    // Default feedback interval in ms 
+
+constexpr int kNadaMinFilterWin = 5;                // # of taps for minimum filtering on one-way-delay 
+
+
 class NadaCore {
  public:
     NadaCore();

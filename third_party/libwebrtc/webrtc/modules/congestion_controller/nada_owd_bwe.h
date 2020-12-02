@@ -43,6 +43,7 @@ class NadaOwdBwe: public DelayBasedBweInterface {
   // Getters and setters
   virtual bool LatestEstimate(std::vector<uint32_t>* ssrcs,
                       uint32_t* bitrate_bps) const override;
+  
   virtual void SetStartBitrate(int start_bitrate_bps) override;
   virtual void SetMinBitrate(int min_bitrate_bps) override;
   virtual int64_t GetExpectedBwePeriodMs() const override;

@@ -16,17 +16,17 @@
 #include "rtc_base/checks.h"
 #include "rtc_base/logging.h"
 
-#define USE_DELAY_BASED 1
+// #define USE_DELAY_BASED 1 // TODO: can we populate this flag dyanmically from transport_cc  config instead? 
 
 namespace webrtc {
 
-namespace {
+// namespace {
 
-constexpr int kNADAParamRateBps =  600000;  // Default rate: 600Kbps
-// constexpr int kNADALimitNumPackets = 20;    // Number of packets before packet loss calculation is
-                                        // considered as valid (outside the scope of NADA draft)
+// // constexpr int kNadaRttDefaultBitrate =  600000;  // Default rate: 600Kbps
+// // constexpr int kNADALimitNumPackets = 20;    // Number of packets before packet loss calculation is
+//                                                 // considered as valid (outside the scope of NADA draft)
 
-}  // namespace
+// }  // namespace
 
 NADABandwidthEstimation::NADABandwidthEstimation()
     : SendSideBandwidthEstimationInterface(),
@@ -36,12 +36,12 @@ NADABandwidthEstimation::NADABandwidthEstimation()
       last_fraction_loss_(0),
       last_round_trip_time_ms_(0),
       bwe_incoming_(0),
-      delay_based_bitrate_bps_(kNADAParamRateBps),
-      bitrate_(kNADAParamRateBps),
-      core_() {
+      delay_based_bitrate_bps_(kNadaDefaultBitrate),
+      bitrate_(kNadaDefaultBitrate),
+      core_(), 
+      use_delay_based_(false) {
 
   printf("Initializing the RTT-based NADA BW Estimation Module\n");
-
   RTC_LOG(LS_INFO) << "Initializing the RTT-based NADA BW Estimation Module"<< std::endl;
 }
 
@@ -89,7 +89,7 @@ int NADABandwidthEstimation::GetMinBitrate() const {
 }
 
 //
-// [XZ 2019-03-07 Report query of currently estimated bitrate]
+// Report query of currently estimated bitrate
 //
 void NADABandwidthEstimation::CurrentEstimate(int* bitrate,
                                               uint8_t* loss,
@@ -117,11 +117,10 @@ void NADABandwidthEstimation::CurrentEstimate(int* bitrate,
 // rate of the UpdateDelayBasedEstimate() function whenever it is invoked
 //  
 
-#ifdef USE_DELAY_BASED
-  *bitrate = delay_based_bitrate_bps_;
-#else
-  *bitrate = bitrate_;
-#endif
+  if (use_delay_based_)
+    *bitrate = delay_based_bitrate_bps_;
+  else
+    *bitrate = bitrate_;
 
   *loss = last_fraction_loss_;
   *rtt = last_round_trip_time_ms_;
@@ -156,6 +155,8 @@ void NADABandwidthEstimation::UpdateReceiverEstimate(
 void NADABandwidthEstimation::UpdateDelayBasedEstimate(
     int64_t now_ms,
     uint32_t bitrate_bps) {
+
+  use_delay_based_ = true;  // switch to use delay-based estimation instead 
 
   delay_based_bitrate_bps_ = bitrate_bps;
 
@@ -248,9 +249,12 @@ void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
     core_.LogUpdate("nada_rtt", ts); 
 
     } else {
-
-      // [XZ 2018-12-20] Currently, no rate update in between feedback reports
-      // TODO: trigger timeout when needed
+      /*
+       * Optional TODO:
+       * Currently, no rate update occurs in between feedback reports. Alternatively, 
+       * it would be good to trigger timeout behavior when the sender does not 
+       * receive feedback for a long period of time
+      */
       printf("NADA UpdateEstimate triggered by local timer: ts = %lld, rate = %6d Kbps\n",
             ts, bitrate_/1000);
 
