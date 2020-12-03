@@ -92,7 +92,7 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
   int nloss = 0;
   int npkts = 0; 
   int nbytes = 0;
-  uint64_t curr_arrival_time_ms = 0;
+  int64_t curr_arrival_time_ms = 0;
 
   int ipkt = 0;  // pkt index in feedback vector
   for (const auto& packet_feedback : packet_feedback_vector) {

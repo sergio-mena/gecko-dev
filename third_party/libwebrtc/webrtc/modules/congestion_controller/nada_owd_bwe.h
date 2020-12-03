@@ -57,7 +57,7 @@ class NadaOwdBwe: public DelayBasedBweInterface {
   int64_t last_update_ms_;          // timestamp for last rate update: t_last in draft
 
   int64_t last_seen_seqno_;         // sequence number for last seen packet, for plr estimation
-  uint64_t last_arrival_time_ms_;   // timestamp or last arrived packet, for receiving rate estimation
+  int64_t last_arrival_time_ms_;   // timestamp or last arrived packet, for receiving rate estimation
 
   // for NADA BW estimation
   int nada_rate_in_bps_;    // local cache of calculated bandwidth | r_ref in draft

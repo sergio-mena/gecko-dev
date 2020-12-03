@@ -59,8 +59,8 @@ constexpr float    kNADAParamDLossMs =10.;  	  // Reference delay penalty for lo
 
 NadaCore::NadaCore()
     : delta_(kNADAParamDeltaMs),
-      nada_dfwd_(0.),
- 	    nada_dq_(0.),  
+      nada_dfwd_(0),
+ 	    nada_dq_(0),  
  	    nada_rtt_(0),  
  	    nada_relrtt_(0), 
  	    nada_nloss_(0), 
@@ -88,8 +88,11 @@ void NadaCore::UpdateOwdStats(int64_t now_ms,
 
     UpdateOwdHistory(now_ms, dfwd); 
 
-    float d_base = min_owd_history_.front().second; 
+    int64_t d_base = min_owd_history_.front().second; 
     nada_dfwd_ = dfwd; 
+
+    RTC_CHECK_LE(d_base, dfwd);  // check to avoid wrap-around errors
+
     nada_dq_ = dfwd - d_base; 
 }
 
@@ -100,7 +103,9 @@ void NadaCore::UpdateRttStats(int64_t now_ms,
 
     int64_t rtt_base = min_rtt_history_.front().second; 
     nada_rtt_ = rtt; 
-    nada_relrtt_ = rtt = rtt_base; 
+
+    RTC_CHECK_LE(rtt_base, rtt);  // check to avoid wrap-around errors
+    nada_relrtt_ = rtt - rtt_base; 
 }
 
 /*
@@ -245,7 +250,7 @@ void NadaCore::UpdateCongestion(const bool use_rtt) {
   if (use_rtt) {
     d_tilde = double(nada_relrtt_); 
   } else {
-    d_tilde = nada_dq_;
+    d_tilde = double(nada_dq_);
   }
 
   // non-linear delay warping
@@ -305,8 +310,8 @@ void NadaCore::GetRampUpMode(const bool use_rtt) {
   } else {
 
     if (!min_owd_history_.empty() && !max_owd_history_.empty()) {
-      float d_base = min_owd_history_.front().second; 
-      float d_max = max_owd_history_.front().second;
+      int64_t d_base = min_owd_history_.front().second; 
+      int64_t d_max = max_owd_history_.front().second;
       drel = d_max - d_base;
     } 
   }
@@ -379,7 +384,7 @@ void NadaCore::AcceleratedRampUp(const int64_t now_ms) {
  */
 void NadaCore::GradualRateUpdate(const int64_t now_ms) {
 
-    double x_ratio = float(nada_rmax_in_bps_)/float(nada_rate_in_bps_);
+    double x_ratio = double(nada_rmax_in_bps_)/double(nada_rate_in_bps_);
     double x_target = kNADAParamPrio * kNADAParamXref * x_ratio;
     double x_offset = nada_x_curr_ - x_target;
     double x_diff = nada_x_curr_ - nada_x_prev_;
@@ -388,7 +393,7 @@ void NadaCore::GradualRateUpdate(const int64_t now_ms) {
     nada_x_prev_ = nada_x_curr_;
 
     // calculate updated rate per equations above
-    double w1 = float(delta_)/kNADAParamTau;
+    double w1 = double(delta_)/kNADAParamTau;
     w1 = w1*x_offset/kNADAParamTau;
 
     double w2 = kNADAParamEta*x_diff/kNADAParamTau;
@@ -538,7 +543,7 @@ void NadaCore::UpdateRttHistory(int64_t now_ms, int64_t rtt) {
  * -- min_owd_history_:  long-term min (baseline) values
  *
  */
-void NadaCore::UpdateOwdHistory(int64_t now_ms, float dfwd) {
+void NadaCore::UpdateOwdHistory(int64_t now_ms, int64_t dfwd) {
 
   // Remove expired data points from maximum delay (max_del) history.
   while (!max_owd_history_.empty() &&
