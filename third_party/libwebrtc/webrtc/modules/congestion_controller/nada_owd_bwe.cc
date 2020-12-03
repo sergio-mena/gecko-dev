@@ -24,6 +24,7 @@
 #include "typedefs.h"
 
 namespace {
+
 // Default values to fulfill the external API calls 
 constexpr int64_t kDefaultProbingIntervalinMs = 100; 
 constexpr uint32_t kDefaultFixedSsrc = 0;
@@ -32,7 +33,6 @@ constexpr uint32_t kDefaultFixedSsrc = 0;
 
 namespace webrtc {
 
-///  start of NadaOwdBwe (NADA One-way-delay BW Estimation) ///
 NadaOwdBwe::NadaOwdBwe(const Clock* clock)
     : DelayBasedBweInterface(),
       clock_(clock),
@@ -48,11 +48,6 @@ NadaOwdBwe::NadaOwdBwe(const Clock* clock)
 }
 
 NadaOwdBwe::~NadaOwdBwe() {}
-
-// TODO:  An alternative way of handling packet delay logs and duplicate
-// FB vectors would be:
-// * keep a local log (list) of "raw" pkt one-way-delay info along with seqno, etc.
-// * decouple rate calculation from per-pkt stats update
 
 // Main API for BW estimation, triggered by receiving transport FB vectors
 DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
@@ -88,16 +83,6 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
                    << " | fbint = " << fbint << "ms" << std::endl; 
 
   RTC_DCHECK_RUNS_SERIALIZED(&network_race_);
-
-  // 
-  // TODO: replace loop below with NADA calculation:
-  // Step 1)  FB Vector => per-pkt <seqno, owd> info *
-  //
-  // Step 2)  Rate calculation update based on OWD/loss/RTT/recv_rate **
-  //          2.a: accelerated ramp-up (probing)
-  //          2.b: gradual update
-  //
-  // Step 3)  Save to result
 
   DelayBasedBwe::Result result;
 
@@ -144,7 +129,6 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
     }
     last_seen_seqno_ = packet_feedback.sequence_number;
 
-    // TODO: Log per-pkt info ==> move to debug mode
     printf("\t pktinfo | seqno=%6d, pktsize=%6d | creatts=%8lld, sendts=%8lld, recvts=%8lld, ackts=%8lld | d_fwd=%8lld  ms | rtt=%8lld ms\n",
            packet_feedback.sequence_number,
            int(packet_feedback.payload_size),
@@ -156,15 +140,15 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
            rtt); 
 
     RTC_LOG(LS_INFO) << " NADA IncomingPacketFBVector | pktinfo " 
-                      << " | seqno: " <<  packet_feedback.sequence_number
+                      << " | seqno: "   <<  packet_feedback.sequence_number
                       << " | pktsize: " <<  packet_feedback.payload_size << " bytes"
                       << " | creatts: " << packet_feedback.creation_time_ms << " ms"
                       << " | sendts: "  << packet_feedback.send_time_ms << " ms"
                       << " | recvts: "  << packet_feedback.arrival_time_ms << " ms"
                       << " | ackts: "   << now_ms << " ms"
-                      << " | d_fwd: " << dtmp << " ms"
-                      << " | rtt: " << rtt  << " ms"
-                      << " | nloss: " << nloss 
+                      << " | d_fwd: "   << dtmp << " ms"
+                      << " | rtt: "     << rtt  << " ms"
+                      << " | nloss: "   << nloss 
                       << std::endl; 
 
     // minimum-filtering of past per-packet one-way-delay

@@ -309,7 +309,7 @@ void DelayBasedBwe::IncomingPacketFeedback(
   last_seen_seqno_ = packet_feedback.sequence_number;
 
   RTC_LOG(LS_INFO) << " DelayBWE IncomingPktFB | pktinfo "
-                               << " | seqno: " <<  packet_feedback.sequence_number
+                   << " | seqno: " <<  packet_feedback.sequence_number
                    << " | pktsize: " <<  packet_feedback.payload_size << " bytes"
                    << " | creatts: " << packet_feedback.creation_time_ms << " ms"
                    << " | sendts: "  << packet_feedback.send_time_ms << " ms"
@@ -383,21 +383,18 @@ DelayBasedBwe::Result DelayBasedBwe::MaybeUpdateEstimate(
   std::ostringstream os;
   os << std::fixed;
   os.precision(2);
-
-  RTC_LOG(LS_INFO) << " DelayBasedBwe::MaybeUpdateEstimate | algo:default "       // 1) CC algorithm flavor
-                     << " | ts: "     << now_ms - first_seen_packet_ms_ << " ms"  // 2) timestamp
-                     << " | fbint: "  << feedback_interval_ms_ << " ms"              // 3) feedback interval
-                     << " | qdel: "   << default_bwe_dqel_ms_ << " ms"                 // 4) queuing delay 
-                     << " | rtt: "    << default_bwe_rtt_ms_ << " ms"               // 5) RTT
-                     << " | ploss: "  << default_bwe_ploss_                                  // 6) packet loss count
-                     << " | plr: "    << std::fixed << default_bwe_plr_*100.  << " %"                 // 7) temporally packet loss ratio
-                     << " | update: "  << result.updated                  // 9) aggregated congestion signal 
-                     << " | probe: "   << result.probe                           // 8) rate update mode: accelerated ramp-up or gradual 
-                     // << " | state: "   << prev_state_                       // 
-                     << " | rrate: "   << default_bwe_rrate_/1000. << " Kbps"     // 10) receiving rate 
-                     << " | srate: "    << result.target_bitrate_bps/1000. << " Kbps"     // 11) sending rate
+  RTC_LOG(LS_INFO) << " DelayBasedBwe::MaybeUpdateEstimate | algo:default "             // 1) CC algorithm flavor
+                     << " | ts: "     << now_ms - first_seen_packet_ms_ << " ms"        // 2) timestamp
+                     << " | fbint: "  << feedback_interval_ms_ << " ms"                 // 3) feedback interval
+                     << " | qdel: "   << default_bwe_dqel_ms_ << " ms"                  // 4) queuing delay 
+                     << " | rtt: "    << default_bwe_rtt_ms_ << " ms"                   // 5) RTT
+                     << " | nloss: "  << default_bwe_ploss_                             // 6) packet loss count
+                     << " | plr: "    << std::fixed << default_bwe_plr_*100.  << " %"   // 7) temporally packet loss ratio
+                     << " | update: "  << result.updated                                // 8) aggregated congestion signal 
+                     << " | probe: "   << result.probe                                  // 9) rate update mode: accelerated ramp-up or gradual 
+                     << " | rrate: "   << default_bwe_rrate_/1000. << " Kbps"           // 10) receiving rate 
+                     << " | srate: "    << result.target_bitrate_bps/1000. << " Kbps"   // 11) sending rate
                      << std::endl;
-
   // [XZ 2019-10-21]
 
   return result;

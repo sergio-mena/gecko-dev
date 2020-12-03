@@ -292,37 +292,40 @@ void NadaCore::UpdateCongestion(const bool use_rtt) {
  */
 
 void NadaCore::GetRampUpMode(const bool use_rtt) {
-
-
-  // TODO: add guard rails on retrieving from xxx_history_ lists
-  //       so that we don't retrieve from empty lists
-  // 
-  int drel = 0; 
+ 
+  int drel = 0;  // default to 0 in case no history is present
   if (use_rtt) {
-    int64_t rtt_base = min_rtt_history_.front().second;
-    int64_t rtt_max = max_rtt_history_.front().second;
-    drel = rtt_max - rtt_base; 
+
+    if (!min_rtt_history_.empty() && !max_rtt_history_.empty()) {
+      int64_t rtt_base = min_rtt_history_.front().second;
+      int64_t rtt_max = max_rtt_history_.front().second;
+      drel = rtt_max - rtt_base; 
+    }
+
   } else {
-    float d_base = min_owd_history_.front().second; 
-    float d_max = max_owd_history_.front().second;
-    drel = d_max - d_base; 
+
+    if (!min_owd_history_.empty() && !max_owd_history_.empty()) {
+      float d_base = min_owd_history_.front().second; 
+      float d_max = max_owd_history_.front().second;
+      drel = d_max - d_base;
+    } 
   }
   
   float plr_max = max_plr_history_.front().second;
 
-  RTC_LOG(LS_INFO) << "[DEBUG] NADA GetRampUpMode: " 
-                     << " drel = " << drel
-                     << " ms, plr_max = "   << plr_max * 100. << std::endl;
 
   if (plr_max > 0.)     
-    nada_rmode_ = NADA_RMODE_GRADUAL_UPDATE;   // loss exists, gradual-update
-  else if (drel > kNADAParamQepsMs) 
+    nada_rmode_ = NADA_RMODE_GRADUAL_UPDATE;   // loss exists => gradual-update
+  else if (drel > kNADAParamQepsMs)             // delay exceeds upper bound ==> gradual-update
     nada_rmode_ = NADA_RMODE_GRADUAL_UPDATE; 
   else
     nada_rmode_ = NADA_RMODE_ACCELERATED_RAMPUP; 
 
-  printf("DEBUG] NADA GetRampUpMode: rmode = %d\n", nada_rmode_);
-  fflush(stdout);
+
+  RTC_LOG(LS_INFO) << "[DEBUG] NADA GetRampUpMode: " 
+                   << " drel = "    << drel << " ms, "
+                   << " plr_max = " << plr_max * 100. << " %"
+                   << " rmode = " << nada_rmode_ << std::endl;
 
 }
 

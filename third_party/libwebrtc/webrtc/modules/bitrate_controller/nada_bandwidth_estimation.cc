@@ -16,17 +16,8 @@
 #include "rtc_base/checks.h"
 #include "rtc_base/logging.h"
 
-// #define USE_DELAY_BASED 1 // TODO: can we populate this flag dyanmically from transport_cc  config instead? 
 
 namespace webrtc {
-
-// namespace {
-
-// // constexpr int kNadaRttDefaultBitrate =  600000;  // Default rate: 600Kbps
-// // constexpr int kNADALimitNumPackets = 20;    // Number of packets before packet loss calculation is
-//                                                 // considered as valid (outside the scope of NADA draft)
-
-// }  // namespace
 
 NADABandwidthEstimation::NADABandwidthEstimation()
     : SendSideBandwidthEstimationInterface(),
@@ -95,28 +86,6 @@ void NADABandwidthEstimation::CurrentEstimate(int* bitrate,
                                               uint8_t* loss,
                                               int64_t* rtt) const {
 
-// TODO (sergio): Convince Xiaoqing to remove delay_based_bitrate_bps_ altogether: 
-// it's the same as bitrate_ !!
-// 
-// [Notes: 2020-11-08]
-// Xiaoqing's observation on Mozilla behavior when USE_DELAY_BASED is active (1): 
-// 
-// In NADA-RTT mode (use_transport_cc as false), the delay_based_bitrate_bps_ is 
-// chosen instead of bitrate_, but UpdateDelayBasedEstimate() is never called so 
-// delay_based_bitrate_bps_ is stuck at default rate -- so this is undesired
-// 
-// In NADA-OWD mode (use_transport_cc as true), the delay_based_bitrate_bps_ is
-// chosen based on rate calculation from NadaOwdBwe whereas bitrate_ is 
-// still periodically updated. So reporting the bitrate as delay_based_bitrate_bps_
-// is desired.
-// 
-// Question: can we switch the flag of USE_DELAY_BASED according to the
-// configuration flag use_transport_cc?   
-//
-// Proposed alternative modification: simply override bitrate_ with input 
-// rate of the UpdateDelayBasedEstimate() function whenever it is invoked
-//  
-
   if (use_delay_based_)
     *bitrate = delay_based_bitrate_bps_;
   else
@@ -174,7 +143,6 @@ void NADABandwidthEstimation::UpdateDelayBasedEstimate(
  * packet loss and RTT measures
  *
  */
-// TODO: what's the unit for the input fraction_loss variable? 
 void NADABandwidthEstimation::UpdateReceiverBlock(uint8_t fraction_loss,
                                                   int64_t rtt,
                                                   int number_of_packets,
@@ -194,7 +162,6 @@ void NADABandwidthEstimation::UpdateReceiverBlock(uint8_t fraction_loss,
   } else 
     ts = now_ms - first_report_time_ms_; 
 
-  // TODO: move logs to debug-mode only
   printf("NADA UpdateReceiverBlock at %lld ms...rtt = %lld, loss = %d, npkts = %d\n",
          ts, rtt, fraction_loss, number_of_packets);
 
@@ -249,6 +216,7 @@ void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
     core_.LogUpdate("nada_rtt", ts); 
 
     } else {
+
       /*
        * Optional TODO:
        * Currently, no rate update occurs in between feedback reports. Alternatively, 
