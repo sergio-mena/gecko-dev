@@ -124,12 +124,6 @@ DelayBasedBwe::Result DelayBasedBwe::IncomingPacketFeedbackVector(
   if (last_seen_packet_ms_ > 0)
     feedback_interval_ms_ = now_ms - last_seen_packet_ms_; 
 
-  printf("DelayBasedBwe::IncomingPktFBVector | t=%lld (%lld) ms, nfb = %d, fbint = %lld\n",
-         now_ms, 
-         now_ms - first_seen_packet_ms_, 
-         nfb, 
-         feedback_interval_ms_); 
-
   RTC_LOG(LS_INFO) << "DelayBasedBwe IncomingPacketFBVector" 
                    << " | t = "     << now_ms 
                    << " | t_rel = " <<  now_ms-first_seen_packet_ms_
@@ -176,7 +170,6 @@ DelayBasedBwe::Result DelayBasedBwe::IncomingPacketFeedbackVector(
   if (default_bwe_npkts_ > 0) {
     double tmpplr = double(default_bwe_ploss_)/(double(default_bwe_npkts_+default_bwe_ploss_));
     default_bwe_plr_ += 0.1*(tmpplr - default_bwe_plr_);  // exponential smoothing
-    printf("DelayBasedBwe: plr = %.2f | %.2f\n", tmpplr, default_bwe_plr_);
   }
 
   if (last_arrival_time_ms_ > 0) {

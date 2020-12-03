@@ -243,8 +243,7 @@ int NadaCore::UpdateNadaRate(const int64_t now_ms,
  */
 void NadaCore::UpdateCongestion(const bool use_rtt) {
 
-  RTC_LOG(LS_INFO) << "[DEBUG] Updating Congestion, use_rtt = " << use_rtt << std::endl;
-  printf("[DEBUG] UpdateCongestion: use_rtt = %d\n", use_rtt);
+  RTC_LOG(LS_VERBOSE) << "[DEBUG] Updating Congestion, use_rtt = " << use_rtt << std::endl;
 
   double d_tilde = 0.0; 
   if (use_rtt) {
@@ -257,9 +256,8 @@ void NadaCore::UpdateCongestion(const bool use_rtt) {
   if (nada_nloss_ > 0)  {
     if (d_tilde > kNADAParamQthMs)  {
 
-      RTC_LOG(LS_INFO) <<  "[DEBUG] Updating Congestion: invoking non-linear warping for "
+      RTC_LOG(LS_VERBOSE) <<  "[DEBUG] Updating Congestion: invoking non-linear warping for "
                        << "d_tilde = " << d_tilde << " ms" << std::endl; 
-      printf("[DEBUG] UpdateCongestion: invoking non-linear warping for d_tilde=%.2f ms\n", d_tilde);
 
       double beta = kNADAParamLambda*(d_tilde-kNADAParamQthMs)/kNADAParamQthMs;
       d_tilde = kNADAParamQthMs*exp(-beta);
@@ -327,7 +325,7 @@ void NadaCore::GetRampUpMode(const bool use_rtt) {
     nada_rmode_ = NADA_RMODE_ACCELERATED_RAMPUP; 
 
 
-  RTC_LOG(LS_INFO) << "[DEBUG] NADA GetRampUpMode: " 
+  RTC_LOG(LS_VERBOSE) << "[DEBUG] NADA GetRampUpMode: " 
                    << " drel = "    << drel << " ms, "
                    << " plr_max = " << plr_max * 100. << " %"
                    << " rmode = " << nada_rmode_ << std::endl;
@@ -355,7 +353,7 @@ void NadaCore::AcceleratedRampUp(const int64_t now_ms) {
     if (gamma > kNADAParamGammaMax) gamma = kNADAParamGammaMax;
     nada_rate_in_bps_ = (1+gamma)*nada_rate_in_bps_;
 
-  	RTC_LOG(LS_INFO) << "[DEBUG] NADA AcceleratedRampUp "
+  	RTC_LOG(LS_VERBOSE) << "[DEBUG] NADA AcceleratedRampUp "
                       	<< "| ramp-up ratio gamma=" << gamma
                       	<< ", rate =" << nada_rate_in_bps_/1000 << " Kbps" << std::endl; 
 
@@ -410,7 +408,7 @@ void NadaCore::GradualRateUpdate(const int64_t now_ms) {
         nada_rate_in_bps_ = 0;
     }
 
-    RTC_LOG(LS_INFO) << "[DEBUG] NADA GradualRateUpdate "
+    RTC_LOG(LS_VERBOSE) << "[DEBUG] NADA GradualRateUpdate "
                         << "| x_curr=" << nada_x_curr_ << " ms " 
                         << "| r_curr=" << nada_rate_in_bps_/1000. << " Kbps" << std::endl; 
 
@@ -440,7 +438,7 @@ void NadaCore::ClipBitrate() {
     nada_rate_in_bps_ = nada_rmax_in_bps_;
   }
 
-  RTC_LOG(LS_INFO) << "[DEBUG] NADA ClipBitrate "
+  RTC_LOG(LS_VERBOSE) << "[DEBUG] NADA ClipBitrate "
                          << "| rate_in  =" << bitrate/1000 << " Kbps" 
                          << "| rate_out =" << nada_rate_in_bps_/1000. << " Kbps" << std::endl; 
 
@@ -449,9 +447,6 @@ void NadaCore::ClipBitrate() {
 /////////// Auxiliary Functions /////////////
 void NadaCore::LogUpdate(const char * algo, 
 						             const int64_t ts) {
-
-  printf("NADA Update | algo: %s | ts = %lld, fbint = %lld ms, rmode = %d, xcurr = %4.2f, rate = %6d Kbps\n",
-            algo, ts, delta_, nada_rmode_, nada_x_curr_, nada_rate_in_bps_/1000);
 
   std::ostringstream os;
   os << std::fixed;

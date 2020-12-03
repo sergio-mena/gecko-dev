@@ -43,7 +43,6 @@ NadaOwdBwe::NadaOwdBwe(const Clock* clock)
       nada_rate_in_bps_(kNadaDefaultBitrate),
       core_() {
 
-      printf("Initializing the OWD-based NADA BW Estimation Module\n");
       RTC_LOG(LS_INFO) << "Initializing the OWD-based NADA BW Estimation Module" ;
 }
 
@@ -72,9 +71,6 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
     ts = now_ms - first_update_ms_; 
 
   core_.UpdateDelta(fbint); 
-
-  printf("NadaOwdBwe::IncomingPacketFeedbackVector | t=%lld (%lld) ms, nfb = %d, fbint = %6lld ms\n",
-         now_ms, ts,  nfb, fbint);
 
   RTC_LOG(LS_INFO) << "NADA IncomingPacketFBVector" 
                    << " | t = " << now_ms 
@@ -129,16 +125,6 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
     }
     last_seen_seqno_ = packet_feedback.sequence_number;
 
-    printf("\t pktinfo | seqno=%6d, pktsize=%6d | creatts=%8lld, sendts=%8lld, recvts=%8lld, ackts=%8lld | d_fwd=%8lld  ms | rtt=%8lld ms\n",
-           packet_feedback.sequence_number,
-           int(packet_feedback.payload_size),
-           packet_feedback.creation_time_ms,
-           packet_feedback.send_time_ms,
-           packet_feedback.arrival_time_ms,
-           now_ms,
-           dtmp, 
-           rtt); 
-
     RTC_LOG(LS_INFO) << " NADA IncomingPacketFBVector | pktinfo " 
                       << " | seqno: "   <<  packet_feedback.sequence_number
                       << " | pktsize: " <<  packet_feedback.payload_size << " bytes"
@@ -184,10 +170,8 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
 // more accurate for this version of the algorithm
 void NadaOwdBwe::OnRttUpdate(int64_t avg_rtt_ms, int64_t max_rtt_ms) {
 
-  printf("[DEBUG]: inside OnRttUpdate: rtt_avg = %8lld ms, rtt_max = %8lld ms\n", 
-          avg_rtt_ms, max_rtt_ms); 
 
-  RTC_LOG(LS_INFO) << "[DEBUG]  inside OnRttUpdate: "
+  RTC_LOG(LS_VERBOSE) << "[DEBUG]  inside OnRttUpdate: "
                    << "  rtt_avg =" << avg_rtt_ms 
                    << " ms , rtt_max = " << max_rtt_ms
                    << " ms" << std::endl; 
@@ -197,10 +181,7 @@ void NadaOwdBwe::OnRttUpdate(int64_t avg_rtt_ms, int64_t max_rtt_ms) {
 // algorithm works well without it
 void NadaOwdBwe::SetStartBitrate(int start_bitrate_bps) {
 
-  printf("[DEBUG]: inside SetStartBitrate: start_bitrate = %d Kbps\n", 
-         start_bitrate_bps/1000); 
-
-  RTC_LOG(LS_INFO) << " [DEBUG]  inside SetStartBitrate: start_bitrate ="
+  RTC_LOG(LS_VERBOSE) << " [DEBUG]  inside SetStartBitrate: start_bitrate ="
                    << start_bitrate_bps/1000 << " Kbps" << std::endl; 
 }
 
@@ -208,10 +189,8 @@ void NadaOwdBwe::SetStartBitrate(int start_bitrate_bps) {
 // algorithm works well without it
 void NadaOwdBwe::SetMinBitrate(int min_bitrate_bps) {
 
-  printf("[DEBUG]: inside SetMinBitrate: incoming min_bitrate = %d Kbps\n", 
-         min_bitrate_bps/1000); 
 
-  RTC_LOG(LS_INFO) << " [DEBUG] inside SetMinBitrate: incoming min_bitrate ="
+  RTC_LOG(LS_VERBOSE) << " [DEBUG] inside SetMinBitrate: incoming min_bitrate ="
                    << min_bitrate_bps/1000 << " Kbps" << std::endl; 
 }
 
@@ -229,10 +208,7 @@ bool NadaOwdBwe::LatestEstimate(std::vector<uint32_t>* ssrcs,
   *ssrcs = {kDefaultFixedSsrc};
   *bitrate_bps = nada_rate_in_bps_;
 
-  printf("[DEBUG] inside LatestEstimate: reporting bitrate as %d Kbps\n", 
-         nada_rate_in_bps_/1000); 
-
-  RTC_LOG(LS_INFO) << " [DEBUG] inside LatestEstimate: reporting bitrate as"
+  RTC_LOG(LS_VERBOSE) << " [DEBUG] inside LatestEstimate: reporting bitrate as"
                    << nada_rate_in_bps_/1000 << " Kbps" << std::endl; 
 
   return true;
@@ -240,10 +216,7 @@ bool NadaOwdBwe::LatestEstimate(std::vector<uint32_t>* ssrcs,
 
 int64_t NadaOwdBwe::GetExpectedBwePeriodMs() const {
 
-  printf("[DEBUG]: inside GetExpectedBwePeriodMs: reporting probing interval as %8lld ms\n", 
-         kDefaultProbingIntervalinMs); 
-
-  RTC_LOG(LS_INFO) << "[DEBUG] inside GetExpectedBwePeriodMs: reporting probing interval as "
+  RTC_LOG(LS_VERBOSE) << "[DEBUG] inside GetExpectedBwePeriodMs: reporting probing interval as "
                    << kDefaultProbingIntervalinMs << " ms" << std::endl; 
 
   return kDefaultProbingIntervalinMs;

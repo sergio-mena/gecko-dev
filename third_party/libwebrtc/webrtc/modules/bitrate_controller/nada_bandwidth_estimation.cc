@@ -32,7 +32,6 @@ NADABandwidthEstimation::NADABandwidthEstimation()
       core_(), 
       use_delay_based_(false) {
 
-  printf("Initializing the RTT-based NADA BW Estimation Module\n");
   RTC_LOG(LS_INFO) << "Initializing the RTT-based NADA BW Estimation Module"<< std::endl;
 }
 
@@ -94,10 +93,6 @@ void NADABandwidthEstimation::CurrentEstimate(int* bitrate,
   *loss = last_fraction_loss_;
   *rtt = last_round_trip_time_ms_;
 
-  printf("NADA CurrentEstimate: bitrate_ = %8.2f, delay_based_bitrate_bps_ = %8.2f Kbps | rate = %.2f Kbps, loss = %d, rtt = %lld ms\n",
-        bitrate_/1000., delay_based_bitrate_bps_/1000.,
-       *bitrate/1000.,  *loss, *rtt);
-
   RTC_LOG(LS_INFO) << "NADA CurrentEstimate: " 
                    << " | bitrate_: " << bitrate_/1000. << " Kbps"
                    << " | delay_based_bitrate_bps_:  " << delay_based_bitrate_bps_/1000 << " Kbps"
@@ -129,10 +124,6 @@ void NADABandwidthEstimation::UpdateDelayBasedEstimate(
 
   delay_based_bitrate_bps_ = bitrate_bps;
 
-  printf("NADA UpdateDelayBasedEstimate: %.2f Kbps at %lld ms\n",
-         delay_based_bitrate_bps_/1000.,
-         now_ms-first_report_time_ms_);
-
   RTC_LOG(LS_INFO) << "NADA UpdateDelayBasedEstimate: now = " << now_ms-first_report_time_ms_
                    << " ms, delay_based_rate_ = " << bitrate_bps/1000
                    << " Kbps" << std::endl;
@@ -161,9 +152,6 @@ void NADABandwidthEstimation::UpdateReceiverBlock(uint8_t fraction_loss,
     first_report_time_ms_ = now_ms;
   } else 
     ts = now_ms - first_report_time_ms_; 
-
-  printf("NADA UpdateReceiverBlock at %lld ms...rtt = %lld, loss = %d, npkts = %d\n",
-         ts, rtt, fraction_loss, number_of_packets);
 
   RTC_LOG(LS_INFO) << "NADA UpdateReceiverBlock: now = " << ts
                    << " ms, fb_interval = " << feedback_interval_ms_
@@ -223,9 +211,6 @@ void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
        * it would be good to trigger timeout behavior when the sender does not 
        * receive feedback for a long period of time
       */
-      printf("NADA UpdateEstimate triggered by local timer: ts = %lld, rate = %6d Kbps\n",
-            ts, bitrate_/1000);
-
       RTC_LOG(LS_VERBOSE) << "NADA UpdateEstimate: triggered by sender local timer -- "
                           << "ts: "   << ts  << " ms "
                           << "rate: " << bitrate_/1000 << " Kbps. " << std::endl;
