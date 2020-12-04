@@ -1,4 +1,4 @@
-Evaluation the NADA Congestion Control in Mozilla
+Evaluation of the NADA Congestion Control in Mozilla
 ===================================================
 
 Run-Time Configurations in Nightly
@@ -64,5 +64,4 @@ Note that the number/level of the non-empty *.moz_log file could be different, s
 ```
    $ ls -l *.moz_log
 ```
-
 
