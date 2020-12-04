@@ -73,9 +73,8 @@ bool UseSendSideBwe(const std::vector<RtpExtension>& extensions,
   if (!transport_cc)
     return false;
   for (const auto& extension : extensions) {
-    if (extension.uri == RtpExtension::kTransportSequenceNumberUri) {
-        return true;
-    }
+    if (extension.uri == RtpExtension::kTransportSequenceNumberUri)
+      return true;
   }
   return false;
 }
@@ -1298,12 +1297,8 @@ PacketReceiver::DeliveryStatus Call::DeliverRtcp(MediaType media_type,
   }
   bool rtcp_delivered = false;
   if (media_type == MediaType::ANY || media_type == MediaType::VIDEO) {
-
-    int nvstream = 0;
-
     ReadLockScoped read_lock(*receive_crit_);
     for (VideoReceiveStream* stream : video_receive_streams_) {
-      nvstream ++;
       if (stream->DeliverRtcp(packet, length))
         rtcp_delivered = true;
     }
@@ -1417,9 +1412,7 @@ PacketReceiver::DeliveryStatus Call::DeliverPacket(
   //Mozilla: Called from STS thread while delivering packets
   //RTC_DCHECK_CALLED_SEQUENTIALLY(&configuration_sequence_checker_);
   if (RtpHeaderParser::IsRtcp(packet, length))
-  {
     return DeliverRtcp(media_type, packet, length);
-  }
 
   return DeliverRtp(media_type, packet, length, packet_time);
 }

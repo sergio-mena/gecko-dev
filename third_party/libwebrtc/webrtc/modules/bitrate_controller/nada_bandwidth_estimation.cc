@@ -189,7 +189,7 @@ void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
 
       // no feedback message yet: staying with current rate
       RTC_LOG(LS_VERBOSE) << "NADA UpdateEstimate: no feedback yet -- "
-                   << "ts: "	<< ts  << " ms "
+                   << "ts: " << ts  << " ms "
                    << "rate: " << bitrate_/1000 << " Kbps." << std::endl;
 
     }  else if (now_ms == last_feedback_ms_) {
