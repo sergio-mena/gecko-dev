@@ -1,5 +1,5 @@
 '''
-    process_log_owd.py
+    process_log_all.py
 
 
     python3 ../process_log_all.py --scen nada_owd --trfile nada.tr --scheme nada
@@ -296,5 +296,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     main(args)
-
 
