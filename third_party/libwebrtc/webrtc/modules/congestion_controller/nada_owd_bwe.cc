@@ -145,11 +145,11 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
   }
 
   // per feedback interval
-  if (last_arrival_time_ms_>0) {
+  if (last_arrival_time_ms_>0) 
     core_.CalcRecvRate(curr_arrival_time_ms, last_arrival_time_ms_, nbytes);
-    last_arrival_time_ms_ = curr_arrival_time_ms;
-  }
-
+  
+  last_arrival_time_ms_ = curr_arrival_time_ms;
+  
   // update per-interval packet stats (delay/PLR)
   core_.UpdateOwdStats(now_ms, dmin);
   core_.UpdatePlrStats(now_ms, nloss, npkts);
