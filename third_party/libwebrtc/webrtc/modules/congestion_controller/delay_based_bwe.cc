@@ -274,14 +274,8 @@ void DelayBasedBwe::IncomingPacketFeedback(
   RTC_CHECK_GT(packet_feedback.creation_time_ms, 0);  // It is ensured by the caller
 
   // update delay info: d_fwd, d_base, d_queue, rtt
-  // RTC_CHECK_LE(packet_feedback.send_time_ms, now_ms); // Make sure default_bwe_rtt_ms_ doesn't wrap
-  // default_bwe_rtt_ms_ = now_ms - packet_feedback.send_time_ms;
-
   RTC_CHECK_LE(packet_feedback.creation_time_ms, now_ms); // Make sure default_bwe_rtt_ms_ doesn't wrap
   default_bwe_rtt_ms_ = now_ms - packet_feedback.creation_time_ms;
-
-  // RTC_CHECK_LE(packet_feedback.send_time_ms, packet_feedback.arrival_time_ms); // Make sure dtmp isn't negative
-  // int64_t dtmp = packet_feedback.arrival_time_ms - packet_feedback.send_time_ms;
 
   RTC_CHECK_LE(packet_feedback.creation_time_ms, packet_feedback.arrival_time_ms); // Make sure dtmp isn't negative
   int64_t dtmp = packet_feedback.arrival_time_ms - packet_feedback.creation_time_ms;

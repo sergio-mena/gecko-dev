@@ -497,13 +497,6 @@ void OveruseFrameDetector::CheckForOveruse() {
 
   int64_t now_ms = rtc::TimeMillis();
 
-
-  printf("[XQ] OveruseFrameDetector::CheckForOveruse:  t=%lld | pct = %d vs. [%d, %d]\n",
-         now_ms,
-         metrics_->encode_usage_percent,
-         options_.high_encode_usage_threshold_percent,
-         options_.low_encode_usage_threshold_percent);
-
   if (IsOverusing(*metrics_)) {
     // If the last thing we did was going up, and now have to back down, we need
     // to check if this peak was short. If so we should back off to avoid going
@@ -527,12 +520,8 @@ void OveruseFrameDetector::CheckForOveruse() {
     checks_above_threshold_ = 0;
     ++num_overuse_detections_;
 
-    if (observer_) {
-
-      printf("[XQ] OveruseFrameDetector::CheckForOveruse:  calling ScaleDown due to CPU reason\n");
-
+    if (observer_)
       observer_->AdaptDown(kScaleReasonCpu);
-    }
   } else if (IsUnderusing(*metrics_, now_ms)) {
     last_rampup_time_ms_ = now_ms;
     in_quick_rampup_ = true;

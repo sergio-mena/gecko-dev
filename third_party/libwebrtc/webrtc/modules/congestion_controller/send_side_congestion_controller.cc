@@ -211,6 +211,7 @@ void SendSideCongestionController::OnNetworkRouteChanged(
 
   probe_controller_->Reset();
   probe_controller_->SetBitrates(min_bitrate_bps, bitrate_bps, max_bitrate_bps);
+
   MaybeTriggerOnNetworkChanged();
 }
 
@@ -321,7 +322,6 @@ void SendSideCongestionController::AddPacket(
 void SendSideCongestionController::OnTransportFeedback(
     const rtcp::TransportFeedback& feedback) {
   RTC_DCHECK_RUNS_SERIALIZED(&worker_race_);
-
   transport_feedback_adapter_.OnTransportFeedback(feedback);
   std::vector<PacketFeedback> feedback_vector = ReceivedPacketFeedbackVector(
       transport_feedback_adapter_.GetTransportFeedbackVector());
@@ -335,6 +335,7 @@ void SendSideCongestionController::OnTransportFeedback(
     probe_controller_->SetAlrEndedTimeMs(now_ms);
   }
   was_in_alr_ = currently_in_alr;
+
   acknowledged_bitrate_estimator_->IncomingPacketFeedbackVector(
       feedback_vector);
   DelayBasedBwe::Result result;
@@ -343,7 +344,6 @@ void SendSideCongestionController::OnTransportFeedback(
     result = delay_based_bwe_->IncomingPacketFeedbackVector(
         feedback_vector, acknowledged_bitrate_estimator_->bitrate_bps());
   }
-
   if (result.updated) {
     bitrate_controller_->OnDelayBasedBweResult(result);
     // Update the estimate in the ProbeController, in case we want to probe.
