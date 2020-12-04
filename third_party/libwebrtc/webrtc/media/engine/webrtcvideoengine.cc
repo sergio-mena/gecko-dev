@@ -561,7 +561,6 @@ RtpCapabilities WebRtcVideoEngine::GetCapabilities() const {
   capabilities.header_extensions.push_back(
       webrtc::RtpExtension(webrtc::RtpExtension::kVideoRotationUri,
                            webrtc::RtpExtension::kVideoRotationDefaultId));
-  printf("\t\t\tWebRtcVideoEngine: adding transport cc URI\n");
   capabilities.header_extensions.push_back(webrtc::RtpExtension(
       webrtc::RtpExtension::kTransportSequenceNumberUri,
       webrtc::RtpExtension::kTransportSequenceNumberDefaultId));

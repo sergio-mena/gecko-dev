@@ -29,7 +29,7 @@ NADABandwidthEstimation::NADABandwidthEstimation()
       bwe_incoming_(0),
       delay_based_bitrate_bps_(kNadaDefaultBitrate),
       bitrate_(kNadaDefaultBitrate),
-      core_(), 
+      core_(),
       use_delay_based_(false) {
 
   RTC_LOG(LS_INFO) << "Initializing the RTT-based NADA BW Estimation Module"<< std::endl;
@@ -69,13 +69,13 @@ void NADABandwidthEstimation::SetMinMaxBitrate(int min_bitrate,
 
   // lower bound by default min rate in congestion controller
   min_bitrate = std::max(min_bitrate, congestion_controller::GetMinBitrateBps());
-  core_.SetMinMaxBitrate(min_bitrate, max_bitrate); 
+  core_.SetMinMaxBitrate(min_bitrate, max_bitrate);
 
 }
 
 int NADABandwidthEstimation::GetMinBitrate() const {
 
-  return core_.GetMinBitrate(); 
+  return core_.GetMinBitrate();
 }
 
 //
@@ -93,7 +93,7 @@ void NADABandwidthEstimation::CurrentEstimate(int* bitrate,
   *loss = last_fraction_loss_;
   *rtt = last_round_trip_time_ms_;
 
-  RTC_LOG(LS_INFO) << "NADA CurrentEstimate: " 
+  RTC_LOG(LS_INFO) << "NADA CurrentEstimate: "
                    << " | bitrate_: " << bitrate_/1000. << " Kbps"
                    << " | delay_based_bitrate_bps_:  " << delay_based_bitrate_bps_/1000 << " Kbps"
                    << " | reported rate: " << *bitrate/1000. << " Kbps"
@@ -101,9 +101,9 @@ void NADABandwidthEstimation::CurrentEstimate(int* bitrate,
                    << " | rtt: "  << *rtt << " ms"  << std::endl;
 }
 
-// [XZ 2020-11-08]  
-// Currently receiver estimated rate is unused for reference rate calculation; 
-// passed along to NadaCore for the purpose of stats reporting/logging only 
+// [XZ 2020-11-08]
+// Currently receiver estimated rate is unused for reference rate calculation;
+// passed along to NadaCore for the purpose of stats reporting/logging only
 void NADABandwidthEstimation::UpdateReceiverEstimate(
     int64_t now_ms, uint32_t bandwidth) {
 
@@ -120,7 +120,7 @@ void NADABandwidthEstimation::UpdateDelayBasedEstimate(
     int64_t now_ms,
     uint32_t bitrate_bps) {
 
-  use_delay_based_ = true;  // switch to use delay-based estimation instead 
+  use_delay_based_ = true;  // switch to use delay-based estimation instead
 
   delay_based_bitrate_bps_ = bitrate_bps;
 
@@ -146,12 +146,12 @@ void NADABandwidthEstimation::UpdateReceiverBlock(uint8_t fraction_loss,
       feedback_interval_ms_ = now_ms - last_feedback_ms_;
       last_feedback_ms_ = now_ms;
   }
-  
-  int64_t ts = 0;  
+
+  int64_t ts = 0;
   if (first_report_time_ms_ == -1) {
     first_report_time_ms_ = now_ms;
-  } else 
-    ts = now_ms - first_report_time_ms_; 
+  } else
+    ts = now_ms - first_report_time_ms_;
 
   RTC_LOG(LS_INFO) << "NADA UpdateReceiverBlock: now = " << ts
                    << " ms, fb_interval = " << feedback_interval_ms_
@@ -164,15 +164,15 @@ void NADABandwidthEstimation::UpdateReceiverBlock(uint8_t fraction_loss,
 
     // save local copy to serve queries
     last_round_trip_time_ms_ = rtt;
-    last_fraction_loss_ = fraction_loss; 
-    
+    last_fraction_loss_ = fraction_loss;
+
     core_.UpdateDelta(feedback_interval_ms_); // update feedback interval delta_
-    
+
     // Update RTT and base-RTT
     core_.UpdateRttStats(now_ms, rtt);    // update RTT stats
 
     int nloss = fraction_loss * number_of_packets;
-    core_.UpdatePlrStats(now_ms, nloss, number_of_packets); 
+    core_.UpdatePlrStats(now_ms, nloss, number_of_packets);
 
     // call rate update calculation
     UpdateEstimate(now_ms);
@@ -183,7 +183,7 @@ void NADABandwidthEstimation::UpdateReceiverBlock(uint8_t fraction_loss,
 // call calculations in NadaCore for reference rate update
 void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
 
-    int64_t ts = now_ms-first_report_time_ms_; 
+    int64_t ts = now_ms-first_report_time_ms_;
 
     if (last_feedback_ms_ == -1) {
 
@@ -201,14 +201,14 @@ void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
 
     // calculate reference rate via NadaCore, in rtt-based mode (use_rtt=true)
     bitrate_ = core_.UpdateNadaRate(now_ms, true);
-    core_.LogUpdate("nada_rtt", ts); 
+    core_.LogUpdate("nada_rtt", ts);
 
     } else {
 
       /*
        * Optional TODO:
-       * Currently, no rate update occurs in between feedback reports. Alternatively, 
-       * it would be good to trigger timeout behavior when the sender does not 
+       * Currently, no rate update occurs in between feedback reports. Alternatively,
+       * it would be good to trigger timeout behavior when the sender does not
        * receive feedback for a long period of time
        */
       RTC_LOG(LS_VERBOSE) << "NADA UpdateEstimate: triggered by sender local timer -- "

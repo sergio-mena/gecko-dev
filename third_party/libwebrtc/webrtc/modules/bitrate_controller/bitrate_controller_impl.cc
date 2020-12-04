@@ -19,8 +19,6 @@
 #include "rtc_base/checks.h"
 #include "rtc_base/logging.h"
 
-// #define XQ_DEBUG // [2019-09-03] macro for toggling debugging logs
-
 namespace webrtc {
 
 class BitrateControllerImpl::RtcpBandwidthObserverImpl
@@ -153,18 +151,10 @@ void BitrateControllerImpl::OnReceivedEstimatedBitrate(uint32_t bitrate) {
   MaybeTriggerOnNetworkChanged();
 }
 
-
-// [XZ 2019-03-07]  added debugging prints to show process of
-// receiving updated delay-based BW estimation (called by
-// transport_feedback_adapter.cc
-//
 void BitrateControllerImpl::OnDelayBasedBweResult(
     const DelayBasedBwe::Result& result) {
   if (!result.updated)
     return;
-
-//  printf("BitrateControllerImpl::OnDelayBasedBweResult, still here\n");
-
   {
     rtc::CritScope cs(&critsect_);
     if (result.probe) {
@@ -175,8 +165,6 @@ void BitrateControllerImpl::OnDelayBasedBweResult(
     bandwidth_estimation_->UpdateDelayBasedEstimate(clock_->TimeInMilliseconds(),
                                                     result.target_bitrate_bps);
   }
-
-//  printf("BitrateControllerImpl::OnDelayBasedBweResult, calling MaybeTriggerOnNetworkChanged\n");
   MaybeTriggerOnNetworkChanged();
 }
 
@@ -257,10 +245,6 @@ void BitrateControllerImpl::MaybeTriggerOnNetworkChanged() {
   if (!observer_)
     return;
 
-#ifdef XQ_DEBUG
-  printf("[XQ] BitrateControllerImpl::MaybeTriggerOnNetworkChanged => GetNetworkParam\n");
-#endif 
-
   uint32_t bitrate_bps;
   uint8_t fraction_loss;
   int64_t rtt;
@@ -272,12 +256,6 @@ void BitrateControllerImpl::MaybeTriggerOnNetworkChanged() {
 bool BitrateControllerImpl::GetNetworkParameters(uint32_t* bitrate,
                                                  uint8_t* fraction_loss,
                                                  int64_t* rtt) {
-
-#ifdef XQ_DEBUG
-   int64_t now_ms = clock_->TimeInMilliseconds();
-   printf("\t\t [XQ] BitrateControllerImpl::GetNetworkParameters=> bwe_.CurrentEstm() at %ld ms\n", now_ms);
-#endif
-
   rtc::CritScope cs(&critsect_);
   int current_bitrate;
   bandwidth_estimation_->CurrentEstimate(&current_bitrate, fraction_loss, rtt);
@@ -310,12 +288,6 @@ bool BitrateControllerImpl::GetNetworkParameters(uint32_t* bitrate,
 
 bool BitrateControllerImpl::AvailableBandwidth(uint32_t* bandwidth) const {
   rtc::CritScope cs(&critsect_);
-
-#ifdef XQ_DEBUG
-  int64_t now_ms = clock_->TimeInMilliseconds();
-  printf("[XQ] BitrateControllerImpl::AvailableBandwidth => CurrentEstimate, at %lld ms\n", now_ms);
-#endif
-
   int bitrate;
   uint8_t fraction_loss;
   int64_t rtt;
