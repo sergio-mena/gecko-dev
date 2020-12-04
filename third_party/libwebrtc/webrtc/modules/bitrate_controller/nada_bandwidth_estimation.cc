@@ -210,7 +210,7 @@ void NADABandwidthEstimation::UpdateEstimate(int64_t now_ms) {
        * Currently, no rate update occurs in between feedback reports. Alternatively, 
        * it would be good to trigger timeout behavior when the sender does not 
        * receive feedback for a long period of time
-      */
+       */
       RTC_LOG(LS_VERBOSE) << "NADA UpdateEstimate: triggered by sender local timer -- "
                           << "ts: "   << ts  << " ms "
                           << "rate: " << bitrate_/1000 << " Kbps. " << std::endl;
