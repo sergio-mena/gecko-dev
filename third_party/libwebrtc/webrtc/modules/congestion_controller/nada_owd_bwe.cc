@@ -25,8 +25,8 @@
 
 namespace {
 
-// Default values to fulfill the external API calls 
-constexpr int64_t kDefaultProbingIntervalinMs = 100; 
+// Default values to fulfill the external API calls
+constexpr int64_t kDefaultProbingIntervalinMs = 100;
 constexpr uint32_t kDefaultFixedSsrc = 0;
 
 }  // namespace
@@ -60,7 +60,7 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
   int64_t now_ms = clock_->TimeInMilliseconds();
   int nfb = int(packet_feedback_vector.size());
 
-  int64_t fbint = kNadaDefaultFBIntervalMs;  
+  int64_t fbint = kNadaDefaultFBIntervalMs;
   if (last_update_ms_ > 0)
     fbint = now_ms - last_update_ms_;
 
@@ -68,15 +68,15 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
   if (first_update_ms_ < 0)
     first_update_ms_ = now_ms;
   else
-    ts = now_ms - first_update_ms_; 
+    ts = now_ms - first_update_ms_;
 
-  core_.UpdateDelta(fbint); 
+  core_.UpdateDelta(fbint);
 
-  RTC_LOG(LS_INFO) << "NADA IncomingPacketFBVector" 
-                   << " | t = " << now_ms 
+  RTC_LOG(LS_INFO) << "NADA IncomingPacketFBVector"
+                   << " | t = " << now_ms
                    << " | t_rel = " <<  ts
                    << " | nfb = " << nfb
-                   << " | fbint = " << fbint << "ms" << std::endl; 
+                   << " | fbint = " << fbint << "ms" << std::endl;
 
   RTC_DCHECK_RUNS_SERIALIZED(&network_race_);
 
@@ -86,7 +86,7 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
   int64_t dmin = -1;  // locally min-filtered version of one-way delay
   int64_t rtt = 0;
   int nloss = 0;
-  int npkts = 0; 
+  int npkts = 0;
   int nbytes = 0;
   int64_t curr_arrival_time_ms = 0;
 
@@ -96,21 +96,21 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
     if (packet_feedback.send_time_ms < 0) {
       // Handle duplicate FB vectors, possibly due to duplicated packets.
       // Bypass rest of delay statistics update
-      RTC_LOG(LS_VERBOSE) << "NADA IncomingPacketFBVector | Detected duplicate FB vectors for pkt no. " 
-                          << packet_feedback.sequence_number << std::endl; 
+      RTC_LOG(LS_VERBOSE) << "NADA IncomingPacketFBVector | Detected duplicate FB vectors for pkt no. "
+                          << packet_feedback.sequence_number << std::endl;
       result.updated = false;
       return result;
     }
 
-    // [XZ-2020-11-05] Update instantaneous OWD and RTT: 
+    // [XZ-2020-11-05] Update instantaneous OWD and RTT:
     // switch to use creation_time_ms as sending ts since send_time_ms follows a different clock
     // added RTC_CHECK_LE to make sure this subtraction doesn't wrap
 
     RTC_CHECK_LE(packet_feedback.creation_time_ms, packet_feedback.arrival_time_ms);
-    dtmp = packet_feedback.arrival_time_ms - packet_feedback.creation_time_ms; 
+    dtmp = packet_feedback.arrival_time_ms - packet_feedback.creation_time_ms;
 
     RTC_CHECK_LE(packet_feedback.creation_time_ms, now_ms);
-    rtt = now_ms - packet_feedback.creation_time_ms; 
+    rtt = now_ms - packet_feedback.creation_time_ms;
     core_.UpdateRttStats(now_ms, rtt);
 
     npkts ++;
@@ -121,11 +121,11 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
     if (last_seen_seqno_ > 0 && packet_feedback.sequence_number > last_seen_seqno_ + 1)
     {
       if (packet_feedback.sequence_number-last_seen_seqno_ < 1000) // avoid wrap-around
-        nloss += packet_feedback.sequence_number-last_seen_seqno_-1; 
+        nloss += packet_feedback.sequence_number-last_seen_seqno_-1;
     }
     last_seen_seqno_ = packet_feedback.sequence_number;
 
-    RTC_LOG(LS_INFO) << " NADA IncomingPacketFBVector | pktinfo " 
+    RTC_LOG(LS_INFO) << " NADA IncomingPacketFBVector | pktinfo "
                       << " | seqno: "   <<  packet_feedback.sequence_number
                       << " | pktsize: " <<  packet_feedback.payload_size << " bytes"
                       << " | creatts: " << packet_feedback.creation_time_ms << " ms"
@@ -134,8 +134,8 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
                       << " | ackts: "   << now_ms << " ms"
                       << " | d_fwd: "   << dtmp << " ms"
                       << " | rtt: "     << rtt  << " ms"
-                      << " | nloss: "   << nloss 
-                      << std::endl; 
+                      << " | nloss: "   << nloss
+                      << std::endl;
 
     // minimum-filtering of past per-packet one-way-delay
     if (ipkt > nfb - kNadaMinFilterWin) {
@@ -146,17 +146,17 @@ DelayBasedBwe::Result NadaOwdBwe::IncomingPacketFeedbackVector(
 
   // per feedback interval
   if (last_arrival_time_ms_>0) {
-    core_.CalcRecvRate(curr_arrival_time_ms, last_arrival_time_ms_, nbytes); 
-    last_arrival_time_ms_ = curr_arrival_time_ms; 
+    core_.CalcRecvRate(curr_arrival_time_ms, last_arrival_time_ms_, nbytes);
+    last_arrival_time_ms_ = curr_arrival_time_ms;
   }
 
   // update per-interval packet stats (delay/PLR)
   core_.UpdateOwdStats(now_ms, dmin);
-  core_.UpdatePlrStats(now_ms, nloss, npkts); 
+  core_.UpdatePlrStats(now_ms, nloss, npkts);
 
   // non-linear delay warping + loss penalty
-  nada_rate_in_bps_ = core_.UpdateNadaRate(now_ms, false); 
-  core_.LogUpdate("nada_owd", ts); 
+  nada_rate_in_bps_ = core_.UpdateNadaRate(now_ms, false);
+  core_.LogUpdate("nada_owd", ts);
 
   // update local cache and return updated rate
   last_update_ms_ = now_ms;
@@ -172,9 +172,9 @@ void NadaOwdBwe::OnRttUpdate(int64_t avg_rtt_ms, int64_t max_rtt_ms) {
 
 
   RTC_LOG(LS_VERBOSE) << "[DEBUG]  inside OnRttUpdate: "
-                   << "  rtt_avg =" << avg_rtt_ms 
+                   << "  rtt_avg =" << avg_rtt_ms
                    << " ms , rtt_max = " << max_rtt_ms
-                   << " ms" << std::endl; 
+                   << " ms" << std::endl;
 }
 
 // This method can be implemented if need be, but current version of the
@@ -182,7 +182,7 @@ void NadaOwdBwe::OnRttUpdate(int64_t avg_rtt_ms, int64_t max_rtt_ms) {
 void NadaOwdBwe::SetStartBitrate(int start_bitrate_bps) {
 
   RTC_LOG(LS_VERBOSE) << " [DEBUG]  inside SetStartBitrate: start_bitrate ="
-                   << start_bitrate_bps/1000 << " Kbps" << std::endl; 
+                   << start_bitrate_bps/1000 << " Kbps" << std::endl;
 }
 
 // This method can be implemented if need be, but current version of the
@@ -191,7 +191,7 @@ void NadaOwdBwe::SetMinBitrate(int min_bitrate_bps) {
 
 
   RTC_LOG(LS_VERBOSE) << " [DEBUG] inside SetMinBitrate: incoming min_bitrate ="
-                   << min_bitrate_bps/1000 << " Kbps" << std::endl; 
+                   << min_bitrate_bps/1000 << " Kbps" << std::endl;
 }
 
 bool NadaOwdBwe::LatestEstimate(std::vector<uint32_t>* ssrcs,
@@ -209,7 +209,7 @@ bool NadaOwdBwe::LatestEstimate(std::vector<uint32_t>* ssrcs,
   *bitrate_bps = nada_rate_in_bps_;
 
   RTC_LOG(LS_VERBOSE) << " [DEBUG] inside LatestEstimate: reporting bitrate as"
-                   << nada_rate_in_bps_/1000 << " Kbps" << std::endl; 
+                   << nada_rate_in_bps_/1000 << " Kbps" << std::endl;
 
   return true;
 }
@@ -217,7 +217,7 @@ bool NadaOwdBwe::LatestEstimate(std::vector<uint32_t>* ssrcs,
 int64_t NadaOwdBwe::GetExpectedBwePeriodMs() const {
 
   RTC_LOG(LS_VERBOSE) << "[DEBUG] inside GetExpectedBwePeriodMs: reporting probing interval as "
-                   << kDefaultProbingIntervalinMs << " ms" << std::endl; 
+                   << kDefaultProbingIntervalinMs << " ms" << std::endl;
 
   return kDefaultProbingIntervalinMs;
 }

@@ -63,9 +63,6 @@
 #include "video/video_receive_stream.h"
 #include "video/video_send_stream.h"
 
-// #define XQ_DEBUG // [X.Z. 2019-09-03] macro for toggling debugging logs
-
-
 namespace webrtc {
 
 namespace {
@@ -73,15 +70,10 @@ namespace {
 // TODO(nisse): This really begs for a shared context struct.
 bool UseSendSideBwe(const std::vector<RtpExtension>& extensions,
                     bool transport_cc) {
-  printf("\t\t\tBeginning of UseSendSideBwe\n");
   if (!transport_cc)
     return false;
-  printf("\t\t\tUseSendSideBwe: transport_cc is true\n");
   for (const auto& extension : extensions) {
-    printf("\t\t\tChecking configured RTP URIs. Current: %s\n", extension.uri.c_str());
-    printf("\t\t\tChecking configured RTP URIs. expected: %s\n",RtpExtension::kTransportSequenceNumberUri);
     if (extension.uri == RtpExtension::kTransportSequenceNumberUri) {
-        printf("\t\t\t Matching URI, returning true\n");
         return true;
     }
   }
@@ -1180,11 +1172,6 @@ void Call::UpdateAggregateNetworkState() {
 }
 
 void Call::OnSentPacket(const rtc::SentPacket& sent_packet) {
-
-#ifdef XQ_DEBUG
-  printf("\t\t [XQ] Call::OnSentPacket ...\n");
-#endif
-
   video_send_delay_stats_->OnSentPacket(sent_packet.packet_id,
                                         clock_->TimeInMilliseconds());
   transport_send_->send_side_cc()->OnSentPacket(sent_packet);
@@ -1310,31 +1297,16 @@ PacketReceiver::DeliveryStatus Call::DeliverRtcp(MediaType media_type,
     received_rtcp_bytes_per_second_counter_.Add(static_cast<int>(length));
   }
   bool rtcp_delivered = false;
-
-
   if (media_type == MediaType::ANY || media_type == MediaType::VIDEO) {
 
-    #ifdef XQ_DEBUG
-    // [X.Z. 2019-06-13] start of modification: printf message to trace fn. call of RTCP recv pkt
-    printf("[XQ] PacketReceiver: DeliverRtcp() => video_receive_streams_.DeliverRtcp()\n");
-    // [X.Z. 2019-06-13] end of modification.
-    #endif
-
-    int nvstream = 0; 
+    int nvstream = 0;
 
     ReadLockScoped read_lock(*receive_crit_);
     for (VideoReceiveStream* stream : video_receive_streams_) {
-      nvstream ++; 
+      nvstream ++;
       if (stream->DeliverRtcp(packet, length))
         rtcp_delivered = true;
     }
-
-    #ifdef XQ_DEBUG
-    // [X.Z. 2019-06-13] start of modification: printf message to trace fn. call of RTCP recv pkt
-    printf("[XQ] PacketReceiver: nvstream = %d\n", nvstream);
-    // [X.Z. 2019-06-13] end of modification.
-    #endif
-
   }
   if (media_type == MediaType::ANY || media_type == MediaType::AUDIO) {
     ReadLockScoped read_lock(*receive_crit_);
@@ -1446,14 +1418,7 @@ PacketReceiver::DeliveryStatus Call::DeliverPacket(
   //RTC_DCHECK_CALLED_SEQUENTIALLY(&configuration_sequence_checker_);
   if (RtpHeaderParser::IsRtcp(packet, length))
   {
-    #ifdef XQ_DEBUG
-    // [X.Z. 2019-06-13] start of modification: printf message to trace fn. call of received RTCP pkt
-    printf("[XQ] PacketReceiver: DeliverPacket() => DeliverRtcp()\n");
-    // [X.Z. 2019-06-13] end of modification. 
-    #endif
-    
     return DeliverRtcp(media_type, packet, length);
-
   }
 
   return DeliverRtp(media_type, packet, length, packet_time);

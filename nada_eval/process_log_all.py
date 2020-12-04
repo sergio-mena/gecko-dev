@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import argparse
 
 class FBStats:
-    def __init__(self, scheme='default'): 
+    def __init__(self, scheme='default'):
         self.ts = 0.
         self.fbint = 0.
         self.qdel = 0.
@@ -27,13 +27,13 @@ class FBStats:
         self.rmax = 0.
         self.scheme = scheme
 
-    def process_line_default(self, line): 
+    def process_line_default(self, line):
         '''
-        sample line from default.tr: 
+        sample line from default.tr:
 
-        2020-11-13 04:30:19.892468 UTC - [Child 92835: Socket Thread]: D/webrtc_trace (delay_based_bwe.cc:383):  
-            DlayBasedBwe::MaybeUpdateEstimate | algo:default  | ts: 253 ms | fbint: 51 ms | 
-            qdel: 2 ms | rtt: 32 ms | ploss: 0 | plr: 0.000000 % | 
+        2020-11-13 04:30:19.892468 UTC - [Child 92835: Socket Thread]: D/webrtc_trace (delay_based_bwe.cc:383):
+            DlayBasedBwe::MaybeUpdateEstimate | algo:default  | ts: 253 ms | fbint: 51 ms |
+            qdel: 2 ms | rtt: 32 ms | ploss: 0 | plr: 0.000000 % |
             update: 1 | probe: 0 | rrate: 770.352941 Kbps | srate: 5324.241000 Kbps
         '''
 
@@ -52,8 +52,8 @@ class FBStats:
 #        match_rmax  = re.search(r' rmax: (\d+(?:\.\d*)?|\.\d+) Kbps', line);     print('match_rmax: ', match_rmax);      # rmax: 3000.000000 Kbps
 
         logvec = []
-        if match_ts: 
-            self.ts = float(match_ts.group(1))/1000.  # ms -> sec  
+        if match_ts:
+            self.ts = float(match_ts.group(1))/1000.  # ms -> sec
             self.fbint = float(match_fbint.group(1))
             self.qdel = float(match_qdel.group(1))
             self.rtt = float(match_rtt.group(1))
@@ -76,32 +76,32 @@ class FBStats:
             logvec.append(self.xcurr)       # 7: xcurr, use init value as filler
             logvec.append(self.rrate)       # 8: receiving rate
             logvec.append(self.srate)       # 9: sending rate
-        else: 
+        else:
             print('mismatch ...:', line)
 
         return logvec
 
 
-    def process_line_nada(self, line): 
+    def process_line_nada(self, line):
 
         '''
-        sample line from NADA-RTT: 
+        sample line from NADA-RTT:
 
 
-        2020-11-13 04:26:14.738311 UTC - [Child 92229: Socket Thread]: D/webrtc_trace (nada_core.cc:371): 
-            NADA Update | algo: nada_rtt | ts: 1421 ms | fbint: 500 ms | qdel: 0 ms | dfwd: 0 ms | 
-            relrtt: 7 ms | rtt: 7 ms | nloss: 0 | plr: 0.000000 % | rmode: 0 | xcurr: 7.000000 ms | 
+        2020-11-13 04:26:14.738311 UTC - [Child 92229: Socket Thread]: D/webrtc_trace (nada_core.cc:371):
+            NADA Update | algo: nada_rtt | ts: 1421 ms | fbint: 500 ms | qdel: 0 ms | dfwd: 0 ms |
+            relrtt: 7 ms | rtt: 7 ms | nloss: 0 | plr: 0.000000 % | rmode: 0 | xcurr: 7.000000 ms |
             rrate: 1196.224000 Kbps | srate: 720.000000 Kbps | rmin: 10.000000 Kbps | rmax: 3000.000000 Kbps
 
-        sample line from NADA-OWD: 
+        sample line from NADA-OWD:
 
-        2020-11-13 04:21:00.595332 UTC - [Child 91364: Socket Thread]: D/webrtc_trace (nada_core.cc:371):  
-        NADA Update | algo: nada_owd | ts: 219 ms | fbint: 120 ms | qdel: 0 ms | dfwd: 83 ms | 
-        relrtt: 13 ms | rtt: 122 ms | nloss: 0 | plr: 0.000000 % | rmode: 0 | xcurr: 0.000000 ms | 
+        2020-11-13 04:21:00.595332 UTC - [Child 91364: Socket Thread]: D/webrtc_trace (nada_core.cc:371):
+        NADA Update | algo: nada_owd | ts: 219 ms | fbint: 120 ms | qdel: 0 ms | dfwd: 83 ms |
+        relrtt: 13 ms | rtt: 122 ms | nloss: 0 | plr: 0.000000 % | rmode: 0 | xcurr: 0.000000 ms |
         rrate: 354.976750 Kbps | srate: 1177.166000 Kbps | rmin: 300.000000 Kbps | rmax: 3000.000000 Kbps
 
         '''
-    
+
         'parsing per-feedback interval stats'
         match_ts    = re.search(r' ts: (\d+) ms', line);                         print('match_ts: ', match_ts);          # ts: 1421 ms
         match_fbint = re.search(r' fbint: (\d+) ms', line);                      print('match_fbint: ', match_fbint);    # fbint: 500 ms
@@ -117,8 +117,8 @@ class FBStats:
         match_rmax  = re.search(r' rmax: (\d+(?:\.\d*)?|\.\d+) Kbps', line);     print('match_rmax: ', match_rmax);      # rmax: 3000.000000 Kbps
 
         logvec = []
-        if match_ts: 
-            self.ts = float(match_ts.group(1))/1000.  # ms -> sec  
+        if match_ts:
+            self.ts = float(match_ts.group(1))/1000.  # ms -> sec
             self.fbint = float(match_fbint.group(1))
             self.qdel = float(match_qdel.group(1))
             self.rtt = float(match_rtt.group(1))
@@ -141,23 +141,23 @@ class FBStats:
             logvec.append(self.xcurr)       # 7: xcurr
             logvec.append(self.rrate)       # 8: receiving rate
             logvec.append(self.srate)       # 9: sending rate
-        else: 
+        else:
             print('mismatch ...:', line)
 
         return logvec
 
-# def process_line(line, s): 
+# def process_line(line, s):
 
 #     '''
-#     sample line: 
+#     sample line:
 
-#     2020-11-13 04:26:14.738311 UTC - [Child 92229: Socket Thread]: D/webrtc_trace (nada_core.cc:371): 
-#          NADA Update | algo: nada_rtt | ts: 1421 ms | fbint: 500 ms | qdel: 0 ms | dfwd: 0 ms | relrtt: 7 ms | 
-#          rtt: 7 ms | nloss: 0 | plr: 0.000000 % | rmode: 0 | xcurr: 7.000000 ms | rrate: 1196.224000 Kbps | 
+#     2020-11-13 04:26:14.738311 UTC - [Child 92229: Socket Thread]: D/webrtc_trace (nada_core.cc:371):
+#          NADA Update | algo: nada_rtt | ts: 1421 ms | fbint: 500 ms | qdel: 0 ms | dfwd: 0 ms | relrtt: 7 ms |
+#          rtt: 7 ms | nloss: 0 | plr: 0.000000 % | rmode: 0 | xcurr: 7.000000 ms | rrate: 1196.224000 Kbps |
 #          srate: 720.000000 Kbps | rmin: 10.000000 Kbps | rmax: 3000.000000 Kbps
 
 #     '''
-    
+
 #     'parsing per-feedback interval stats'
 #     match_ts    = re.search(r' ts: (\d+) ms', line);                         print('match_ts: ', match_ts);          # ts: 1421 ms
 #     match_fbint = re.search(r' fbint: (\d+) ms', line);                      print('match_fbint: ', match_fbint);    # fbint: 500 ms
@@ -172,8 +172,8 @@ class FBStats:
 #     match_rmin  = re.search(r' rmin: (\d+(?:\.\d*)?|\.\d+) Kbps', line);     print('match_rmin: ', match_rmin);      # rmin: 10.000000 Kbps
 #     match_rmax  = re.search(r' rmax: (\d+(?:\.\d*)?|\.\d+) Kbps', line);     print('match_rmax: ', match_rmax);      # rmax: 3000.000000 Kbps
 
-#     if match_ts: 
-#         s.ts = float(match_ts.group(1))/1000.  # ms -> sec  
+#     if match_ts:
+#         s.ts = float(match_ts.group(1))/1000.  # ms -> sec
 #         s.fbint = float(match_fbint.group(1))
 #         s.qdel = float(match_qdel.group(1))
 #         s.rtt = float(match_rtt.group(1))
@@ -185,25 +185,25 @@ class FBStats:
 #         s.srate = float(match_srate.group(1))
 #         s.rmin = float(match_rmin.group(1))
 #         s.rmax = float(match_rmax.group(1))
-#     else: 
+#     else:
 #         print('mismatch ...:', line)
 
 #     return s
-   
-def plot_log(logmat, pngfile): 
+
+def plot_log(logmat, pngfile):
 
     '''
 
-    logmat: 
-    0: ts 
+    logmat:
+    0: ts
     1: fbint
     2: qdel
     3: rtt
     4: nloss
     5: plr
-    6: rmode 
-    7: xcurr 
-    8: rrate 
+    6: rmode
+    7: xcurr
+    8: rrate
     9: srate
     '''
 
@@ -211,10 +211,10 @@ def plot_log(logmat, pngfile):
     print('calculate receiver-reported sending rate')
     # # pktmat[:,1] = pktmat[:,1]-pktmat[0,1]
     # tmax = pktmat[-1,1]
-    # tdiff = 200.    
+    # tdiff = 200.
     # tslist = np.arange(0, tmax, tdiff)
     # psizelist = []
-    # for t in tslist: 
+    # for t in tslist:
     #     # print('calculating average rate for time %.1f' % t)
     #     psizetmp = pktmat[np.where(pktmat[:,1]<=t), 3];
     #     psizelist.append(np.sum(psizetmp))
@@ -253,7 +253,7 @@ def plot_log(logmat, pngfile):
     plt.close()
 
 
-def main(args): 
+def main(args):
 
     logfile = '%s.txt' % args.scen
     pngfile = '%s.png' % args.scen
@@ -262,15 +262,15 @@ def main(args):
     s = FBStats()
     logmat = []
     with open(args.trfile, 'r') as f:
-        for line in f: 
-            if args.verbose: 
+        for line in f:
+            if args.verbose:
                 print(line)
 
-            if args.scheme == 'nada': 
+            if args.scheme == 'nada':
                 logvec = s.process_line_nada(line)
-            elif args.scheme == 'default': 
+            elif args.scheme == 'default':
                 logvec = s.process_line_default(line)
-            else: 
+            else:
                 print('unsupported scheme {}'.format(args.scheme))
             # logvec = [s.ts, s.fbint, s.qdel, s.rtt, s.nloss, s.plr, s.rmode, s.xcurr, s.rrate, s.srate]
             logmat.append(logvec)
@@ -283,10 +283,10 @@ def main(args):
 
 
     'plot log traces'
-    plot_log(logmat, pngfile)    
+    plot_log(logmat, pngfile)
 ######################## MAIN ######################
 
-if __name__ == "__main__": 
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--trfile', help='trace filename for rate update info and stats', default='nada_owd.tr')
 #   parser.add_argument('--pktfile', help='trace filename for per-pkt info', default='pktinfo.tr')

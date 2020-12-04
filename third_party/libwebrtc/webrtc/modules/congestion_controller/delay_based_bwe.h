@@ -77,7 +77,7 @@ class DelayBasedBwe: public DelayBasedBweInterface {
   int default_bwe_ploss_;           // [XZ 2019-10-21 logging of # of lost pkts]
   double default_bwe_plr_;          // [XZ 2019-10-21 logging of pkt loss ratio]
   uint64_t default_bwe_rtt_ms_;     // [XZ 2019-10-21 logging of per-pkt RTT]
-  uint64_t default_bwe_dqel_ms_;    // [XZ 2019-10-21 logging of queuing delay] 
+  uint64_t default_bwe_dqel_ms_;    // [XZ 2019-10-21 logging of queuing delay]
   int64_t default_bwe_dbase_ms_;    // [XZ 2019-10-21 logging of baseline one-way delay]
   int default_bwe_nbytes_;          // [XZ 2019-10-21 logging of receiving rate]
   double default_bwe_rrate_;        // [XZ 2019-10-21 logging of receiving rate]
